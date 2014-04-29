@@ -1,6 +1,6 @@
 'use strict';
 
-var libquassel = require('../lib/libquassel.js');
+var Quassel = require('../lib/libquassel.js');
 
 /*
   ======== A Handy Little Nodeunit Reference ========
@@ -22,15 +22,17 @@ var libquassel = require('../lib/libquassel.js');
     test.ifError(value)
 */
 
+
 exports['awesome'] = {
   setUp: function(done) {
-    // setup here
+    this.quassel = new Quassel("getonmyhor.se", 4242);
     done();
   },
   'no args': function(test) {
+    /*
     test.expect(1);
     // tests here
-    test.equal(libquassel.awesome(), 'awesome', 'should be awesome.');
+    test.equal(libquassel.awesome(), 'awesome', 'should be awesome.');*/
     test.done();
   },
 };
