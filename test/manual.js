@@ -5,7 +5,7 @@ var quassel = new Quassel("getonmyhor.se", 4242, function() {
         console.log("Network : " + n[k].networkName)
         var buffers = n[k].getBuffers();
         for (l in buffers) {
-            console.log("   "+buffers[l].name);
+            console.log("   "+(buffers[l].name||buffers[l].id));
         }
     }
 });
