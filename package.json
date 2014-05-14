@@ -40,7 +40,6 @@
   ],
   "dependencies": {
     "extend": "^1.2.1",
-    "concert": "^1.0.0",
     "qtdatastream": "^0.3.1"
   }
 }
