@@ -1,7 +1,7 @@
 var Quassel = require('../lib/libquassel.js');
 var quassel = new Quassel("getonmyhor.se", 4242);
 
-quassel.on('BacklogManager.receiveBacklog', function() {
+quassel.on('BacklogManager.receiveBacklog', function(buffer) {
     var n = quassel.getNetworks(), k, l, m;
     for (k in n) {
         console.log("Network : " + n[k].networkName);
