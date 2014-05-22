@@ -85,4 +85,9 @@ quassel.on('Network.setCurrentServer', function(network, server) {
     console.log('Network ' + network.networkName + ' - server : ' + server);
 });
 
+quassel.on('2displayMsg(Message)', function(bufferId, message) {
+    console.log('New message on buffer #' + bufferId + ' :');
+    console.log(message);
+});
+
 quassel.connect();
