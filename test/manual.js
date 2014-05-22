@@ -53,4 +53,36 @@ quassel.on('InitData.Network', function(network) {
     });
 });
 
+quassel.on('Network.setLatency', function(network, latency) {
+    console.log('Network ' + network.networkName + ' - latency : ' + latency);
+});
+
+quassel.on('Network.addIrcUser', function(network, user) {
+    console.log('Network ' + network.networkName + ' - user : ' + user.nick);
+});
+
+quassel.on('Network.setConnectionState', function(network, state) {
+    console.log('Network ' + network.networkName + ' - state : ' + state);
+});
+
+quassel.on('Network.addIrcChannel', function(network, channel) {
+    console.log('Network ' + network.networkName + ' - channel : ' + channel);
+});
+
+quassel.on('Network.setConnected', function(network, connected) {
+    console.log('Network ' + network.networkName + ' - connected : ' + connected);
+});
+
+quassel.on('Network.setMyNick', function(network, nick) {
+    console.log('Network ' + network.networkName + ' - nick : ' + nick);
+});
+
+quassel.on('Network.setNetworkName', function(network, name) {
+    console.log('Network ' + network.networkName + ' - name : ' + name);
+});
+
+quassel.on('Network.setCurrentServer', function(network, server) {
+    console.log('Network ' + network.networkName + ' - server : ' + server);
+});
+
 quassel.connect();

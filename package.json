@@ -41,6 +41,6 @@
   ],
   "dependencies": {
     "extend": "^1.2.1",
-    "qtdatastream": "^0.3.2"
+    "qtdatastream": "^0.3.4"
   }
 }
