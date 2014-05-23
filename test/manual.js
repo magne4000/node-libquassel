@@ -28,7 +28,7 @@ var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog}, fu
     });
 });
 
-quassel.on('BacklogManager.receiveBacklog', function(buffer) {
+quassel.on('backlog', function(buffer) {
     var n = quassel.getNetworks(), k, l, m;
     for (k in n) {
         console.log("Network : " + n[k].networkName);
@@ -43,7 +43,7 @@ quassel.on('BacklogManager.receiveBacklog', function(buffer) {
     }
 });
 
-quassel.on('InitData.Network', function(network) {
+quassel.on('network.init', function(network) {
     network.on('user.removeFromChannel', function(ircbuffer, ircuser) {
         console.log('Removed user ' + ircuser.nick + ' from channel ' + ircbuffer.name);
     });
@@ -53,41 +53,61 @@ quassel.on('InitData.Network', function(network) {
     });
 });
 
-quassel.on('Network.setLatency', function(network, latency) {
+quassel.on('network.addbuffer', function(network, bufferId) {
+    console.log('Network ' + network.networkId + ' - new buffer : ' + network.getBufferCollection().getBuffer(bufferId).name);
+});
+
+quassel.on('network.latency', function(network, latency) {
     console.log('Network ' + network.networkName + ' - latency : ' + latency);
 });
 
-quassel.on('Network.addIrcUser', function(network, user) {
+quassel.on('network.adduser', function(network, user) {
     console.log('Network ' + network.networkName + ' - user : ' + user.nick);
 });
 
-quassel.on('Network.setConnectionState', function(network, state) {
+quassel.on('network.connectionstate', function(network, state) {
     console.log('Network ' + network.networkName + ' - state : ' + state);
 });
 
-quassel.on('Network.addIrcChannel', function(network, channel) {
+quassel.on('network.addchannel', function(network, channel) {
     console.log('Network ' + network.networkName + ' - channel : ' + channel);
 });
 
-quassel.on('Network.setConnected', function(network, connected) {
-    console.log('Network ' + network.networkName + ' - connected : ' + connected);
+quassel.on('network.connected', function(network) {
+    console.log('Network ' + network.networkName + ' - connected');
 });
 
-quassel.on('Network.setMyNick', function(network, nick) {
+quassel.on('network.disconnected', function(network) {
+    console.log('Network ' + network.networkName + ' - disconnected');
+});
+
+quassel.on('network.mynick', function(network, nick) {
     console.log('Network ' + network.networkName + ' - nick : ' + nick);
 });
 
-quassel.on('Network.setNetworkName', function(network, name) {
+quassel.on('network.networkname', function(network, name) {
     console.log('Network ' + network.networkName + ' - name : ' + name);
 });
 
-quassel.on('Network.setCurrentServer', function(network, server) {
+quassel.on('network.server', function(network, server) {
     console.log('Network ' + network.networkName + ' - server : ' + server);
 });
 
-quassel.on('2displayMsg(Message)', function(bufferId, message) {
+quassel.on('buffer.message', function(bufferId, message) {
     console.log('New message on buffer #' + bufferId + ' :');
     console.log(message);
+});
+
+quassel.on('buffer.read', function(bufferId) {
+    console.log('Buffer #' + bufferId + ' marked as read.');
+});
+
+quassel.on('buffer.remove', function(bufferId) {
+    console.log('Removed buffer #' + bufferId);
+});
+
+quassel.on('buffer.rename', function(bufferId, newName) {
+    console.log('New name for buffer #' + bufferId + ' : ' + newName);
 });
 
 quassel.connect();
