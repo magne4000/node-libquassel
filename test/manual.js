@@ -110,4 +110,8 @@ quassel.on('buffer.rename', function(bufferId, newName) {
     console.log('New name for buffer #' + bufferId + ' : ' + newName);
 });
 
+quassel.on('buffer.highlight', function(bufferId, messageId) {
+    console.log('Buffer #' + bufferId + ' : Highlight message #' + messageId);
+});
+
 quassel.connect();
