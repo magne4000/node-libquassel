@@ -122,4 +122,32 @@ quassel.on('user.part', function(network, bufferId, username) {
     console.log('Network ' + network.networkName + ' - Buffer #' + bufferId + ' : user ' + username + ' part');
 });
 
+quassel.on('user.away', function(network, username, isAway) {
+    if (isAway) {
+        console.log('Network ' + network.networkName + ' : user ' + username + ' is away');
+    } else {
+        console.log('Network ' + network.networkName + ' : user ' + username + ' is back');
+    }
+});
+
+quassel.on('user.realname', function(network, username, isAway) {
+    console.log('Network ' + network.networkName + ' : user ' + username + ' real name is');
+});
+
+quassel.on('channel.join', function(buffer, user) {
+    console.log('Channel ' + buffer.name + ' : user ' + user.nick + ' joined');
+});
+
+quassel.on('channel.addusermode', function(buffer, user, mode) {
+    console.log('Channel ' + buffer.name + ' - user ' + user.nick + ' -> mode : +' + mode);
+});
+
+quassel.on('channel.removeusermode', function(buffer, user, mode) {
+    console.log('Channel ' + buffer.name + ' : user ' + user.nick + ' -> mode -' + mode);
+});
+
+quassel.on('channel.topic', function(buffer, topic) {
+    console.log('Channel ' + buffer.name + ' - new topic : ' + topic);
+});
+
 quassel.connect();
