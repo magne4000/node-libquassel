@@ -114,4 +114,12 @@ quassel.on('buffer.highlight', function(bufferId, messageId) {
     console.log('Buffer #' + bufferId + ' : Highlight message #' + messageId);
 });
 
+quassel.on('user.quit', function(network, username) {
+    console.log('Network ' + network.networkName + ' : user ' + username + ' quit');
+});
+
+quassel.on('user.part', function(network, bufferId, username) {
+    console.log('Network ' + network.networkName + ' - Buffer #' + bufferId + ' : user ' + username + ' part');
+});
+
 quassel.connect();
