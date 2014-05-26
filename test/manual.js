@@ -150,4 +150,8 @@ quassel.on('channel.topic', function(buffer, topic) {
     console.log('Channel ' + buffer.name + ' - new topic : ' + topic);
 });
 
+quassel.on('buffer.activate', function(buffer) {
+    console.log('Buffer ' + buffer.name + ' activated');
+});
+
 quassel.connect();
