@@ -29,7 +29,7 @@ var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog}, fu
 });
 
 quassel.on('backlog', function(buffer) {
-    var n = quassel.getNetworks(), k, l, m;
+    var n = quassel.getNetworks().all(), k, l, m;
     for (k in n) {
         console.log("Network : " + n[k].networkName);
         var buffers = n[k].getBuffers();
