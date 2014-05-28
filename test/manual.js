@@ -29,17 +29,16 @@ var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog}, fu
 });
 
 quassel.on('backlog', function(buffer) {
-    var n = quassel.getNetworks().all(), k, l, m;
+    var n = quassel.getNetworks().all(), k;
     for (k in n) {
         console.log("Network : " + n[k].networkName);
-        var buffers = n[k].getBuffers();
-        for (l in buffers) {
-            console.log("   "+(buffers[l].name||buffers[l].id));
-            for (m in buffers[l].messages) {
-                console.log("      " + buffers[l].messages[m].datetime + " - "
-                    + buffers[l].messages[m].content);
-            }
-        }
+        var buffers = n[k].getBufferHashMap();
+        buffers.forEach(function(val, key){
+            console.log("   "+(val.name||val.id));
+            val.messages.forEach(function(val2, key2) {
+                console.log("      " + val2.datetime + " - "  + val2.content);
+            });
+        });
     }
 });
 
