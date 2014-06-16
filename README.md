@@ -9,7 +9,7 @@ Work in progress. See test/manual.js for details.
 _(Coming soon)_
 
 ## Examples
-_(Coming soon)_
+_(Coming soon)_. See test/manual.js for details.
 
 ## License
 Copyright (c) 2014 Joël Charles  

@@ -1,7 +1,7 @@
 {
   "name": "libquassel",
   "description": "NodeJS lib to connect and interact with Quassel IRC",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "homepage": "https://github.com/magne4000/node-libquassel",
   "author": {
     "name": "Joël Charles",
@@ -28,9 +28,9 @@
     "test": "grunt nodeunit"
   },
   "devDependencies": {
+    "browserify": "^4.1.10",
     "grunt": "~0.4.4",
-    "grunt-contrib-jshint": "~0.6.4",
-    "grunt-contrib-nodeunit": "~0.2.0",
+    "grunt-browserify": "^2.1.0",
     "grunt-contrib-watch": "~0.5.3",
     "nomnom": "^1.6.2",
     "prompt": "^0.2.12"
