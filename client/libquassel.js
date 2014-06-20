@@ -98,6 +98,7 @@ IRCBuffer.prototype.addMessage = function(message) {
         return null;
     }
     this.messages.set(message.id, {
+        id: message.id,
         datetime: new Date(message.timestamp * 1000),
         type: message.type,
         flags: message.flags,
@@ -168,8 +169,10 @@ IRCBufferCollection.prototype.getBuffer = function(bufferId) {
     if (typeof bufferId === 'string') {
         var buffers = this.buffers.values();
         for (var key in buffers) {
-            if (buffers[key].name === bufferId) {
-                return buffers[key];
+            if (typeof buffers[key].name === 'string') {
+                if (buffers[key].name.toLowerCase() === bufferId.toLowerCase()) {
+                    return buffers[key];
+                }
             }
         }
         return null;
@@ -266,7 +269,9 @@ var HashMap = function HashMap(){
 util.inherits(HashMap, HM);
 
 module.exports = HashMap;
-},{"./serializer":"cu7H2b","hashmap":19,"util":15}],"mjzgmF":[function(require,module,exports){
+},{"./serializer":"cu7H2b","hashmap":19,"util":15}],"network":[function(require,module,exports){
+module.exports=require('mjzgmF');
+},{}],"mjzgmF":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -313,6 +318,12 @@ NetworkCollection.prototype.add = function(networkid) {
     networkid = parseInt(networkid, 10);
     this.hm.set(networkid, new Network(networkid));
     return this.hm.get(networkid);
+};
+
+NetworkCollection.prototype.set = function(networkid, network) {
+    networkid = parseInt(networkid, 10);
+    this.hm.set(networkid, network);
+    return network;
 };
 
 NetworkCollection.prototype.get = function(networkid) {
@@ -492,9 +503,7 @@ Network.prototype.setIrcUsersAndChannels = function(uac) {
     }
     // Create Channels and attach them to network
     for (key in uac.channels) {
-        channel = new IRCBuffer(key, uac.channels[key]);
-        this.buffers.addBuffer(channel);
-        
+        channel = this.getBuffer(key);
         //Then attach users to channels
         for (nick in channel.UserModes) {
             user = this.getUserByNick(nick);
@@ -552,9 +561,7 @@ Network.prototype.getBuffer = function(ind) {
 exports.Network = Network;
 exports.NetworkCollection = NetworkCollection;
 
-},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV","eventemitter2":16,"util":15}],"network":[function(require,module,exports){
-module.exports=require('mjzgmF');
-},{}],"serializer":[function(require,module,exports){
+},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV","eventemitter2":16,"util":15}],"serializer":[function(require,module,exports){
 module.exports=require('cu7H2b');
 },{}],"cu7H2b":[function(require,module,exports){
 /*
@@ -2035,11 +2042,22 @@ module.exports = function extend() {
 /**
  * HashMap - HashMap Class for JavaScript
  * @author Ariel Flesler <aflesler@gmail.com>
- * @version 1.0.1
+ * @version 1.1.0
  * Homepage: https://github.com/flesler/hashmap
  */
 
-;(function(exports){
+(function (factory) {
+	if (typeof define === 'function' && define.amd) {
+		// AMD. Register as an anonymous module.
+		define([], factory);
+	} else if (typeof exports === 'object') {
+		// Node js environment
+		exports.HashMap = factory();
+	} else {
+		// Browser globals (this is window)
+		this.HashMap = factory();
+	}
+}(function () {
 	
 	function HashMap() {
 		this.clear();
@@ -2148,7 +2166,7 @@ module.exports = function extend() {
 		}
 	};
 
-	exports.HashMap = HashMap;
+	return HashMap;
 
-})(this.exports || this);
+}));
 },{}]},{},["mjzgmF"])

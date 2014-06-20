@@ -28,21 +28,13 @@ var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog}, fu
     });
 });
 
-quassel.on('backlog', function(buffer) {
-    var n = quassel.getNetworks().all(), k;
-    for (k in n) {
-        console.log("Network : " + n[k].networkName);
-        var buffers = n[k].getBufferHashMap();
-        buffers.forEach(function(val, key){
-            console.log("   "+(val.name||val.id));
-            val.messages.forEach(function(val2, key2) {
-                console.log("      " + val2.datetime + " - "  + val2.content);
-            });
-        });
-    }
+quassel.on('buffer.backlog', function(bufferId) {
+    var buf = quassel.getNetworks().findBuffer(bufferId);
+    console.log(buf.name + " : " + buf.messages.count());
 });
 
 quassel.on('network.init', function(network) {
+    network = quassel.getNetworks().get(network);
     network.on('user.removeFromChannel', function(ircbuffer, ircuser) {
         console.log('Removed user ' + ircuser.nick + ' from channel ' + ircbuffer.name);
     });
@@ -53,42 +45,52 @@ quassel.on('network.init', function(network) {
 });
 
 quassel.on('network.addbuffer', function(network, bufferId) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkId + ' - new buffer : ' + network.getBufferCollection().getBuffer(bufferId).name);
 });
 
 quassel.on('network.latency', function(network, latency) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' - latency : ' + latency);
 });
 
-quassel.on('network.adduser', function(network, user) {
-    console.log('Network ' + network.networkName + ' - user : ' + user.nick);
+quassel.on('network.adduser', function(network, nick) {
+    network = quassel.getNetworks().get(network);
+    console.log('Network ' + network.networkName + ' - user : ' + nick);
 });
 
 quassel.on('network.connectionstate', function(network, state) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' - state : ' + state);
 });
 
 quassel.on('network.addchannel', function(network, channel) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' - channel : ' + channel);
 });
 
 quassel.on('network.connected', function(network) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' - connected');
 });
 
 quassel.on('network.disconnected', function(network) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' - disconnected');
 });
 
 quassel.on('network.mynick', function(network, nick) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' - nick : ' + nick);
 });
 
 quassel.on('network.networkname', function(network, name) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' - name : ' + name);
 });
 
 quassel.on('network.server', function(network, server) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' - server : ' + server);
 });
 
@@ -114,14 +116,17 @@ quassel.on('buffer.highlight', function(bufferId, messageId) {
 });
 
 quassel.on('user.quit', function(network, username) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' : user ' + username + ' quit');
 });
 
-quassel.on('user.part', function(network, bufferId, username) {
+quassel.on('user.part', function(network, username, bufferId) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' - Buffer #' + bufferId + ' : user ' + username + ' part');
 });
 
 quassel.on('user.away', function(network, username, isAway) {
+    network = quassel.getNetworks().get(network);
     if (isAway) {
         console.log('Network ' + network.networkName + ' : user ' + username + ' is away');
     } else {
@@ -130,27 +135,28 @@ quassel.on('user.away', function(network, username, isAway) {
 });
 
 quassel.on('user.realname', function(network, username, isAway) {
+    network = quassel.getNetworks().get(network);
     console.log('Network ' + network.networkName + ' : user ' + username + ' real name is');
 });
 
-quassel.on('channel.join', function(buffer, user) {
-    console.log('Channel ' + buffer.name + ' : user ' + user.nick + ' joined');
+quassel.on('channel.join', function(network, buffername, nick) {
+    console.log('Channel ' + buffername + ' : user ' + nick + ' joined');
 });
 
-quassel.on('channel.addusermode', function(buffer, user, mode) {
-    console.log('Channel ' + buffer.name + ' - user ' + user.nick + ' -> mode : +' + mode);
+quassel.on('channel.addusermode', function(network, buffername, nick, mode) {
+    console.log('Channel ' + buffername + ' - user ' + nick + ' -> mode : +' + mode);
 });
 
-quassel.on('channel.removeusermode', function(buffer, user, mode) {
-    console.log('Channel ' + buffer.name + ' : user ' + user.nick + ' -> mode -' + mode);
+quassel.on('channel.removeusermode', function(network, buffername, nick, mode) {
+    console.log('Channel ' + buffername + ' : user ' + nick + ' -> mode -' + mode);
 });
 
-quassel.on('channel.topic', function(buffer, topic) {
-    console.log('Channel ' + buffer.name + ' - new topic : ' + topic);
+quassel.on('channel.topic', function(network, buffername, topic) {
+    console.log('Channel ' + buffername + ' - new topic : ' + topic);
 });
 
-quassel.on('buffer.activate', function(buffer) {
-    console.log('Buffer ' + buffer.name + ' activated');
+quassel.on('buffer.activate', function(buffername) {
+    console.log('Buffer ' + buffername + ' activated');
 });
 
 quassel.connect();
