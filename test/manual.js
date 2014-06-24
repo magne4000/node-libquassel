@@ -53,7 +53,12 @@ if (!opts.message) {
     
     quassel.on('network.addbuffer', function(network, bufferId) {
         network = quassel.getNetworks().get(network);
-        console.log('Network ' + network.networkId + ' - new buffer : ' + network.getBufferCollection().getBuffer(bufferId).name);
+        var buffer = network.getBufferCollection().getBuffer(bufferId);
+        if (buffer.isStatusBuffer()) {
+            console.log('Network ' + network.networkId + ' - status buffer');
+        } else {
+            console.log('Network ' + network.networkId + ' - new buffer : ' + buffer.name);
+        }
     });
     
     quassel.on('network.latency', function(network, latency) {
@@ -69,11 +74,6 @@ if (!opts.message) {
     quassel.on('network.connectionstate', function(network, state) {
         network = quassel.getNetworks().get(network);
         console.log('Network ' + network.networkName + ' - state : ' + state);
-    });
-    
-    quassel.on('network.addchannel', function(network, channel) {
-        network = quassel.getNetworks().get(network);
-        console.log('Network ' + network.networkName + ' - channel : ' + channel);
     });
     
     quassel.on('network.connected', function(network) {
@@ -122,6 +122,24 @@ if (!opts.message) {
         console.log('Buffer #' + bufferId + ' : Highlight message #' + messageId);
     });
     
+    quassel.on('buffer.activate', function(bufferId) {
+        console.log('Buffer ' + bufferId + ' activated');
+    });
+    
+    quassel.on('buffer.hidden', function(bufferId, type) {
+        // type can be either "temp" or "perm"
+        switch (type) {
+            case "temp":
+                console.log('Buffer ' + bufferId + ' temporarily hidden');
+                break;
+            case "perm":
+                console.log('Buffer ' + bufferId + ' permanently hidden');
+                break;
+            default:
+                console.log("Unknown type " + type);
+        }
+    });
+    
     quassel.on('user.quit', function(network, username) {
         network = quassel.getNetworks().get(network);
         console.log('Network ' + network.networkName + ' : user ' + username + ' quit');
@@ -146,25 +164,22 @@ if (!opts.message) {
         console.log('Network ' + network.networkName + ' : user ' + username + ' real name is');
     });
     
-    quassel.on('channel.join', function(network, buffername, nick) {
-        console.log('Channel ' + buffername + ' : user ' + nick + ' joined');
+    quassel.on('channel.join', function(network, bufferId, nick) {
+        console.log('Channel ' + bufferId + ' : user ' + nick + ' joined');
     });
     
-    quassel.on('channel.addusermode', function(network, buffername, nick, mode) {
-        console.log('Channel ' + buffername + ' - user ' + nick + ' -> mode : +' + mode);
+    quassel.on('channel.addusermode', function(network, bufferId, nick, mode) {
+        console.log('Channel ' + bufferId + ' - user ' + nick + ' -> mode : +' + mode);
     });
     
-    quassel.on('channel.removeusermode', function(network, buffername, nick, mode) {
-        console.log('Channel ' + buffername + ' : user ' + nick + ' -> mode -' + mode);
+    quassel.on('channel.removeusermode', function(network, bufferId, nick, mode) {
+        console.log('Channel ' + bufferId + ' : user ' + nick + ' -> mode -' + mode);
     });
     
-    quassel.on('channel.topic', function(network, buffername, topic) {
-        console.log('Channel ' + buffername + ' - new topic : ' + topic);
+    quassel.on('channel.topic', function(network, bufferId, topic) {
+        console.log('Channel ' + bufferId + ' - new topic : ' + topic);
     });
     
-    quassel.on('buffer.activate', function(buffername) {
-        console.log('Buffer ' + buffername + ' activated');
-    });
 } else {
     
     var echoBufferList = function echoBufferList() {

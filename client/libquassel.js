@@ -1,6 +1,4 @@
-require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"buffer":[function(require,module,exports){
-module.exports=require('GW0Fap');
-},{}],"GW0Fap":[function(require,module,exports){
+require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"GW0Fap":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -20,6 +18,10 @@ var IRCBuffer = function IRCBuffer(id, data) {
     this.nickUserModesMap = {};
     this.messages = new HashMap();
     this.active = false;
+    this._isStatusBuffer = false;
+    if (this.type == IRCBuffer.Types.StatusBuffer) {
+        this._isStatusBuffer = true;
+    }
 };
 
 Glouton.extend(IRCBuffer);
@@ -131,6 +133,17 @@ IRCBuffer.prototype.getBufferInfo = function() {
 };
 
 /**
+ * Returns true if this buffer is a StatusBuffer
+ * @return BufferInfo
+ */
+IRCBuffer.prototype.isStatusBuffer = function(bool) {
+    if (typeof bool === "undefined")
+        return this._isStatusBuffer;
+    else
+        this._isStatusBuffer = bool;
+};
+
+/**
  * Flag the buffer as temporarily removed
  * @param {boolean} flag
  */
@@ -144,6 +157,13 @@ IRCBuffer.prototype.setTemporarilyRemoved = function(flag) {
  */
 IRCBuffer.prototype.setPermanentlyRemoved = function(flag) {
     this.isPermanentlyRemoved = flag;
+};
+
+/**
+ * Is the buffer hidden/removed (permanently or temporarily)
+ */
+IRCBuffer.prototype.isHidden = function(flag) {
+    return this.isPermanentlyRemoved || this.isTemporarilyRemoved;
 };
 
 var IRCBufferCollection = function IRCBufferCollection() {
@@ -219,19 +239,34 @@ IRCBufferCollection.prototype.removeBuffer = function(bufferId) {
  * @protected
  */
 IRCBufferCollection.prototype._computeFilteredBuffers = function() {
-    this.filteredBuffers.clear();
-    var key, buffers = this.buffers.values();
+    var key, buffers = this.buffers.values(), has;
     for (key in buffers) {
+        has = this.filteredBuffers.has(buffers[key].id);
         if (this._isBufferFiltered(buffers[key])){
-            this.filteredBuffers.set(buffers[key].id, buffers[key]);
+            if (!has) {
+                this.filteredBuffers.set(buffers[key].id, buffers[key]);
+            }
+        } else {
+            if (has) {
+                this.filteredBuffers.remove(buffers[key].id);
+            }
         }
     }
 };
 
+IRCBuffer.Types = {
+    InvalidBuffer: 0x00,
+    StatusBuffer: 0x01,
+    ChannelBuffer: 0x02,
+    QueryBuffer: 0x04,
+    GroupBuffer: 0x08
+};
 
 exports.IRCBuffer = IRCBuffer;
 exports.IRCBufferCollection = IRCBufferCollection;
-},{"./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b"}],3:[function(require,module,exports){
+},{"./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b"}],"buffer":[function(require,module,exports){
+module.exports=require('GW0Fap');
+},{}],3:[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -283,9 +318,7 @@ var HashMap = function HashMap(){
 util.inherits(HashMap, HM);
 
 module.exports = HashMap;
-},{"./serializer":"cu7H2b","hashmap":18,"util":15}],"network":[function(require,module,exports){
-module.exports=require('mjzgmF');
-},{}],"mjzgmF":[function(require,module,exports){
+},{"./serializer":"cu7H2b","hashmap":18,"util":15}],"mjzgmF":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -374,13 +407,6 @@ Network.ConnectionState = {
     Initialized: 3,
     Reconnecting: 4,
     Disconnecting: 5
-};
-
-/**
- * @param {IRCBuffer} statusBuffer
- */
-Network.prototype.setStatusBuffer = function(statusBuffer) {
-    this.statusBuffer = statusBuffer;
 };
 
 /**
@@ -528,6 +554,20 @@ Network.prototype.updateTopic = function() {
 };
 
 /**
+ * @param {IRCBuffer} statusBuffer
+ */
+Network.prototype.setStatusBuffer = function(statusBuffer) {
+    this.statusBuffer = statusBuffer;
+};
+
+/**
+ * @returns {IRCBuffer}
+ */
+Network.prototype.getStatusBuffer = function() {
+    return this.statusBuffer;
+};
+
+/**
  * @returns {IRCBufferCollection}
  */
 Network.prototype.getBufferCollection = function() {
@@ -550,7 +590,9 @@ Network.prototype.getBuffer = function(ind) {
 exports.Network = Network;
 exports.NetworkCollection = NetworkCollection;
 
-},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV"}],"serializer":[function(require,module,exports){
+},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV"}],"network":[function(require,module,exports){
+module.exports=require('mjzgmF');
+},{}],"serializer":[function(require,module,exports){
 module.exports=require('cu7H2b');
 },{}],"cu7H2b":[function(require,module,exports){
 /*
