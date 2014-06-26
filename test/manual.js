@@ -6,10 +6,10 @@ var opts = require("nomnom")
       flag: true,
       help: 'Fetch backlogs (off by default to limit console flood)'
    })
-   .option('message', {
-      abbr: 'm',
+   .option('action', {
+      abbr: 'a',
       flag: true,
-      help: 'Show prompt to send messages (inhibits the majority of logs)'
+      help: 'Play with buffers hidden state / Send messages / Mark buffer as read / (Dis)Connect network'
    })
    .option('noDebug', {
       abbr: 'd',
@@ -19,7 +19,41 @@ var opts = require("nomnom")
    })
    .parse();
 
-if (opts.message) opts.noDebug = true;
+function echoBufferList() {
+    quassel.getNetworksHashMap().forEach(function(val, key){
+        console.log(val.networkName + " :");
+        var buffs = [];
+        val.getBufferHashMap().forEach(function(val2, key2){
+            buffs.push(val2.name + ": " + val2.id);
+        });
+        console.log(buffs.join(", "));
+    });
+}
+
+function echoNetworkList() {
+    quassel.getNetworksHashMap().forEach(function(val, key){
+        console.log(val.networkName + " : " + val.networkId);
+    });
+}
+
+function echoActionChoices() {
+    console.log(" 1. Disconnect Network");
+    console.log(" 2. Connect Network");
+    console.log(" 3. Mark buffer as read");
+    console.log(" 4. Mark last line of a buffer");
+    console.log(" 5. Hide buffer permanently");
+    console.log(" 6. Hide buffer temporarily");
+    console.log(" 7. Unhide buffer");
+    console.log(" 8. Remove buffer");
+    console.log(" 9. Request 20 more backlogs for a buffer");
+    console.log("10. Send a message");
+    console.log("(CTRL^C CTRL^C to quit)");
+}
+
+if (opts.action) {
+    opts.noDebug = true;
+    opts.backlog = true;
+}
 var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog, nodebug: opts.noDebug}, function(next) {
     pprompt.start();
     var schema = {
@@ -40,7 +74,7 @@ var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog, nod
     });
 });
 
-if (!opts.message) {
+if (!opts.action) {
     quassel.on('buffer.backlog', function(bufferId) {
         var buf = quassel.getNetworks().findBuffer(bufferId);
         console.log(buf.name + " : " + buf.messages.count());
@@ -182,19 +216,19 @@ if (!opts.message) {
     
 } else {
     
-    var echoBufferList = function echoBufferList() {
-        quassel.getNetworksHashMap().forEach(function(val, key){
-            console.log(val.networkName + " :");
-            var buffs = [];
-            val.getBufferHashMap().forEach(function(val2, key2){
-                buffs.push(val2.name + ": " + val2.id);
-            });
-            console.log(buffs.join(", "));
-        });
-    };
-    
-    var bufTimeout, schema = [{
+    var schemaActionChoices = [{
         name: 'id',
+        description: 'Choose action',
+        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+        required: true
+    }], schemaBuffer = [{
+        name: 'id',
+        type: 'string',
+        description: 'Buffer ID',
+        required: true
+    }], schemaMessage = [{
+        name: 'id',
+        type: 'string',
         description: 'Buffer ID',
         required: true
     }, {
@@ -202,23 +236,156 @@ if (!opts.message) {
         description: 'Message',
         type: 'string',
         required: true
-    }], once = false;
+    }], schemaConnect = [{
+        name: 'id',
+        type: 'string',
+        description: 'Choose a networkId',
+        required: true
+    }];
+    
+    var p = function() {
+        echoActionChoices();
+        
+        pprompt.get(schemaActionChoices, function (err, result) {
+            if (err) console.log(err);
+            else {
+                switch(result.id) {
+                    case '1':
+                        // Disconnect Network
+                        echoNetworkList();
+                        pprompt.get(schemaConnect, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.requestDisconnectNetwork(result2.id);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '2':
+                        // Connect Network
+                        echoNetworkList();
+                        pprompt.get(schemaConnect, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.requestConnectNetwork(result2.id);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '3':
+                        // Mark buffer as read
+                        echoBufferList();
+                        pprompt.get(schemaBuffer, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                var ids = quassel.getNetworks().findBuffer(parseInt(result2.id, 10)).messages.keys();
+                                var max = Math.max.apply(null, ids);
+                                quassel.requestSetLastMsgRead(result2.id, max);
+                                quassel.requestMarkBufferAsRead(result2.id);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '4':
+                        // Mark last line of a buffer
+                        echoBufferList();
+                        pprompt.get(schemaBuffer, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                var ids = quassel.getNetworks().findBuffer(parseInt(result2.id, 10)).messages.keys();
+                                var max = Math.max.apply(null, ids);
+                                quassel.requestSetMarkerLine(result2.id, max);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '5':
+                        // Hide buffer permanently
+                        echoBufferList();
+                        pprompt.get(schemaBuffer, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.requestHideBufferPermanently(result2.id);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '6':
+                        // Hide buffer temporarily
+                        echoBufferList();
+                        pprompt.get(schemaBuffer, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.requestHideBufferTemporarily(result2.id);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '7':
+                        // Unhide buffer
+                        echoBufferList();
+                        pprompt.get(schemaBuffer, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.requestUnhideBuffer(result2.id);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '8':
+                        //Remove buffer
+                        echoBufferList();
+                        pprompt.get(schemaBuffer, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.requestRemoveBuffer(result2.id);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '9':
+                        // Request 20 more backlogs for a buffer
+                        echoBufferList();
+                        pprompt.get(schemaBuffer, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                var ids = quassel.getNetworks().findBuffer(parseInt(result2.id, 10)).messages.keys();
+                                var min = Math.min.apply(null, ids);
+                                quassel.once('buffer.backlog', function(bufferId) {
+                                    var buf = quassel.getNetworks().findBuffer(bufferId);
+                                    console.log(buf.name + " : " + buf.messages.count() + " total messages fetched");
+                                });
+                                quassel.requestBacklog(result2.id, -1, min, 20);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '10':
+                        // Send a message
+                        echoBufferList();
+                        pprompt.get(schemaMessage, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.sendMessage(result2.id, result2.message);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    default:
+                        console.log('Wrong choice');
+                        setTimeout(p, 1);
+                }
+            }
+        });
+    };
+    
+    var bufTimeout, once = false;
+    
     quassel.on('network.addbuffer', function(network, bufferId) {
         if (!once) {
             clearTimeout(bufTimeout);
             bufTimeout = setTimeout(function(){
                 once = true;
-                var p = function() {
-                    echoBufferList();
-                    console.log("CTRL^C CTRL^C to quit.");
-                    pprompt.get(schema, function (err, result) {
-                        if (err) console.log(err);
-                        else {
-                            quassel.sendMessage(result.id, result.message);
-                            p();
-                        }
-                    });
-                };
                 p();
             }, 1000);
         }
