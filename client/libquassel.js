@@ -318,7 +318,9 @@ var HashMap = function HashMap(){
 util.inherits(HashMap, HM);
 
 module.exports = HashMap;
-},{"./serializer":"cu7H2b","hashmap":18,"util":15}],"mjzgmF":[function(require,module,exports){
+},{"./serializer":"cu7H2b","hashmap":18,"util":15}],"network":[function(require,module,exports){
+module.exports=require('mjzgmF');
+},{}],"mjzgmF":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -520,10 +522,10 @@ Network.prototype.setIrcUsersAndChannels = function(uac) {
     for (key in uac.channels) {
         channel = this.getBuffer(key);
         //Then attach users to channels
-        for (nick in channel.UserModes) {
+        for (nick in uac.channels[key].UserModes) {
             user = this.getUserByNick(nick);
             if (typeof user !== 'undefined') {
-                channel.addUser(this.getUserByNick(nick), channel.UserModes[nick]);
+                channel.addUser(user, uac.channels[key].UserModes[nick]);
             } else {
                 console.log("User " + nick + " have not been found on server.");
             }
@@ -590,9 +592,7 @@ Network.prototype.getBuffer = function(ind) {
 exports.Network = Network;
 exports.NetworkCollection = NetworkCollection;
 
-},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV"}],"network":[function(require,module,exports){
-module.exports=require('mjzgmF');
-},{}],"serializer":[function(require,module,exports){
+},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV"}],"serializer":[function(require,module,exports){
 module.exports=require('cu7H2b');
 },{}],"cu7H2b":[function(require,module,exports){
 /*
@@ -1422,79 +1422,78 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require("FWaASH"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":14,"FWaASH":13,"inherits":12}],"extend":[function(require,module,exports){
-module.exports=require('5bmgkN');
-},{}],"5bmgkN":[function(require,module,exports){
+},{"./support/isBuffer":14,"FWaASH":13,"inherits":12}],"5bmgkN":[function(require,module,exports){
 var hasOwn = Object.prototype.hasOwnProperty;
 var toString = Object.prototype.toString;
+var undefined;
 
-function isPlainObject(obj) {
-	if (!obj || toString.call(obj) !== '[object Object]' || obj.nodeType || obj.setInterval)
+var isPlainObject = function isPlainObject(obj) {
+	"use strict";
+	if (!obj || toString.call(obj) !== '[object Object]' || obj.nodeType || obj.setInterval) {
 		return false;
+	}
 
 	var has_own_constructor = hasOwn.call(obj, 'constructor');
-	var has_is_property_of_method = hasOwn.call(obj.constructor.prototype, 'isPrototypeOf');
+	var has_is_property_of_method = obj.constructor && obj.constructor.prototype && hasOwn.call(obj.constructor.prototype, 'isPrototypeOf');
 	// Not own constructor property must be Object
-	if (obj.constructor && !has_own_constructor && !has_is_property_of_method)
+	if (obj.constructor && !has_own_constructor && !has_is_property_of_method) {
 		return false;
+	}
 
 	// Own properties are enumerated firstly, so to speed up,
 	// if last one is own, then all properties are own.
 	var key;
-	for ( key in obj ) {}
+	for (key in obj) {}
 
-	return key === undefined || hasOwn.call( obj, key );
+	return key === undefined || hasOwn.call(obj, key);
 };
 
 module.exports = function extend() {
+	"use strict";
 	var options, name, src, copy, copyIsArray, clone,
-	    target = arguments[0] || {},
-	    i = 1,
-	    length = arguments.length,
-	    deep = false;
+		target = arguments[0],
+		i = 1,
+		length = arguments.length,
+		deep = false;
 
 	// Handle a deep copy situation
-	if ( typeof target === "boolean" ) {
+	if (typeof target === "boolean") {
 		deep = target;
 		target = arguments[1] || {};
 		// skip the boolean and the target
 		i = 2;
+	} else if (typeof target !== "object" && typeof target !== "function" || target == undefined) {
+			target = {};
 	}
 
-	// Handle case when target is a string or something (possible in deep copy)
-	if ( typeof target !== "object" && typeof target !== "function") {
-		target = {};
-	}
-
-	for ( ; i < length; i++ ) {
+	for (; i < length; ++i) {
 		// Only deal with non-null/undefined values
-		if ( (options = arguments[ i ]) != null ) {
+		if ((options = arguments[i]) != null) {
 			// Extend the base object
-			for ( name in options ) {
-				src = target[ name ];
-				copy = options[ name ];
+			for (name in options) {
+				src = target[name];
+				copy = options[name];
 
 				// Prevent never-ending loop
-				if ( target === copy ) {
+				if (target === copy) {
 					continue;
 				}
 
 				// Recurse if we're merging plain objects or arrays
-				if ( deep && copy && ( isPlainObject(copy) || (copyIsArray = Array.isArray(copy)) ) ) {
-					if ( copyIsArray ) {
+				if (deep && copy && (isPlainObject(copy) || (copyIsArray = Array.isArray(copy)))) {
+					if (copyIsArray) {
 						copyIsArray = false;
 						clone = src && Array.isArray(src) ? src : [];
-
 					} else {
 						clone = src && isPlainObject(src) ? src : {};
 					}
 
 					// Never move original objects, clone them
-					target[ name ] = extend( deep, clone, copy );
+					target[name] = extend(deep, clone, copy);
 
 				// Don't bring in undefined values
-				} else if ( copy !== undefined ) {
-					target[ name ] = copy;
+				} else if (copy !== undefined) {
+					target[name] = copy;
 				}
 			}
 		}
@@ -1504,6 +1503,9 @@ module.exports = function extend() {
 	return target;
 };
 
+
+},{}],"extend":[function(require,module,exports){
+module.exports=require('5bmgkN');
 },{}],18:[function(require,module,exports){
 /**
  * HashMap - HashMap Class for JavaScript
