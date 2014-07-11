@@ -1,4 +1,6 @@
-require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"GW0Fap":[function(require,module,exports){
+require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"buffer":[function(require,module,exports){
+module.exports=require('GW0Fap');
+},{}],"GW0Fap":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -58,6 +60,24 @@ IRCBuffer.prototype.addUser = function(user, modes) {
  */
 IRCBuffer.prototype.addUserMode = function(user, mode) {
     this.nickUserModesMap[user.nick] += mode;
+};
+
+/**
+ * Returns true if user is chan operator
+ * @param {string} nick
+ * @return
+ */
+IRCBuffer.prototype.isOp = function(nick) {
+    return this.nickUserModesMap[nick].indexOf('o') !== -1;
+};
+
+/**
+ * Returns true if user is voiced
+ * @param {string} nick
+ * @return
+ */
+IRCBuffer.prototype.isVoiced = function(nick) {
+    return this.nickUserModesMap[nick].indexOf('v') !== -1;
 };
 
 /**
@@ -264,9 +284,7 @@ IRCBuffer.Types = {
 
 exports.IRCBuffer = IRCBuffer;
 exports.IRCBufferCollection = IRCBufferCollection;
-},{"./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b"}],"buffer":[function(require,module,exports){
-module.exports=require('GW0Fap');
-},{}],3:[function(require,module,exports){
+},{"./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b"}],3:[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -315,12 +333,29 @@ var HashMap = function HashMap(){
     serialize(this);
 };
 
+HM.prototype.forEach = function(func, sortfunction) {
+    var key;
+    if (typeof sortfunction === 'function') {
+        var arr = [], i = 0;
+        for (key in this._data) {
+            arr.push(this._data[key][1]);
+        }
+        arr.sort(sortfunction);
+        for (;i<arr.length;i++) {
+            func.call(this, arr[i], arr[i].id);
+        }
+    } else {
+        for (key in this._data) {
+            var data = this._data[key];
+            func.call(this, data[1], data[0]);
+        }
+    }
+};
+
 util.inherits(HashMap, HM);
 
 module.exports = HashMap;
-},{"./serializer":"cu7H2b","hashmap":18,"util":15}],"network":[function(require,module,exports){
-module.exports=require('mjzgmF');
-},{}],"mjzgmF":[function(require,module,exports){
+},{"./serializer":"cu7H2b","hashmap":18,"util":15}],"mjzgmF":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -481,7 +516,7 @@ Network.prototype.hasNick = function(nick) {
  * @param {string} nick
  */
 Network.prototype.getUserByNick = function(nick) {
-    return this.nickUserMap[nick];
+    return this.nickUserMap[nick] || null;
 };
 
 /**
@@ -524,7 +559,7 @@ Network.prototype.setIrcUsersAndChannels = function(uac) {
         //Then attach users to channels
         for (nick in uac.channels[key].UserModes) {
             user = this.getUserByNick(nick);
-            if (typeof user !== 'undefined') {
+            if (user !== null) {
                 channel.addUser(user, uac.channels[key].UserModes[nick]);
             } else {
                 console.log("User " + nick + " have not been found on server.");
@@ -592,7 +627,9 @@ Network.prototype.getBuffer = function(ind) {
 exports.Network = Network;
 exports.NetworkCollection = NetworkCollection;
 
-},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV"}],"serializer":[function(require,module,exports){
+},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV"}],"network":[function(require,module,exports){
+module.exports=require('mjzgmF');
+},{}],"serializer":[function(require,module,exports){
 module.exports=require('cu7H2b');
 },{}],"cu7H2b":[function(require,module,exports){
 /*
