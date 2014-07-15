@@ -355,7 +355,30 @@ HM.prototype.forEach = function(func, sortfunction) {
 util.inherits(HashMap, HM);
 
 module.exports = HashMap;
-},{"./serializer":"cu7H2b","hashmap":18,"util":15}],"mjzgmF":[function(require,module,exports){
+},{"./serializer":"cu7H2b","hashmap":20,"util":17}],"messagetype":[function(require,module,exports){
+module.exports=require('IMp31Z');
+},{}],"IMp31Z":[function(require,module,exports){
+module.exports = {
+    Plain: 0x00001,
+    Notice: 0x00002,
+    Action: 0x00004,
+    Nick: 0x00008,
+    Mode: 0x00010,
+    Join: 0x00020,
+    Part: 0x00040,
+    Quit: 0x00080,
+    Kick: 0x00100,
+    Kill: 0x00200,
+    Server: 0x00400,
+    Info: 0x00800,
+    Error: 0x01000,
+    DayChange: 0x02000,
+    Topic: 0x04000,
+    NetsplitJoin: 0x08000,
+    NetsplitQuit: 0x10000,
+    Invite: 0x20000
+};
+},{}],"mjzgmF":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -772,7 +795,7 @@ Glouton.extend(IRCUser);
 module.exports = IRCUser;
 },{"./glouton":3,"./serializer":"cu7H2b"}],"user":[function(require,module,exports){
 module.exports=require('VBuVyV');
-},{}],12:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -797,7 +820,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],13:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -862,14 +885,14 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],14:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],15:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -1459,7 +1482,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require("FWaASH"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":14,"FWaASH":13,"inherits":12}],"5bmgkN":[function(require,module,exports){
+},{"./support/isBuffer":16,"FWaASH":15,"inherits":14}],"5bmgkN":[function(require,module,exports){
 var hasOwn = Object.prototype.hasOwnProperty;
 var toString = Object.prototype.toString;
 var undefined;
@@ -1543,7 +1566,7 @@ module.exports = function extend() {
 
 },{}],"extend":[function(require,module,exports){
 module.exports=require('5bmgkN');
-},{}],18:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 /**
  * HashMap - HashMap Class for JavaScript
  * @author Ariel Flesler <aflesler@gmail.com>

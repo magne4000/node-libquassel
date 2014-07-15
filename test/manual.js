@@ -198,19 +198,19 @@ if (!opts.action) {
         console.log('Network ' + network.networkName + ' : user ' + username + ' real name is');
     });
     
-    quassel.on('channel.join', function(network, bufferId, nick) {
+    quassel.on('channel.join', function(bufferId, nick) {
         console.log('Channel ' + bufferId + ' : user ' + nick + ' joined');
     });
     
-    quassel.on('channel.addusermode', function(network, bufferId, nick, mode) {
+    quassel.on('channel.addusermode', function(bufferId, nick, mode) {
         console.log('Channel ' + bufferId + ' - user ' + nick + ' -> mode : +' + mode);
     });
     
-    quassel.on('channel.removeusermode', function(network, bufferId, nick, mode) {
+    quassel.on('channel.removeusermode', function(bufferId, nick, mode) {
         console.log('Channel ' + bufferId + ' : user ' + nick + ' -> mode -' + mode);
     });
     
-    quassel.on('channel.topic', function(network, bufferId, topic) {
+    quassel.on('channel.topic', function(bufferId, topic) {
         console.log('Channel ' + bufferId + ' - new topic : ' + topic);
     });
     

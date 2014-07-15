@@ -16,7 +16,8 @@ module.exports = function(grunt) {
             'lib/serializer.js:serializer',
             'lib/hashmap.js:serialized-hashmap',
             'lib/user.js:user',
-            'lib/buffer.js:buffer'
+            'lib/buffer.js:buffer',
+            'lib/messagetype:messagetype'
           ]
         }
       }
