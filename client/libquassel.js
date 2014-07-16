@@ -22,6 +22,7 @@ var IRCBuffer = function IRCBuffer(id, data) {
     this.messages = new HashMap();
     this.active = false;
     this._isStatusBuffer = false;
+    this.order = null;
     if (this.type == IRCBuffer.Types.StatusBuffer) {
         this._isStatusBuffer = true;
     }
@@ -35,6 +36,14 @@ Glouton.extend(IRCBuffer);
  */
 IRCBuffer.prototype.setActive = function(bool) {
     this.active = bool;
+};
+
+/**
+ * Set buffer index
+ * @param {number} order
+ */
+IRCBuffer.prototype.setOrder = function(order) {
+    this.order = order;
 };
 
 /**
@@ -327,7 +336,9 @@ var HashMap = function HashMap(){
     serialize(this);
 };
 
-HM.prototype.forEach = function(func, sortfunction) {
+util.inherits(HashMap, HM);
+
+HashMap.prototype.forEach = function(func, sortfunction) {
     var key;
     if (typeof sortfunction === 'function') {
         var arr = [], i = 0;
@@ -345,8 +356,6 @@ HM.prototype.forEach = function(func, sortfunction) {
         }
     }
 };
-
-util.inherits(HashMap, HM);
 
 module.exports = HashMap;
 },{"./serializer":"cu7H2b","hashmap":20,"util":17}],"message":[function(require,module,exports){
