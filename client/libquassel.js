@@ -407,6 +407,18 @@ IRCMessage.prototype.isSelf = function() {
     return ((this.flags & Flag.Self) !== 0);
 };
 
+IRCMessage.prototype._updateFlags = function(nick) {
+    if (this.type == Type.Plain || this.type == Type.Action) {
+        if (nick) {
+            var quotedNick = nick.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
+            var regex = new RegExp("([\\W\\D]|^)"+quotedNick+"([\\W\\D]|$)", "i");
+            if (regex.test(this.content)) {
+                this.flags = this.flags | Flag.Highlight;
+            }
+        }
+    }
+};
+
 IRCMessage.prototype.isHighlighted = function() {
     return (((this.flags & Flag.Highlight) !== 0) && !this.isSelf());
 };
@@ -422,7 +434,9 @@ IRCMessage.prototype.getHostmask = function() {
 exports.IRCMessage = IRCMessage;
 exports.Type = Type;
 exports.Flag = Flag;
-},{"./serializer":"cu7H2b"}],"mjzgmF":[function(require,module,exports){
+},{"./serializer":"cu7H2b"}],"network":[function(require,module,exports){
+module.exports=require('mjzgmF');
+},{}],"mjzgmF":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -532,6 +546,14 @@ Network.prototype.setUserList = function(userList) {
             this.nickUserMap.put(userList[i].nick, userList[i]);
         }
     }
+};
+
+/**
+ * // Devour function
+ * @param {Array<IrcUser>} networkName
+ */
+Network.prototype.setMyNick = function(nick) {
+    this.nick = nick;
 };
 
 /**
@@ -694,9 +716,7 @@ Network.prototype.getBuffer = function(ind) {
 exports.Network = Network;
 exports.NetworkCollection = NetworkCollection;
 
-},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV"}],"network":[function(require,module,exports){
-module.exports=require('mjzgmF');
-},{}],"serializer":[function(require,module,exports){
+},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV"}],"serializer":[function(require,module,exports){
 module.exports=require('cu7H2b');
 },{}],"cu7H2b":[function(require,module,exports){
 /*
