@@ -404,7 +404,7 @@ var IRCMessage = function IRCMessage(message) {
 };
 
 IRCMessage.prototype.isSelf = function() {
-    return ((this.flags & Flag.Self) !== 0);
+    return (this.flags & Flag.Self) !== 0;
 };
 
 IRCMessage.prototype._updateFlags = function(nick) {
@@ -420,7 +420,7 @@ IRCMessage.prototype._updateFlags = function(nick) {
 };
 
 IRCMessage.prototype.isHighlighted = function() {
-    return (((this.flags & Flag.Highlight) !== 0) && !this.isSelf());
+    return ((this.flags & Flag.Highlight) !== 0) && !this.isSelf();
 };
 
 IRCMessage.prototype.getNick = function() {
@@ -753,6 +753,17 @@ Reviver.prototype.get = function(key, val) {
 
 Reviver.prototype.revivable = function(obj) {
     return !!obj && !obj.__s_done && !!obj.__s_cls;
+};
+
+Reviver.prototype.afterReviving = function(obj, callback) {
+    var self = this;
+    if (this.revivable(obj)) {
+        setTimeout(function() {
+            self.afterReviving(obj, callback);
+        }, 10);
+    } else {
+        callback(obj);
+    }
 };
 
 Reviver.prototype.revive = function(obj) {
