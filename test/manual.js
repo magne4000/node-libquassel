@@ -152,8 +152,12 @@ if (!opts.action) {
         console.log('New name for buffer #' + bufferId + ' : ' + newName);
     });
     
-    quassel.on('buffer.highlight', function(bufferId, messageId) {
-        console.log('Buffer #' + bufferId + ' : Highlight message #' + messageId);
+    quassel.on('buffer.lastseen', function(bufferId, messageId) {
+        console.log('Buffer #' + bufferId + ' : Last seen message #' + messageId);
+    });
+    
+    quassel.on('buffer.markerline', function(bufferId, messageId) {
+        console.log('Buffer #' + bufferId + ' : Markerline above message #' + messageId);
     });
     
     quassel.on('buffer.activate', function(bufferId) {
