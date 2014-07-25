@@ -75,7 +75,7 @@ var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog, nod
 });
 
 if (!opts.action) {
-    quassel.on('buffer.backlog', function(bufferId) {
+    quassel.on('buffer.backlog', function(bufferId, messageIds) {
         var buf = quassel.getNetworks().findBuffer(bufferId);
         console.log(buf.name + " : " + buf.messages.count());
     });
@@ -359,7 +359,7 @@ if (!opts.action) {
                             else {
                                 var ids = quassel.getNetworks().findBuffer(parseInt(result2.id, 10)).messages.keys();
                                 var min = Math.min.apply(null, ids);
-                                quassel.once('buffer.backlog', function(bufferId) {
+                                quassel.once('buffer.backlog', function(bufferId, messageIds) {
                                     var buf = quassel.getNetworks().findBuffer(bufferId);
                                     console.log(buf.name + " : " + buf.messages.count() + " total messages fetched");
                                 });
