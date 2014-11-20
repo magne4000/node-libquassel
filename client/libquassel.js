@@ -244,10 +244,14 @@ IRCBufferCollection.prototype.getBuffer = function(bufferId) {
                 }
             }
         }
-        return null;
+    } else {
+        // number
+        var buffer = this.buffers.get(bufferId);
+        if (typeof buffer !== 'undefined') {
+            return buffer;
+        }
     }
-    // number
-    return this.buffers.get(bufferId);
+    return null;
 };
 
 /**
