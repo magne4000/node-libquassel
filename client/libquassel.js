@@ -427,7 +427,7 @@ IRCMessage.prototype._updateFlags = function(nick) {
     if (this.type == Type.Plain || this.type == Type.Action) {
         if (nick) {
             var quotedNick = nick.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
-            var regex = new RegExp("([\\W\\D]|^)"+quotedNick+"([\\W\\D]|$)", "i");
+            var regex = new RegExp("([\\W]|^)"+quotedNick+"([\\W]|$)", "i");
             if (regex.test(this.content)) {
                 this.flags = this.flags | Flag.Highlight;
             }
@@ -450,6 +450,7 @@ IRCMessage.prototype.getHostmask = function() {
 exports.IRCMessage = IRCMessage;
 exports.Type = Type;
 exports.Flag = Flag;
+
 },{"./serializer":"cu7H2b"}],"network":[function(require,module,exports){
 module.exports=require('mjzgmF');
 },{}],"mjzgmF":[function(require,module,exports){
