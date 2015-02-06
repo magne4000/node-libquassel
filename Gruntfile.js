@@ -6,9 +6,8 @@ module.exports = function(grunt) {
   grunt.initConfig({
     browserify: {
       dist: {
-        files: {
-          'client/libquassel.js': ['lib/network.js']
-        },
+        src: [],
+        dest: 'client/libquassel.js',
         options: {
           alias: [
             './lib/network.js:network',
