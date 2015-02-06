@@ -1,309 +1,4 @@
-require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({"buffer":[function(require,module,exports){
-module.exports=require('GW0Fap');
-},{}],"GW0Fap":[function(require,module,exports){
-/*
- * libquassel
- * https://github.com/magne4000/node-libquassel
- *
- * Copyright (c) 2014 Joël Charles
- * Licensed under the MIT license.
- */
-var serialize = require('./serializer').serialize,
-    Glouton = require('./glouton'),
-    HashMap = require('./hashmap'),
-    IRCMessage = require('./message').IRCMessage;
-
-var IRCBuffer = function IRCBuffer(id, data) {
-    serialize(this);
-    this.devour(data);
-    this.id = id;
-    this.nickUserMap = {};
-    this.nickUserModesMap = {};
-    this.messages = new HashMap();
-    this.active = false;
-    this._isStatusBuffer = false;
-    this.order = null;
-    if (this.type == IRCBuffer.Types.StatusBuffer) {
-        this._isStatusBuffer = true;
-    }
-};
-
-Glouton.extend(IRCBuffer);
-
-/**
- * Switch buffer state
- * @param {boolean} bool
- */
-IRCBuffer.prototype.setActive = function(bool) {
-    this.active = bool;
-};
-
-/**
- * Set buffer index
- * @param {number} order
- */
-IRCBuffer.prototype.setOrder = function(order) {
-    this.order = order;
-};
-
-/**
- * Is this buffer a channel
- */
-IRCBuffer.prototype.isChannel = function() {
-    return this.name && "#&+!".indexOf(this.name[0]) !== -1;
-};
-
-/**
- * Add user to buffer
- * @param {IRCUser} user
- * @param {string} modes
- */
-IRCBuffer.prototype.addUser = function(user, modes) {
-    this.nickUserMap[user.nick] = user;
-    this.nickUserModesMap[user.nick] = modes;
-};
-
-/**
- * add mode to user
- * @param {IRCUser} user
- * @param {string} mode
- */
-IRCBuffer.prototype.addUserMode = function(user, mode) {
-    this.nickUserModesMap[user.nick] += mode;
-};
-
-/**
- * Returns true if user is chan operator
- * @param {string} nick
- * @return
- */
-IRCBuffer.prototype.isOp = function(nick) {
-    return this.nickUserModesMap[nick].indexOf('o') !== -1;
-};
-
-/**
- * Returns true if user is voiced
- * @param {string} nick
- * @return
- */
-IRCBuffer.prototype.isVoiced = function(nick) {
-    return this.nickUserModesMap[nick].indexOf('v') !== -1;
-};
-
-/**
- * remove mode from user
- * @param {IRCUser} user
- * @param {string} mode
- */
-IRCBuffer.prototype.removeUserMode = function(user, mode) {
-    this.nickUserModesMap[user.nick] += this.nickUserModesMap[user.nick].replace(mode, "");
-};
-
-/**
- * Check if current buffer contains specified user
- * @param {IRCUser} user
- */
-IRCBuffer.prototype.hasUser = function(user) {
-    if (typeof user === 'undefined' || user === null) {
-        console.log("User should not be null or undefined");
-        return null;
-    }
-    return user.nick in this.nickUserMap;
-};
-
-/**
- * Remove user from buffer
- * @param {string} username
- */
-IRCBuffer.prototype.removeUser = function(username) {
-    delete this.nickUserMap[username];
-    delete this.nickUserModesMap[username];
-};
-
-/**
- * Add message to buffer
- * @param {*} message
- * @return the message, if successfully added, null otherwise
- */
-IRCBuffer.prototype.addMessage = function(message) {
-    message.id = parseInt(message.id, 10);
-    if (this.messages.has(message.id)) {
-        return null;
-    }
-    this.messages.set(message.id, new IRCMessage(message));
-    return this.messages.get(message.id);
-};
-
-/**
- * Check if specified messageId is the last one of this buffer
- * @param {*} messageId
- * @return
- */
-IRCBuffer.prototype.isLast = function(messageId) {
-    messageId = parseInt(messageId, 10);
-    var max = Math.max.apply(null, this.messages.keys());
-    return max === messageId;
-};
-
-/**
- * Name setter
- * @param {string} name
- */
-IRCBuffer.prototype.setName = function(name) {
-    this.name = name?name.toString():null;
-};
-
-/**
- * get BufferInfo structure
- * @return BufferInfo
- */
-IRCBuffer.prototype.getBufferInfo = function() {
-    return {
-        id: this.id,
-        network: this.network,
-        type: this.type,
-        group: this.group,
-        name: this.name
-    };
-};
-
-/**
- * Returns true if this buffer is a StatusBuffer
- * @return BufferInfo
- */
-IRCBuffer.prototype.isStatusBuffer = function(bool) {
-    if (typeof bool === "undefined")
-        return this._isStatusBuffer;
-    else
-        this._isStatusBuffer = bool;
-};
-
-/**
- * Flag the buffer as temporarily removed
- * @param {boolean} flag
- */
-IRCBuffer.prototype.setTemporarilyRemoved = function(flag) {
-    this.isTemporarilyRemoved = flag;
-};
-
-/**
- * Flag the buffer as permanently removed
- * @param {boolean} flag
- */
-IRCBuffer.prototype.setPermanentlyRemoved = function(flag) {
-    this.isPermanentlyRemoved = flag;
-};
-
-/**
- * Is the buffer hidden/removed (permanently or temporarily)
- */
-IRCBuffer.prototype.isHidden = function(flag) {
-    return this.isPermanentlyRemoved || this.isTemporarilyRemoved;
-};
-
-var IRCBufferCollection = function IRCBufferCollection() {
-    serialize(this);
-    this.buffers = new HashMap();
-    this.filteredBuffers = new HashMap();
-};
-
-/**
- * @param {IRCBuffer} buffer
- */
-IRCBufferCollection.prototype.addBuffer = function(buffer) {
-    if (this.buffers.has(buffer.id)) {
-        console.log("Buffer already added (" + buffer.name + ")");
-        return;
-    }
-    this.buffers.set(buffer.id, buffer);
-    this._computeFilteredBuffers();
-};
-
-/**
- * @param {IRCBuffer} buffer
- * @protected
- */
-IRCBufferCollection.prototype._isBufferFiltered = function(buffer) {
-    if (buffer.isPermanentlyRemoved || buffer.isTemporarilyRemoved) {
-        return true;
-    } else {
-        return false;
-    }
-};
-
-/**
- * @param {(number|string)} bufferId
- */
-IRCBufferCollection.prototype.getBuffer = function(bufferId) {
-    if (typeof bufferId === 'string') {
-        var buffers = this.buffers.values();
-        for (var key in buffers) {
-            if (typeof buffers[key].name === 'string') {
-                if (buffers[key].name.toLowerCase() === bufferId.toLowerCase()) {
-                    return buffers[key];
-                }
-            }
-        }
-    } else {
-        // number
-        var buffer = this.buffers.get(bufferId);
-        if (typeof buffer !== 'undefined') {
-            return buffer;
-        }
-    }
-    return null;
-};
-
-/**
- * @param {(number|string)} bufferId
- */
-IRCBufferCollection.prototype.hasBuffer = function(bufferId) {
-    if (typeof bufferId === 'string') {
-        return this.getBuffer(bufferId) !== null;
-    } else {
-        return this.buffers.has(bufferId);
-    }
-};
-
-/**
- * @param {(number|string)} bufferId
- */
-IRCBufferCollection.prototype.removeBuffer = function(bufferId) {
-    if (this.hasBuffer(bufferId)) {
-        this.buffers.remove(this.getBuffer(bufferId).id);
-    }
-};
-
-/**
- * @protected
- */
-IRCBufferCollection.prototype._computeFilteredBuffers = function() {
-    var key, buffers = this.buffers.values(), has;
-    for (key in buffers) {
-        has = this.filteredBuffers.has(buffers[key].id);
-        if (this._isBufferFiltered(buffers[key])){
-            if (!has) {
-                this.filteredBuffers.set(buffers[key].id, buffers[key]);
-            }
-        } else {
-            if (has) {
-                this.filteredBuffers.remove(buffers[key].id);
-            }
-        }
-    }
-};
-
-IRCBuffer.Types = {
-    InvalidBuffer: 0x00,
-    StatusBuffer: 0x01,
-    ChannelBuffer: 0x02,
-    QueryBuffer: 0x04,
-    GroupBuffer: 0x08
-};
-
-exports.IRCBuffer = IRCBuffer;
-exports.IRCBufferCollection = IRCBufferCollection;
-},{"./glouton":3,"./hashmap":"5VUt7Z","./message":"y4jpbY","./serializer":"cu7H2b"}],3:[function(require,module,exports){
+require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -332,128 +27,7 @@ Glouton.extend = function(aclass) {
 };
 
 module.exports = Glouton;
-},{}],"serialized-hashmap":[function(require,module,exports){
-module.exports=require('5VUt7Z');
-},{}],"5VUt7Z":[function(require,module,exports){
-/*
- * libquassel
- * https://github.com/magne4000/node-libquassel
- *
- * Copyright (c) 2014 Joël Charles
- * Licensed under the MIT license.
- */
-
-var HM = require("hashmap").HashMap,
-    util = require("util"),
-    serialize = require('./serializer').serialize;
-
-var HashMap = function HashMap(){
-    HashMap.super_.call(this);
-    serialize(this);
-};
-
-util.inherits(HashMap, HM);
-
-HashMap.prototype.forEach = function(func, sortfunction) {
-    var key;
-    if (typeof sortfunction === 'function') {
-        var arr = [], i = 0;
-        for (key in this._data) {
-            arr.push(this._data[key][1]);
-        }
-        arr.sort(sortfunction);
-        for (;i<arr.length;i++) {
-            func.call(this, arr[i], arr[i].id);
-        }
-    } else {
-        for (key in this._data) {
-            var data = this._data[key];
-            func.call(this, data[1], data[0]);
-        }
-    }
-};
-
-module.exports = HashMap;
-},{"./serializer":"cu7H2b","hashmap":20,"util":17}],"message":[function(require,module,exports){
-module.exports=require('y4jpbY');
-},{}],"y4jpbY":[function(require,module,exports){
-var serialize = require('./serializer').serialize;
-
-var Type = {
-    Plain: 0x00001,
-    Notice: 0x00002,
-    Action: 0x00004,
-    Nick: 0x00008,
-    Mode: 0x00010,
-    Join: 0x00020,
-    Part: 0x00040,
-    Quit: 0x00080,
-    Kick: 0x00100,
-    Kill: 0x00200,
-    Server: 0x00400,
-    Info: 0x00800,
-    Error: 0x01000,
-    DayChange: 0x02000,
-    Topic: 0x04000,
-    NetsplitJoin: 0x08000,
-    NetsplitQuit: 0x10000,
-    Invite: 0x20000
-};
-
-var Flag = {
-    None: 0x00,
-    Self: 0x01,
-    Highlight: 0x02,
-    Redirected: 0x04,
-    ServerMsg: 0x08,
-    Backlog: 0x80
-};
-
-var IRCMessage = function IRCMessage(message) {
-    serialize(this);
-    this.id = message.id;
-    this.datetime = new Date(message.timestamp * 1000);
-    this.type = message.type;
-    this.flags = message.flags;
-    this.sender = message.sender?message.sender.str():null;
-    this.content = message.content?message.content.str():null;
-};
-
-IRCMessage.prototype.isSelf = function() {
-    return (this.flags & Flag.Self) !== 0;
-};
-
-IRCMessage.prototype._updateFlags = function(nick) {
-    if (this.type == Type.Plain || this.type == Type.Action) {
-        if (nick) {
-            var quotedNick = nick.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
-            var regex = new RegExp("([\\W]|^)"+quotedNick+"([\\W]|$)", "i");
-            if (regex.test(this.content)) {
-                this.flags = this.flags | Flag.Highlight;
-            }
-        }
-    }
-};
-
-IRCMessage.prototype.isHighlighted = function() {
-    return ((this.flags & Flag.Highlight) !== 0) && !this.isSelf();
-};
-
-IRCMessage.prototype.getNick = function() {
-    return this.sender.split("!")[0];
-};
-
-IRCMessage.prototype.getHostmask = function() {
-    return this.sender.split("!")[1];
-};
-
-exports.IRCMessage = IRCMessage;
-exports.Type = Type;
-exports.Flag = Flag;
-
-},{"./serializer":"cu7H2b"}],"network":[function(require,module,exports){
-module.exports=require('mjzgmF');
-},{}],"mjzgmF":[function(require,module,exports){
+},{}],2:[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -466,6 +40,7 @@ var Glouton = require('./glouton'),
     serialize = require('./serializer').serialize,
     IRCUser = require('./user'),
     IRCBufferCollection = require('./buffer').IRCBufferCollection,
+    logger = require('debug')('libquassel:network'),
     HashMap = require('./hashmap');
 
 var Network = function Network(networkId) {
@@ -668,7 +243,7 @@ Network.prototype.setIrcUsersAndChannels = function(uac) {
             if (user !== null) {
                 channel.addUser(user, uac.channels[key].UserModes[nick]);
             } else {
-                console.log("User " + nick + " have not been found on server.");
+                logger("User " + nick + " have not been found on server.");
             }
         }
     }
@@ -733,161 +308,7 @@ Network.prototype.getBuffer = function(ind) {
 exports.Network = Network;
 exports.NetworkCollection = NetworkCollection;
 
-},{"./buffer":"GW0Fap","./glouton":3,"./hashmap":"5VUt7Z","./serializer":"cu7H2b","./user":"VBuVyV"}],"serializer":[function(require,module,exports){
-module.exports=require('cu7H2b');
-},{}],"cu7H2b":[function(require,module,exports){
-/*
- * libquassel
- * https://github.com/magne4000/node-libquassel
- *
- * Copyright (c) 2014 Joël Charles
- * Licensed under the MIT license.
- */
-
-var extend = require('extend');
-
-var serialize = function serialize(obj) {
-    obj.__s_cls = obj.constructor.name;
-    obj.__s_done = false;
-};
-
-var Reviver = function() {
-    var args = Array.prototype.slice.call(arguments), i;
-    this.map = {};
-    // Used for revive
-    for (i=0; i<args.length; i++) {
-        this.push(args[i].name, args[i]);
-    }
-};
-
-Reviver.prototype.push = function(key, val) {
-    this.map[key] = val;
-};
-
-Reviver.prototype.get = function(key, val) {
-    return this.map[key];
-};
-
-Reviver.prototype.revivable = function(obj) {
-    return !!obj && !obj.__s_done && !!obj.__s_cls;
-};
-
-Reviver.prototype.afterReviving = function(obj, callback) {
-    var self = this;
-    if (this.revivable(obj)) {
-        setTimeout(function() {
-            self.afterReviving(obj, callback);
-        }, 10);
-    } else {
-        callback(obj);
-    }
-};
-
-Reviver.prototype.revive = function(obj) {
-    if (this.revivable(obj)) {
-        var cls = this.get(obj.__s_cls);
-		var newobj = Object.create(cls.prototype);
-		extend(obj, newobj);
-		obj.__s_done = true;
-		return true;
-    }
-    return false;
-};
-
-Reviver.prototype.reviveAll = function(obj) {
-    var self = this;
-    walk(obj, function(node) {
-        self.revive(node);
-    });
-};
-
-
-// inspired from https://github.com/substack/js-traverse
-function walk (root, cb) {
-    var path = [];
-    var parents = [];
-    
-    function walker (node) {
-        var state = {
-            node : node,
-            path : [].concat(path),
-            parent : parents[parents.length - 1],
-            parents : parents,
-            key : path.slice(-1)[0],
-            isRoot : path.length === 0,
-            level : path.length,
-            circular : null,
-            keys : null
-        };
-        
-        function updateState() {
-            if (typeof node === 'object' && node !== null) {
-                if (!state.keys) {
-					state.keys = Object.keys(node);
-                }
-                
-                for (var i = 0; i < parents.length; i++) {
-                    if (parents[i].node === node) {
-                        state.circular = true;
-                        break;
-                    }
-                }
-            } else {
-                state.keys = null;
-            }
-        }
-        
-        updateState();
-        
-        cb(node);
-        
-        if (typeof node === 'object' && node !== null && !state.circular) {
-            parents.push(state);
-            
-            updateState();
-            
-            state.keys.forEach(function (key, i) {
-                path.push(key);
-                walker(node[key]);
-                path.pop();
-            });
-            parents.pop();
-        }
-        
-        return state;
-    }
-    walker(root);
-}
-
-exports.serialize = serialize;
-exports.Reviver = Reviver;
-},{"extend":"5bmgkN"}],"VBuVyV":[function(require,module,exports){
-/*
- * libquassel
- * https://github.com/magne4000/node-libquassel
- *
- * Copyright (c) 2014 Joël Charles
- * Licensed under the MIT license.
- */
-
-var serialize = require('./serializer').serialize,
-    Glouton = require('./glouton');
-
-var IRCUser = function IRCUser(id, data) {
-    serialize(this);
-    this.id = id;
-    this.nick = this.id.split('!')[0];
-    if (data) {
-        this.devour(data);
-    }
-};
-
-Glouton.extend(IRCUser);
-
-module.exports = IRCUser;
-},{"./glouton":3,"./serializer":"cu7H2b"}],"user":[function(require,module,exports){
-module.exports=require('VBuVyV');
-},{}],14:[function(require,module,exports){
+},{"./buffer":"buffer","./glouton":1,"./hashmap":"serialized-hashmap","./serializer":"serializer","./user":"user","debug":7}],3:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -912,50 +333,43 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],15:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
+var queue = [];
+var draining = false;
 
-process.nextTick = (function () {
-    var canSetImmediate = typeof window !== 'undefined'
-    && window.setImmediate;
-    var canPost = typeof window !== 'undefined'
-    && window.postMessage && window.addEventListener
-    ;
-
-    if (canSetImmediate) {
-        return function (f) { return window.setImmediate(f) };
+function drainQueue() {
+    if (draining) {
+        return;
     }
-
-    if (canPost) {
-        var queue = [];
-        window.addEventListener('message', function (ev) {
-            var source = ev.source;
-            if ((source === window || source === null) && ev.data === 'process-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-
-        return function nextTick(fn) {
-            queue.push(fn);
-            window.postMessage('process-tick', '*');
-        };
+    draining = true;
+    var currentQueue;
+    var len = queue.length;
+    while(len) {
+        currentQueue = queue;
+        queue = [];
+        var i = -1;
+        while (++i < len) {
+            currentQueue[i]();
+        }
+        len = queue.length;
     }
-
-    return function nextTick(fn) {
-        setTimeout(fn, 0);
-    };
-})();
+    draining = false;
+}
+process.nextTick = function (fun) {
+    queue.push(fun);
+    if (!draining) {
+        setTimeout(drainQueue, 0);
+    }
+};
 
 process.title = 'browser';
 process.browser = true;
 process.env = {};
 process.argv = [];
+process.version = ''; // empty string to avoid regexp issues
 
 function noop() {}
 
@@ -969,22 +383,23 @@ process.emit = noop;
 
 process.binding = function (name) {
     throw new Error('process.binding is not supported');
-}
+};
 
 // TODO(shtylman)
 process.cwd = function () { return '/' };
 process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
+process.umask = function() { return 0; };
 
-},{}],16:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],17:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -1573,96 +988,484 @@ function hasOwnProperty(obj, prop) {
   return Object.prototype.hasOwnProperty.call(obj, prop);
 }
 
-}).call(this,require("FWaASH"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":16,"FWaASH":15,"inherits":14}],"5bmgkN":[function(require,module,exports){
-var hasOwn = Object.prototype.hasOwnProperty;
-var toString = Object.prototype.toString;
-var undefined;
+}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./support/isBuffer":5,"_process":4,"inherits":3}],7:[function(require,module,exports){
 
-var isPlainObject = function isPlainObject(obj) {
-	"use strict";
-	if (!obj || toString.call(obj) !== '[object Object]' || obj.nodeType || obj.setInterval) {
-		return false;
-	}
+/**
+ * This is the web browser implementation of `debug()`.
+ *
+ * Expose `debug()` as the module.
+ */
 
-	var has_own_constructor = hasOwn.call(obj, 'constructor');
-	var has_is_property_of_method = obj.constructor && obj.constructor.prototype && hasOwn.call(obj.constructor.prototype, 'isPrototypeOf');
-	// Not own constructor property must be Object
-	if (obj.constructor && !has_own_constructor && !has_is_property_of_method) {
-		return false;
-	}
+exports = module.exports = require('./debug');
+exports.log = log;
+exports.formatArgs = formatArgs;
+exports.save = save;
+exports.load = load;
+exports.useColors = useColors;
 
-	// Own properties are enumerated firstly, so to speed up,
-	// if last one is own, then all properties are own.
-	var key;
-	for (key in obj) {}
+/**
+ * Use chrome.storage.local if we are in an app
+ */
 
-	return key === undefined || hasOwn.call(obj, key);
-};
+var storage;
 
-module.exports = function extend() {
-	"use strict";
-	var options, name, src, copy, copyIsArray, clone,
-		target = arguments[0],
-		i = 1,
-		length = arguments.length,
-		deep = false;
+if (typeof chrome !== 'undefined' && typeof chrome.storage !== 'undefined')
+  storage = chrome.storage.local;
+else
+  storage = window.localStorage;
 
-	// Handle a deep copy situation
-	if (typeof target === "boolean") {
-		deep = target;
-		target = arguments[1] || {};
-		// skip the boolean and the target
-		i = 2;
-	} else if (typeof target !== "object" && typeof target !== "function" || target == undefined) {
-			target = {};
-	}
+/**
+ * Colors.
+ */
 
-	for (; i < length; ++i) {
-		// Only deal with non-null/undefined values
-		if ((options = arguments[i]) != null) {
-			// Extend the base object
-			for (name in options) {
-				src = target[name];
-				copy = options[name];
+exports.colors = [
+  'lightseagreen',
+  'forestgreen',
+  'goldenrod',
+  'dodgerblue',
+  'darkorchid',
+  'crimson'
+];
 
-				// Prevent never-ending loop
-				if (target === copy) {
-					continue;
-				}
+/**
+ * Currently only WebKit-based Web Inspectors, Firefox >= v31,
+ * and the Firebug extension (any Firefox version) are known
+ * to support "%c" CSS customizations.
+ *
+ * TODO: add a `localStorage` variable to explicitly enable/disable colors
+ */
 
-				// Recurse if we're merging plain objects or arrays
-				if (deep && copy && (isPlainObject(copy) || (copyIsArray = Array.isArray(copy)))) {
-					if (copyIsArray) {
-						copyIsArray = false;
-						clone = src && Array.isArray(src) ? src : [];
-					} else {
-						clone = src && isPlainObject(src) ? src : {};
-					}
+function useColors() {
+  // is webkit? http://stackoverflow.com/a/16459606/376773
+  return ('WebkitAppearance' in document.documentElement.style) ||
+    // is firebug? http://stackoverflow.com/a/398120/376773
+    (window.console && (console.firebug || (console.exception && console.table))) ||
+    // is firefox >= v31?
+    // https://developer.mozilla.org/en-US/docs/Tools/Web_Console#Styling_messages
+    (navigator.userAgent.toLowerCase().match(/firefox\/(\d+)/) && parseInt(RegExp.$1, 10) >= 31);
+}
 
-					// Never move original objects, clone them
-					target[name] = extend(deep, clone, copy);
+/**
+ * Map %j to `JSON.stringify()`, since no Web Inspectors do that by default.
+ */
 
-				// Don't bring in undefined values
-				} else if (copy !== undefined) {
-					target[name] = copy;
-				}
-			}
-		}
-	}
-
-	// Return the modified object
-	return target;
+exports.formatters.j = function(v) {
+  return JSON.stringify(v);
 };
 
 
-},{}],"extend":[function(require,module,exports){
-module.exports=require('5bmgkN');
-},{}],20:[function(require,module,exports){
+/**
+ * Colorize log arguments if enabled.
+ *
+ * @api public
+ */
+
+function formatArgs() {
+  var args = arguments;
+  var useColors = this.useColors;
+
+  args[0] = (useColors ? '%c' : '')
+    + this.namespace
+    + (useColors ? ' %c' : ' ')
+    + args[0]
+    + (useColors ? '%c ' : ' ')
+    + '+' + exports.humanize(this.diff);
+
+  if (!useColors) return args;
+
+  var c = 'color: ' + this.color;
+  args = [args[0], c, 'color: inherit'].concat(Array.prototype.slice.call(args, 1));
+
+  // the final "%c" is somewhat tricky, because there could be other
+  // arguments passed either before or after the %c, so we need to
+  // figure out the correct index to insert the CSS into
+  var index = 0;
+  var lastC = 0;
+  args[0].replace(/%[a-z%]/g, function(match) {
+    if ('%%' === match) return;
+    index++;
+    if ('%c' === match) {
+      // we only are interested in the *last* %c
+      // (the user may have provided their own)
+      lastC = index;
+    }
+  });
+
+  args.splice(lastC, 0, c);
+  return args;
+}
+
+/**
+ * Invokes `console.log()` when available.
+ * No-op when `console.log` is not a "function".
+ *
+ * @api public
+ */
+
+function log() {
+  // this hackery is required for IE8/9, where
+  // the `console.log` function doesn't have 'apply'
+  return 'object' === typeof console
+    && console.log
+    && Function.prototype.apply.call(console.log, console, arguments);
+}
+
+/**
+ * Save `namespaces`.
+ *
+ * @param {String} namespaces
+ * @api private
+ */
+
+function save(namespaces) {
+  try {
+    if (null == namespaces) {
+      storage.removeItem('debug');
+    } else {
+      storage.debug = namespaces;
+    }
+  } catch(e) {}
+}
+
+/**
+ * Load `namespaces`.
+ *
+ * @return {String} returns the previously persisted debug modes
+ * @api private
+ */
+
+function load() {
+  var r;
+  try {
+    r = storage.debug;
+  } catch(e) {}
+  return r;
+}
+
+/**
+ * Enable namespaces listed in `localStorage.debug` initially.
+ */
+
+exports.enable(load());
+
+},{"./debug":8}],8:[function(require,module,exports){
+
+/**
+ * This is the common logic for both the Node.js and web browser
+ * implementations of `debug()`.
+ *
+ * Expose `debug()` as the module.
+ */
+
+exports = module.exports = debug;
+exports.coerce = coerce;
+exports.disable = disable;
+exports.enable = enable;
+exports.enabled = enabled;
+exports.humanize = require('ms');
+
+/**
+ * The currently active debug mode names, and names to skip.
+ */
+
+exports.names = [];
+exports.skips = [];
+
+/**
+ * Map of special "%n" handling functions, for the debug "format" argument.
+ *
+ * Valid key names are a single, lowercased letter, i.e. "n".
+ */
+
+exports.formatters = {};
+
+/**
+ * Previously assigned color.
+ */
+
+var prevColor = 0;
+
+/**
+ * Previous log timestamp.
+ */
+
+var prevTime;
+
+/**
+ * Select a color.
+ *
+ * @return {Number}
+ * @api private
+ */
+
+function selectColor() {
+  return exports.colors[prevColor++ % exports.colors.length];
+}
+
+/**
+ * Create a debugger with the given `namespace`.
+ *
+ * @param {String} namespace
+ * @return {Function}
+ * @api public
+ */
+
+function debug(namespace) {
+
+  // define the `disabled` version
+  function disabled() {
+  }
+  disabled.enabled = false;
+
+  // define the `enabled` version
+  function enabled() {
+
+    var self = enabled;
+
+    // set `diff` timestamp
+    var curr = +new Date();
+    var ms = curr - (prevTime || curr);
+    self.diff = ms;
+    self.prev = prevTime;
+    self.curr = curr;
+    prevTime = curr;
+
+    // add the `color` if not set
+    if (null == self.useColors) self.useColors = exports.useColors();
+    if (null == self.color && self.useColors) self.color = selectColor();
+
+    var args = Array.prototype.slice.call(arguments);
+
+    args[0] = exports.coerce(args[0]);
+
+    if ('string' !== typeof args[0]) {
+      // anything else let's inspect with %o
+      args = ['%o'].concat(args);
+    }
+
+    // apply any `formatters` transformations
+    var index = 0;
+    args[0] = args[0].replace(/%([a-z%])/g, function(match, format) {
+      // if we encounter an escaped % then don't increase the array index
+      if (match === '%%') return match;
+      index++;
+      var formatter = exports.formatters[format];
+      if ('function' === typeof formatter) {
+        var val = args[index];
+        match = formatter.call(self, val);
+
+        // now we need to remove `args[index]` since it's inlined in the `format`
+        args.splice(index, 1);
+        index--;
+      }
+      return match;
+    });
+
+    if ('function' === typeof exports.formatArgs) {
+      args = exports.formatArgs.apply(self, args);
+    }
+    var logFn = enabled.log || exports.log || console.log.bind(console);
+    logFn.apply(self, args);
+  }
+  enabled.enabled = true;
+
+  var fn = exports.enabled(namespace) ? enabled : disabled;
+
+  fn.namespace = namespace;
+
+  return fn;
+}
+
+/**
+ * Enables a debug mode by namespaces. This can include modes
+ * separated by a colon and wildcards.
+ *
+ * @param {String} namespaces
+ * @api public
+ */
+
+function enable(namespaces) {
+  exports.save(namespaces);
+
+  var split = (namespaces || '').split(/[\s,]+/);
+  var len = split.length;
+
+  for (var i = 0; i < len; i++) {
+    if (!split[i]) continue; // ignore empty strings
+    namespaces = split[i].replace(/\*/g, '.*?');
+    if (namespaces[0] === '-') {
+      exports.skips.push(new RegExp('^' + namespaces.substr(1) + '$'));
+    } else {
+      exports.names.push(new RegExp('^' + namespaces + '$'));
+    }
+  }
+}
+
+/**
+ * Disable debug output.
+ *
+ * @api public
+ */
+
+function disable() {
+  exports.enable('');
+}
+
+/**
+ * Returns true if the given mode name is enabled, false otherwise.
+ *
+ * @param {String} name
+ * @return {Boolean}
+ * @api public
+ */
+
+function enabled(name) {
+  var i, len;
+  for (i = 0, len = exports.skips.length; i < len; i++) {
+    if (exports.skips[i].test(name)) {
+      return false;
+    }
+  }
+  for (i = 0, len = exports.names.length; i < len; i++) {
+    if (exports.names[i].test(name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Coerce `val`.
+ *
+ * @param {Mixed} val
+ * @return {Mixed}
+ * @api private
+ */
+
+function coerce(val) {
+  if (val instanceof Error) return val.stack || val.message;
+  return val;
+}
+
+},{"ms":9}],9:[function(require,module,exports){
+/**
+ * Helpers.
+ */
+
+var s = 1000;
+var m = s * 60;
+var h = m * 60;
+var d = h * 24;
+var y = d * 365.25;
+
+/**
+ * Parse or format the given `val`.
+ *
+ * Options:
+ *
+ *  - `long` verbose formatting [false]
+ *
+ * @param {String|Number} val
+ * @param {Object} options
+ * @return {String|Number}
+ * @api public
+ */
+
+module.exports = function(val, options){
+  options = options || {};
+  if ('string' == typeof val) return parse(val);
+  return options.long
+    ? long(val)
+    : short(val);
+};
+
+/**
+ * Parse the given `str` and return milliseconds.
+ *
+ * @param {String} str
+ * @return {Number}
+ * @api private
+ */
+
+function parse(str) {
+  var match = /^((?:\d+)?\.?\d+) *(ms|seconds?|s|minutes?|m|hours?|h|days?|d|years?|y)?$/i.exec(str);
+  if (!match) return;
+  var n = parseFloat(match[1]);
+  var type = (match[2] || 'ms').toLowerCase();
+  switch (type) {
+    case 'years':
+    case 'year':
+    case 'y':
+      return n * y;
+    case 'days':
+    case 'day':
+    case 'd':
+      return n * d;
+    case 'hours':
+    case 'hour':
+    case 'h':
+      return n * h;
+    case 'minutes':
+    case 'minute':
+    case 'm':
+      return n * m;
+    case 'seconds':
+    case 'second':
+    case 's':
+      return n * s;
+    case 'ms':
+      return n;
+  }
+}
+
+/**
+ * Short format for `ms`.
+ *
+ * @param {Number} ms
+ * @return {String}
+ * @api private
+ */
+
+function short(ms) {
+  if (ms >= d) return Math.round(ms / d) + 'd';
+  if (ms >= h) return Math.round(ms / h) + 'h';
+  if (ms >= m) return Math.round(ms / m) + 'm';
+  if (ms >= s) return Math.round(ms / s) + 's';
+  return ms + 'ms';
+}
+
+/**
+ * Long format for `ms`.
+ *
+ * @param {Number} ms
+ * @return {String}
+ * @api private
+ */
+
+function long(ms) {
+  return plural(ms, d, 'day')
+    || plural(ms, h, 'hour')
+    || plural(ms, m, 'minute')
+    || plural(ms, s, 'second')
+    || ms + ' ms';
+}
+
+/**
+ * Pluralization helper.
+ */
+
+function plural(ms, n, name) {
+  if (ms < n) return;
+  if (ms < n * 1.5) return Math.floor(ms / n) + ' ' + name;
+  return Math.ceil(ms / n) + ' ' + name + 's';
+}
+
+},{}],10:[function(require,module,exports){
 /**
  * HashMap - HashMap Class for JavaScript
  * @author Ariel Flesler <aflesler@gmail.com>
- * @version 1.1.0
+ * @version 2.0.0
  * Homepage: https://github.com/flesler/hashmap
  */
 
@@ -1679,11 +1482,16 @@ module.exports=require('5bmgkN');
 	}
 }(function () {
 	
-	function HashMap() {
+	function HashMap(other) {
 		this.clear();
+		switch (arguments.length) {
+			case 0: break;
+			case 1: this.copy(other); break;
+			default: multi(this, arguments); break;
+		}
 	}
 
-	HashMap.prototype = {
+	var proto = HashMap.prototype = {
 		constructor:HashMap,
 
 		get:function(key) {
@@ -1695,9 +1503,29 @@ module.exports=require('5bmgkN');
 			// Store original key as well (for iteration)
 			this._data[this.hash(key)] = [key, value];
 		},
+
+		multi:function() {
+			multi(this, arguments);
+		},
+
+		copy:function(other) {
+			for (var key in other._data) {
+				this._data[key] = other._data[key];
+			}
+		},
 		
 		has:function(key) {
 			return this.hash(key) in this._data;
+		},
+		
+		search:function(value) {
+			for (var key in this._data) {
+				if (this._data[key][1] === value) {
+					return this._data[key][0];
+				}
+			}
+
+			return null;
 		},
 		
 		remove:function(key) {
@@ -1733,6 +1561,10 @@ module.exports=require('5bmgkN');
 		clear:function() {
 			// TODO: Would Object.create(null) make any difference
 			this._data = {};
+		},
+
+		clone:function() {
+			return new HashMap(this);
 		},
 
 		hash:function(key) {
@@ -1778,7 +1610,34 @@ module.exports=require('5bmgkN');
 
 	HashMap.uid = 0;
 
-	
+	//- Automatically add chaining to some methods
+
+	for (var method in proto) {
+		// Skip constructor, valueOf, toString and any other built-in method
+		if (method === 'constructor' || !proto.hasOwnProperty(method)) {
+			continue;
+		}
+		var fn = proto[method];
+		if (fn.toString().indexOf('return ') === -1) {
+			proto[method] = chain(fn);
+		}
+	}
+
+	//- Utils
+
+	function multi(map, args) {
+		for (var i = 0; i < args.length; i += 2) {
+			map.set(args[i], args[i+1])
+		}
+	}
+
+	function chain(fn) {
+		return function() {
+			fn.apply(this, arguments);
+			return this;
+		};
+	}
+
 	function hide(obj, prop) {
 		// Make non iterable if supported
 		if (Object.defineProperty) {
@@ -1789,4 +1648,659 @@ module.exports=require('5bmgkN');
 	return HashMap;
 
 }));
-},{}]},{},["mjzgmF"])
+
+},{}],"buffer":[function(require,module,exports){
+/*
+ * libquassel
+ * https://github.com/magne4000/node-libquassel
+ *
+ * Copyright (c) 2014 Joël Charles
+ * Licensed under the MIT license.
+ */
+var serialize = require('./serializer').serialize,
+    Glouton = require('./glouton'),
+    HashMap = require('./hashmap'),
+    logger = require('debug', 'libquassel:buffer')
+    IRCMessage = require('./message').IRCMessage;
+
+var IRCBuffer = function IRCBuffer(id, data) {
+    serialize(this);
+    this.devour(data);
+    this.id = id;
+    this.nickUserMap = {};
+    this.nickUserModesMap = {};
+    this.messages = new HashMap();
+    this.active = false;
+    this._isStatusBuffer = false;
+    this.order = null;
+    if (this.type == IRCBuffer.Types.StatusBuffer) {
+        this._isStatusBuffer = true;
+    }
+};
+
+Glouton.extend(IRCBuffer);
+
+/**
+ * Switch buffer state
+ * @param {boolean} bool
+ */
+IRCBuffer.prototype.setActive = function(bool) {
+    this.active = bool;
+};
+
+/**
+ * Set buffer index
+ * @param {number} order
+ */
+IRCBuffer.prototype.setOrder = function(order) {
+    this.order = order;
+};
+
+/**
+ * Is this buffer a channel
+ */
+IRCBuffer.prototype.isChannel = function() {
+    return this.name && "#&+!".indexOf(this.name[0]) !== -1;
+};
+
+/**
+ * Add user to buffer
+ * @param {IRCUser} user
+ * @param {string} modes
+ */
+IRCBuffer.prototype.addUser = function(user, modes) {
+    this.nickUserMap[user.nick] = user;
+    this.nickUserModesMap[user.nick] = modes;
+};
+
+/**
+ * add mode to user
+ * @param {IRCUser} user
+ * @param {string} mode
+ */
+IRCBuffer.prototype.addUserMode = function(user, mode) {
+    this.nickUserModesMap[user.nick] += mode;
+};
+
+/**
+ * Returns true if user is chan operator
+ * @param {string} nick
+ * @return
+ */
+IRCBuffer.prototype.isOp = function(nick) {
+    return this.nickUserModesMap[nick].indexOf('o') !== -1;
+};
+
+/**
+ * Returns true if user is voiced
+ * @param {string} nick
+ * @return
+ */
+IRCBuffer.prototype.isVoiced = function(nick) {
+    return this.nickUserModesMap[nick].indexOf('v') !== -1;
+};
+
+/**
+ * remove mode from user
+ * @param {IRCUser} user
+ * @param {string} mode
+ */
+IRCBuffer.prototype.removeUserMode = function(user, mode) {
+    this.nickUserModesMap[user.nick] += this.nickUserModesMap[user.nick].replace(mode, "");
+};
+
+/**
+ * Check if current buffer contains specified user
+ * @param {IRCUser} user
+ */
+IRCBuffer.prototype.hasUser = function(user) {
+    if (typeof user === 'undefined' || user === null) {
+        logger("User should not be null or undefined");
+        return null;
+    }
+    return user.nick in this.nickUserMap;
+};
+
+/**
+ * Remove user from buffer
+ * @param {string} username
+ */
+IRCBuffer.prototype.removeUser = function(username) {
+    delete this.nickUserMap[username];
+    delete this.nickUserModesMap[username];
+};
+
+/**
+ * Add message to buffer
+ * @param {*} message
+ * @return the message, if successfully added, null otherwise
+ */
+IRCBuffer.prototype.addMessage = function(message) {
+    message.id = parseInt(message.id, 10);
+    if (this.messages.has(message.id)) {
+        return null;
+    }
+    this.messages.set(message.id, new IRCMessage(message));
+    return this.messages.get(message.id);
+};
+
+/**
+ * Check if specified messageId is the last one of this buffer
+ * @param {*} messageId
+ * @return
+ */
+IRCBuffer.prototype.isLast = function(messageId) {
+    messageId = parseInt(messageId, 10);
+    var max = Math.max.apply(null, this.messages.keys());
+    return max === messageId;
+};
+
+/**
+ * Name setter
+ * @param {string} name
+ */
+IRCBuffer.prototype.setName = function(name) {
+    this.name = name?name.toString():null;
+};
+
+/**
+ * get BufferInfo structure
+ * @return BufferInfo
+ */
+IRCBuffer.prototype.getBufferInfo = function() {
+    return {
+        id: this.id,
+        network: this.network,
+        type: this.type,
+        group: this.group,
+        name: this.name
+    };
+};
+
+/**
+ * Returns true if this buffer is a StatusBuffer
+ * @return BufferInfo
+ */
+IRCBuffer.prototype.isStatusBuffer = function(bool) {
+    if (typeof bool === "undefined")
+        return this._isStatusBuffer;
+    else
+        this._isStatusBuffer = bool;
+};
+
+/**
+ * Flag the buffer as temporarily removed
+ * @param {boolean} flag
+ */
+IRCBuffer.prototype.setTemporarilyRemoved = function(flag) {
+    this.isTemporarilyRemoved = flag;
+};
+
+/**
+ * Flag the buffer as permanently removed
+ * @param {boolean} flag
+ */
+IRCBuffer.prototype.setPermanentlyRemoved = function(flag) {
+    this.isPermanentlyRemoved = flag;
+};
+
+/**
+ * Is the buffer hidden/removed (permanently or temporarily)
+ */
+IRCBuffer.prototype.isHidden = function(flag) {
+    return this.isPermanentlyRemoved || this.isTemporarilyRemoved;
+};
+
+var IRCBufferCollection = function IRCBufferCollection() {
+    serialize(this);
+    this.buffers = new HashMap();
+    this.filteredBuffers = new HashMap();
+};
+
+/**
+ * @param {IRCBuffer} buffer
+ */
+IRCBufferCollection.prototype.addBuffer = function(buffer) {
+    if (this.buffers.has(buffer.id)) {
+        logger("Buffer already added (" + buffer.name + ")");
+        return;
+    }
+    this.buffers.set(buffer.id, buffer);
+    this._computeFilteredBuffers();
+};
+
+/**
+ * @param {IRCBuffer} buffer
+ * @protected
+ */
+IRCBufferCollection.prototype._isBufferFiltered = function(buffer) {
+    if (buffer.isPermanentlyRemoved || buffer.isTemporarilyRemoved) {
+        return true;
+    } else {
+        return false;
+    }
+};
+
+/**
+ * @param {(number|string)} bufferId
+ */
+IRCBufferCollection.prototype.getBuffer = function(bufferId) {
+    if (typeof bufferId === 'string') {
+        var buffers = this.buffers.values();
+        for (var key in buffers) {
+            if (typeof buffers[key].name === 'string') {
+                if (buffers[key].name.toLowerCase() === bufferId.toLowerCase()) {
+                    return buffers[key];
+                }
+            }
+        }
+    } else {
+        // number
+        var buffer = this.buffers.get(bufferId);
+        if (typeof buffer !== 'undefined') {
+            return buffer;
+        }
+    }
+    return null;
+};
+
+/**
+ * @param {(number|string)} bufferId
+ */
+IRCBufferCollection.prototype.hasBuffer = function(bufferId) {
+    if (typeof bufferId === 'string') {
+        return this.getBuffer(bufferId) !== null;
+    } else {
+        return this.buffers.has(bufferId);
+    }
+};
+
+/**
+ * @param {(number|string)} bufferId
+ */
+IRCBufferCollection.prototype.removeBuffer = function(bufferId) {
+    if (this.hasBuffer(bufferId)) {
+        this.buffers.remove(this.getBuffer(bufferId).id);
+    }
+};
+
+/**
+ * @protected
+ */
+IRCBufferCollection.prototype._computeFilteredBuffers = function() {
+    var key, buffers = this.buffers.values(), has;
+    for (key in buffers) {
+        has = this.filteredBuffers.has(buffers[key].id);
+        if (this._isBufferFiltered(buffers[key])){
+            if (!has) {
+                this.filteredBuffers.set(buffers[key].id, buffers[key]);
+            }
+        } else {
+            if (has) {
+                this.filteredBuffers.remove(buffers[key].id);
+            }
+        }
+    }
+};
+
+IRCBuffer.Types = {
+    InvalidBuffer: 0x00,
+    StatusBuffer: 0x01,
+    ChannelBuffer: 0x02,
+    QueryBuffer: 0x04,
+    GroupBuffer: 0x08
+};
+
+exports.IRCBuffer = IRCBuffer;
+exports.IRCBufferCollection = IRCBufferCollection;
+
+},{"./glouton":1,"./hashmap":"serialized-hashmap","./message":"message","./serializer":"serializer","debug":7}],"extend":[function(require,module,exports){
+var hasOwn = Object.prototype.hasOwnProperty;
+var toString = Object.prototype.toString;
+var undefined;
+
+var isPlainObject = function isPlainObject(obj) {
+	'use strict';
+	if (!obj || toString.call(obj) !== '[object Object]') {
+		return false;
+	}
+
+	var has_own_constructor = hasOwn.call(obj, 'constructor');
+	var has_is_property_of_method = obj.constructor && obj.constructor.prototype && hasOwn.call(obj.constructor.prototype, 'isPrototypeOf');
+	// Not own constructor property must be Object
+	if (obj.constructor && !has_own_constructor && !has_is_property_of_method) {
+		return false;
+	}
+
+	// Own properties are enumerated firstly, so to speed up,
+	// if last one is own, then all properties are own.
+	var key;
+	for (key in obj) {}
+
+	return key === undefined || hasOwn.call(obj, key);
+};
+
+module.exports = function extend() {
+	'use strict';
+	var options, name, src, copy, copyIsArray, clone,
+		target = arguments[0],
+		i = 1,
+		length = arguments.length,
+		deep = false;
+
+	// Handle a deep copy situation
+	if (typeof target === 'boolean') {
+		deep = target;
+		target = arguments[1] || {};
+		// skip the boolean and the target
+		i = 2;
+	} else if ((typeof target !== 'object' && typeof target !== 'function') || target == null) {
+		target = {};
+	}
+
+	for (; i < length; ++i) {
+		options = arguments[i];
+		// Only deal with non-null/undefined values
+		if (options != null) {
+			// Extend the base object
+			for (name in options) {
+				src = target[name];
+				copy = options[name];
+
+				// Prevent never-ending loop
+				if (target === copy) {
+					continue;
+				}
+
+				// Recurse if we're merging plain objects or arrays
+				if (deep && copy && (isPlainObject(copy) || (copyIsArray = Array.isArray(copy)))) {
+					if (copyIsArray) {
+						copyIsArray = false;
+						clone = src && Array.isArray(src) ? src : [];
+					} else {
+						clone = src && isPlainObject(src) ? src : {};
+					}
+
+					// Never move original objects, clone them
+					target[name] = extend(deep, clone, copy);
+
+				// Don't bring in undefined values
+				} else if (copy !== undefined) {
+					target[name] = copy;
+				}
+			}
+		}
+	}
+
+	// Return the modified object
+	return target;
+};
+
+
+},{}],"message":[function(require,module,exports){
+var serialize = require('./serializer').serialize;
+
+var Type = {
+    Plain: 0x00001,
+    Notice: 0x00002,
+    Action: 0x00004,
+    Nick: 0x00008,
+    Mode: 0x00010,
+    Join: 0x00020,
+    Part: 0x00040,
+    Quit: 0x00080,
+    Kick: 0x00100,
+    Kill: 0x00200,
+    Server: 0x00400,
+    Info: 0x00800,
+    Error: 0x01000,
+    DayChange: 0x02000,
+    Topic: 0x04000,
+    NetsplitJoin: 0x08000,
+    NetsplitQuit: 0x10000,
+    Invite: 0x20000
+};
+
+var Flag = {
+    None: 0x00,
+    Self: 0x01,
+    Highlight: 0x02,
+    Redirected: 0x04,
+    ServerMsg: 0x08,
+    Backlog: 0x80
+};
+
+var IRCMessage = function IRCMessage(message) {
+    serialize(this);
+    this.id = message.id;
+    this.datetime = new Date(message.timestamp * 1000);
+    this.type = message.type;
+    this.flags = message.flags;
+    this.sender = message.sender?message.sender.str():null;
+    this.content = message.content?message.content.str():null;
+};
+
+IRCMessage.prototype.isSelf = function() {
+    return (this.flags & Flag.Self) !== 0;
+};
+
+IRCMessage.prototype._updateFlags = function(nick) {
+    if (this.type == Type.Plain || this.type == Type.Action) {
+        if (nick) {
+            var quotedNick = nick.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
+            var regex = new RegExp("([\\W]|^)"+quotedNick+"([\\W]|$)", "i");
+            if (regex.test(this.content)) {
+                this.flags = this.flags | Flag.Highlight;
+            }
+        }
+    }
+};
+
+IRCMessage.prototype.isHighlighted = function() {
+    return ((this.flags & Flag.Highlight) !== 0) && !this.isSelf();
+};
+
+IRCMessage.prototype.getNick = function() {
+    return this.sender.split("!")[0];
+};
+
+IRCMessage.prototype.getHostmask = function() {
+    return this.sender.split("!")[1];
+};
+
+exports.IRCMessage = IRCMessage;
+exports.Type = Type;
+exports.Flag = Flag;
+
+},{"./serializer":"serializer"}],"serialized-hashmap":[function(require,module,exports){
+/*
+ * libquassel
+ * https://github.com/magne4000/node-libquassel
+ *
+ * Copyright (c) 2014 Joël Charles
+ * Licensed under the MIT license.
+ */
+
+var HM = require("hashmap").HashMap,
+    util = require("util"),
+    serialize = require('./serializer').serialize;
+
+var HashMap = function HashMap(){
+    HashMap.super_.call(this);
+    serialize(this);
+};
+
+util.inherits(HashMap, HM);
+
+HashMap.prototype.forEach = function(func, sortfunction) {
+    var key;
+    if (typeof sortfunction === 'function') {
+        var arr = [], i = 0;
+        for (key in this._data) {
+            arr.push(this._data[key][1]);
+        }
+        arr.sort(sortfunction);
+        for (;i<arr.length;i++) {
+            func.call(this, arr[i], arr[i].id);
+        }
+    } else {
+        for (key in this._data) {
+            var data = this._data[key];
+            func.call(this, data[1], data[0]);
+        }
+    }
+};
+
+module.exports = HashMap;
+},{"./serializer":"serializer","hashmap":10,"util":6}],"serializer":[function(require,module,exports){
+/*
+ * libquassel
+ * https://github.com/magne4000/node-libquassel
+ *
+ * Copyright (c) 2014 Joël Charles
+ * Licensed under the MIT license.
+ */
+
+var extend = require('extend');
+
+var serialize = function serialize(obj) {
+    obj.__s_cls = obj.constructor.name;
+    obj.__s_done = false;
+};
+
+var Reviver = function() {
+    var args = Array.prototype.slice.call(arguments), i;
+    this.map = {};
+    // Used for revive
+    for (i=0; i<args.length; i++) {
+        this.push(args[i].name, args[i]);
+    }
+};
+
+Reviver.prototype.push = function(key, val) {
+    this.map[key] = val;
+};
+
+Reviver.prototype.get = function(key) {
+    return this.map[key];
+};
+
+Reviver.prototype.revivable = function(obj) {
+    return !!obj && !obj.__s_done && !!obj.__s_cls;
+};
+
+Reviver.prototype.afterReviving = function(obj, callback) {
+    var self = this;
+    if (this.revivable(obj)) {
+        setTimeout(function() {
+            self.afterReviving(obj, callback);
+        }, 10);
+    } else {
+        callback(obj);
+    }
+};
+
+Reviver.prototype.revive = function(obj) {
+    if (this.revivable(obj)) {
+        var cls = this.get(obj.__s_cls);
+        var newobj = Object.create(cls.prototype);
+        extend(obj, newobj);
+        obj.__s_done = true;
+        return true;
+    }
+    return false;
+};
+
+Reviver.prototype.reviveAll = function(obj) {
+    var self = this;
+    walk(obj, function(node) {
+        self.revive(node);
+    });
+};
+
+
+// inspired from https://github.com/substack/js-traverse
+function walk (root, cb) {
+    var path = [];
+    var parents = [];
+
+    function walker (node) {
+        var state = {
+            node : node,
+            path : [].concat(path),
+            parent : parents[parents.length - 1],
+            parents : parents,
+            key : path.slice(-1)[0],
+            isRoot : path.length === 0,
+            level : path.length,
+            circular : null,
+            keys : null
+        };
+
+        function updateState() {
+            if (typeof node === 'object' && node !== null) {
+                if (!state.keys) {
+                    state.keys = Object.keys(node);
+                }
+
+                for (var i = 0; i < parents.length; i++) {
+                    if (parents[i].node === node) {
+                        state.circular = true;
+                        break;
+                    }
+                }
+            } else {
+                state.keys = null;
+            }
+        }
+
+        updateState();
+
+        cb(node);
+
+        if (typeof node === 'object' && node !== null && !state.circular) {
+            parents.push(state);
+
+            updateState();
+
+            state.keys.forEach(function (key) {
+                path.push(key);
+                walker(node[key]);
+                path.pop();
+            });
+            parents.pop();
+        }
+
+        return state;
+    }
+    walker(root);
+}
+
+exports.serialize = serialize;
+exports.Reviver = Reviver;
+
+},{"extend":"extend"}],"user":[function(require,module,exports){
+/*
+ * libquassel
+ * https://github.com/magne4000/node-libquassel
+ *
+ * Copyright (c) 2014 Joël Charles
+ * Licensed under the MIT license.
+ */
+
+var serialize = require('./serializer').serialize,
+    Glouton = require('./glouton');
+
+var IRCUser = function IRCUser(id, data) {
+    serialize(this);
+    this.id = id;
+    this.nick = this.id.split('!')[0];
+    if (data) {
+        this.devour(data);
+    }
+};
+
+Glouton.extend(IRCUser);
+
+module.exports = IRCUser;
+},{"./glouton":1,"./serializer":"serializer"}]},{},[2]);

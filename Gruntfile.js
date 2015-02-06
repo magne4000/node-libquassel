@@ -11,13 +11,13 @@ module.exports = function(grunt) {
         },
         options: {
           alias: [
-            'lib/network.js:network',
-            'node_modules/extend/index.js:extend',
-            'lib/serializer.js:serializer',
-            'lib/hashmap.js:serialized-hashmap',
-            'lib/user.js:user',
-            'lib/buffer.js:buffer',
-            'lib/message:message'
+            './lib/network.js:network',
+            './node_modules/extend/index.js:extend',
+            './lib/serializer.js:serializer',
+            './lib/hashmap.js:serialized-hashmap',
+            './lib/user.js:user',
+            './lib/buffer.js:buffer',
+            './lib/message:message'
           ]
         }
       }
