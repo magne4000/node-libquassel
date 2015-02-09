@@ -164,6 +164,10 @@ if (!opts.action) {
         console.log('Buffer ' + bufferId + ' activated');
     });
     
+    quassel.on('buffer.deactivate', function(bufferId) {
+        console.log('Buffer ' + bufferId + ' deactivated');
+    });
+    
     quassel.on('buffer.unhide', function(bufferId) {
         console.log('Buffer ' + bufferId + ' not hidden anymore');
     });
