@@ -1621,14 +1621,18 @@ IRCBufferCollection.prototype._isBufferFiltered = function(buffer) {
 };
 
 /**
- * @param {(number|string)} bufferId
+ * @param {(number|string|Buffer)} bufferId
  */
 IRCBufferCollection.prototype.getBuffer = function(bufferId) {
+    if (typeof bufferId.str === 'function') {
+        bufferId = bufferId.str();
+    }
     if (typeof bufferId === 'string') {
+        bufferId = bufferId.toLowerCase();
         var buffers = this.buffers.values();
         for (var key in buffers) {
             if (typeof buffers[key].name === 'string') {
-                if (buffers[key].name.toLowerCase() === bufferId.toLowerCase()) {
+                if (buffers[key].name.toLowerCase() === bufferId) {
                     return buffers[key];
                 }
             }
@@ -1644,10 +1648,10 @@ IRCBufferCollection.prototype.getBuffer = function(bufferId) {
 };
 
 /**
- * @param {(number|string)} bufferId
+ * @param {(number|string|Buffer)} bufferId
  */
 IRCBufferCollection.prototype.hasBuffer = function(bufferId) {
-    if (typeof bufferId === 'string') {
+    if (typeof bufferId === 'string' || typeof bufferId.str === 'function') {
         return this.getBuffer(bufferId) !== null;
     } else {
         return this.buffers.has(bufferId);
