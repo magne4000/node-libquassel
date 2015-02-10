@@ -1996,19 +1996,20 @@ Network.prototype.addUser = function(user) {
 
 /**
  * @param {string} nick
+ * @param {function} cb
  */
-Network.prototype.removeUser = function(nick) {
+Network.prototype.removeUser = function(nick, cb) {
     // remove user from channels
     // and disable user buffer
     var ircuser = this.getUserByNick(nick);
-    var self = this;
     this.getBufferHashMap().forEach(function(value, key){
         if (value.isChannel()) {
             if (value.hasUser(ircuser)) {
                 value.removeUser(ircuser);
             }
-        } else if (value.name === nick) {
-            value.setActive(false);
+        }
+        if (typeof activeCallback === 'function') {
+            cb(value);
         }
     });
     delete this.nickUserMap[nick];
@@ -2055,13 +2056,19 @@ Network.prototype.setConnected = function(connected) {
  * @param {Object} uac
  */
 Network.prototype.setIrcUsersAndChannels = function(uac) {
-    var key, user, channel, nick;
+    var key, user, channel, nick, self=this;
     
     // Create IRCUsers and attach them to network
     for (key in uac.users) {
         user = new IRCUser(key, uac.users[key]);
         this.nickUserMap[user.nick] = user;
     }
+    // If there is a buffer corresponding to a nick, activate the buffer
+    this.getBufferHashMap().forEach(function(value){
+        if (typeof self.nickUserMap[value.name] !== 'undefined') {
+            value.setActive(true);
+        }
+    });
     // Create Channels and attach them to network
     for (key in uac.channels) {
         channel = this.getBuffer(key);
