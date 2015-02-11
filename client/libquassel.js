@@ -1447,7 +1447,7 @@ IRCBuffer.prototype.addUserMode = function(user, mode) {
  * @return
  */
 IRCBuffer.prototype.isOp = function(nick) {
-    return this.nickUserModesMap[nick].indexOf('o') !== -1;
+    return (this.nickUserModesMap[nick]||"").indexOf('o') !== -1;
 };
 
 /**
@@ -1456,7 +1456,7 @@ IRCBuffer.prototype.isOp = function(nick) {
  * @return
  */
 IRCBuffer.prototype.isVoiced = function(nick) {
-    return this.nickUserModesMap[nick].indexOf('v') !== -1;
+    return (this.nickUserModesMap[nick]||"").indexOf('v') !== -1;
 };
 
 /**
@@ -1665,6 +1665,18 @@ IRCBufferCollection.prototype.removeBuffer = function(bufferId) {
     if (this.hasBuffer(bufferId)) {
         this.buffers.remove(this.getBuffer(bufferId).id);
     }
+};
+
+
+/**
+ * @param {Buffer} buffer
+ * @param {(number|string)} bufferIdTo
+ */
+IRCBufferCollection.prototype.moveBuffer = function(buffer, bufferIdTo) {
+    var bufferIdFrom = buffer.id;
+    this.buffers.set(bufferIdTo, buffer);
+    buffer.id = bufferIdTo;
+    this.buffers.remove(bufferIdFrom);
 };
 
 /**
