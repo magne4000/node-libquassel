@@ -1379,7 +1379,7 @@ function plural(ms, n, name) {
 var serialize = require('./serializer').serialize,
     Glouton = require('./glouton'),
     HashMap = require('./hashmap'),
-    logger = require('debug', 'libquassel:buffer')
+    logger = require('debug', 'libquassel:buffer'),
     IRCMessage = require('./message').IRCMessage;
 
 var IRCBuffer = function IRCBuffer(id, data) {
@@ -1586,7 +1586,7 @@ IRCBuffer.prototype.setPermanentlyRemoved = function(flag) {
 /**
  * Is the buffer hidden/removed (permanently or temporarily)
  */
-IRCBuffer.prototype.isHidden = function(flag) {
+IRCBuffer.prototype.isHidden = function() {
     return this.isPermanentlyRemoved || this.isTemporarilyRemoved;
 };
 
