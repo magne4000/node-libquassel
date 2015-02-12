@@ -11,12 +11,6 @@ var opts = require("nomnom")
       flag: true,
       help: 'Play with buffers hidden state / Send messages / Mark buffer as read / (Dis)Connect network'
    })
-   .option('noDebug', {
-      abbr: 'd',
-      full: 'no-debug',
-      flag: true,
-      help: 'Disable all libquassel logs'
-   })
    .parse();
 
 function echoBufferList() {
@@ -51,10 +45,9 @@ function echoActionChoices() {
 }
 
 if (opts.action) {
-    opts.noDebug = true;
     opts.backlog = true;
 }
-var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog, nodebug: opts.noDebug}, function(next) {
+var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog}, function(next) {
     pprompt.start();
     var schema = {
         properties: {

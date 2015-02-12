@@ -1551,7 +1551,7 @@ IRCBuffer.prototype.getBufferInfo = function() {
         id: this.id,
         network: this.network,
         type: this.type,
-        group: this.group,
+        group: this.group || 0,
         name: this.name
     };
 };
