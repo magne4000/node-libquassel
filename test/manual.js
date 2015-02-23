@@ -13,23 +13,6 @@ var opts = require("nomnom")
    })
    .parse();
 
-function echoBufferList() {
-    quassel.getNetworksHashMap().forEach(function(val, key){
-        console.log(val.networkName + " :");
-        var buffs = [];
-        val.getBufferHashMap().forEach(function(val2, key2){
-            buffs.push(val2.name + ": " + val2.id);
-        });
-        console.log(buffs.join(", "));
-    });
-}
-
-function echoNetworkList() {
-    quassel.getNetworksHashMap().forEach(function(val, key){
-        console.log(val.networkName + " : " + val.networkId);
-    });
-}
-
 function echoActionChoices() {
     console.log(" 1. Disconnect Network");
     console.log(" 2. Connect Network");
@@ -41,13 +24,16 @@ function echoActionChoices() {
     console.log(" 8. Remove buffer");
     console.log(" 9. Request 20 more backlogs for a buffer");
     console.log("10. Send a message");
+    console.log("11. Merge buffers request");
     console.log("(CTRL^C CTRL^C to quit)");
 }
 
 if (opts.action) {
     opts.backlog = true;
 }
+
 var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog}, function(next) {
+    console.log("Connected");
     pprompt.start();
     var schema = {
         properties: {
@@ -66,6 +52,23 @@ var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog}, fu
         next(result.user, result.password);
     });
 });
+
+function echoBufferList() {
+    quassel.getNetworksHashMap().forEach(function(val, key){
+        console.log(val.networkName + " :");
+        var buffs = [];
+        val.getBufferHashMap().forEach(function(val2, key2){
+            buffs.push(val2.name + ": " + val2.id);
+        });
+        console.log(buffs.join(", "));
+    });
+}
+
+function echoNetworkList() {
+    quassel.getNetworksHashMap().forEach(function(val, key){
+        console.log(val.networkName + " : " + val.networkId);
+    });
+}
 
 if (!opts.action) {
     quassel.on('buffer.backlog', function(bufferId, messageIds) {
@@ -143,6 +146,10 @@ if (!opts.action) {
     
     quassel.on('buffer.rename', function(bufferId, newName) {
         console.log('New name for buffer #' + bufferId + ' : ' + newName);
+    });
+
+    quassel.on('buffer.merge', function(bufferId1, bufferId2) {
+        console.log('Buffer #' + bufferId2 + ' merged into buffer #' + bufferId1);
     });
     
     quassel.on('buffer.lastseen', function(bufferId, messageId) {
@@ -224,7 +231,7 @@ if (!opts.action) {
     var schemaActionChoices = [{
         name: 'id',
         description: 'Choose action',
-        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'],
         required: true
     }], schemaBuffer = [{
         name: 'id',
@@ -245,6 +252,16 @@ if (!opts.action) {
         name: 'id',
         type: 'string',
         description: 'Choose a networkId',
+        required: true
+    }], schemaMerge = [{
+        name: 'id1',
+        type: 'string',
+        description: 'Buffer ID 1',
+        required: true
+    },{
+        name: 'id2',
+        type: 'string',
+        description: 'Buffer ID 2',
         required: true
     }];
     
@@ -376,6 +393,17 @@ if (!opts.action) {
                             }
                         });
                         break;
+                    case '11':
+                        // Send merge buffers requests
+                        echoBufferList();
+                        pprompt.get(schemaMerge, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.requestMergeBuffersPermanently(result2.id1, result2.id2);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
                     default:
                         console.log('Wrong choice');
                         setTimeout(p, 1);
@@ -396,5 +424,4 @@ if (!opts.action) {
         }
     });
 }
-
 quassel.connect();
