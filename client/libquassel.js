@@ -51,7 +51,7 @@ var storage;
 if (typeof chrome !== 'undefined' && typeof chrome.storage !== 'undefined')
   storage = chrome.storage.local;
 else
-  storage = window.localStorage;
+  storage = localstorage();
 
 /**
  * Colors.
@@ -186,6 +186,23 @@ function load() {
  */
 
 exports.enable(load());
+
+/**
+ * Localstorage attempts to return the localstorage.
+ *
+ * This is necessary because safari throws
+ * when a user disables cookies/localstorage
+ * and you attempt to access it.
+ *
+ * @return {LocalStorage}
+ * @api private
+ */
+
+function localstorage(){
+  try {
+    return window.localStorage;
+  } catch (e) {}
+}
 
 },{"./debug":3}],3:[function(require,module,exports){
 
@@ -427,13 +444,15 @@ module.exports = function(val, options){
  */
 
 function parse(str) {
-  var match = /^((?:\d+)?\.?\d+) *(ms|seconds?|s|minutes?|m|hours?|h|days?|d|years?|y)?$/i.exec(str);
+  var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(str);
   if (!match) return;
   var n = parseFloat(match[1]);
   var type = (match[2] || 'ms').toLowerCase();
   switch (type) {
     case 'years':
     case 'year':
+    case 'yrs':
+    case 'yr':
     case 'y':
       return n * y;
     case 'days':
@@ -442,16 +461,26 @@ function parse(str) {
       return n * d;
     case 'hours':
     case 'hour':
+    case 'hrs':
+    case 'hr':
     case 'h':
       return n * h;
     case 'minutes':
     case 'minute':
+    case 'mins':
+    case 'min':
     case 'm':
       return n * m;
     case 'seconds':
     case 'second':
+    case 'secs':
+    case 'sec':
     case 's':
       return n * s;
+    case 'milliseconds':
+    case 'millisecond':
+    case 'msecs':
+    case 'msec':
     case 'ms':
       return n;
   }
@@ -1429,8 +1458,10 @@ IRCBuffer.prototype.isChannel = function() {
  * @param {string} modes
  */
 IRCBuffer.prototype.addUser = function(user, modes) {
-    this.nickUserMap[user.nick] = user;
-    this.nickUserModesMap[user.nick] = modes;
+    if (user && typeof user.nick === "string") {
+        this.nickUserMap[user.nick] = user;
+        this.nickUserModesMap[user.nick] = modes;
+    }
 };
 
 /**
@@ -1439,7 +1470,9 @@ IRCBuffer.prototype.addUser = function(user, modes) {
  * @param {string} mode
  */
 IRCBuffer.prototype.addUserMode = function(user, mode) {
-    this.nickUserModesMap[user.nick] += mode;
+    if (user && typeof user.nick === "string") {
+        this.nickUserModesMap[user.nick] += mode;
+    }
 };
 
 /**
@@ -1466,7 +1499,9 @@ IRCBuffer.prototype.isVoiced = function(nick) {
  * @param {string} mode
  */
 IRCBuffer.prototype.removeUserMode = function(user, mode) {
-    this.nickUserModesMap[user.nick] += this.nickUserModesMap[user.nick].replace(mode, "");
+    if (user && typeof user.nick === "string") {
+        this.nickUserModesMap[user.nick] += this.nickUserModesMap[user.nick].replace(mode, "");
+    }
 };
 
 /**
