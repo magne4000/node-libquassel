@@ -1,4 +1,5 @@
 var Quassel = require('../lib/libquassel.js'),
+    ignore = require('../lib/ignore.js'),
     pprompt = require('prompt');
 var opts = require("nomnom")
    .option('backlog', {
@@ -131,9 +132,13 @@ if (!opts.action) {
         console.log('Network ' + network.networkName + ' - server : ' + server);
     });
     
-    quassel.on('buffer.message', function(bufferId, message) {
-        console.log('New message on buffer #' + bufferId + ' :');
-        console.log(message);
+    quassel.on('buffer.message', function(bufferId, messageId) {
+        console.log('New message on buffer #' + bufferId + ' :', messageId);
+        var buffer = quassel.networks.findBuffer(bufferId);
+        var message = buffer.messages.get(messageId);
+        if (quassel.ignoreList.matches(message, quassel.networks)) {
+            console.log(messageId, 'is ignored');
+        }
     });
     
     quassel.on('buffer.read', function(bufferId) {
@@ -224,6 +229,10 @@ if (!opts.action) {
     
     quassel.on('channel.topic', function(bufferId, topic) {
         console.log('Channel ' + bufferId + ' - new topic : ' + topic);
+    });
+    
+    quassel.on('ignorelist', function(ignorelist) {
+        console.log('IgnoreList received', ignorelist);
     });
     
 } else {
