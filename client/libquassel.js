@@ -1860,8 +1860,7 @@ var IgnoreItem = function IgnoreItem(strictness, scopeRule, scope, isRegEx, isAc
     this.isActive = isActive;
     this.ignoreType = ignoreType;
     this.ignoreRule = ignoreRule;
-    this.regexScope = isRegEx?new RegExp(scopeRule, 'i'):new RegExp('.*'+scopeRule.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1")+'.*', 'i');
-    this.regexIgnore = isRegEx?new RegExp(ignoreRule, 'i'):new RegExp('.*'+ignoreRule.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1")+'.*', 'i');
+    this.revived();
 };
 
 IgnoreItem.prototype.matchScope = function(subject) {
@@ -1870,6 +1869,11 @@ IgnoreItem.prototype.matchScope = function(subject) {
 
 IgnoreItem.prototype.matchIgnore = function(subject) {
     return subject.match(this.regexIgnore) !== null;
+};
+
+IgnoreItem.prototype.revived = function() {
+    this.regexScope = this.isRegEx?new RegExp(this.scopeRule, 'i'):new RegExp('.*'+this.scopeRule.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1")+'.*', 'i');
+    this.regexIgnore = this.isRegEx?new RegExp(this.ignoreRule, 'i'):new RegExp('.*'+this.ignoreRule.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1")+'.*', 'i');
 };
 
 var IgnoreList = function IgnoreList(){
@@ -2422,9 +2426,13 @@ Reviver.prototype.revive = function(obj) {
 
 Reviver.prototype.reviveAll = function(obj) {
     var self = this;
-    self.revive(obj);
+    if (self.revive(obj) && typeof obj.revived === "function") {
+        obj.revived();
+    }
     walk(obj, function(node) {
-        self.revive(node);
+        if (self.revive(node) && typeof node.revived === "function") {
+            node.revived();
+        }
     });
 };
 
