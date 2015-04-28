@@ -26,6 +26,7 @@ function echoActionChoices() {
     console.log(" 9. Request 20 more backlogs for a buffer");
     console.log("10. Send a message");
     console.log("11. Merge buffers request");
+    console.log("12. Update ignoreList");
     console.log("(CTRL^C CTRL^C to quit)");
 }
 
@@ -240,7 +241,7 @@ if (!opts.action) {
     var schemaActionChoices = [{
         name: 'id',
         description: 'Choose action',
-        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'],
+        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
         required: true
     }], schemaBuffer = [{
         name: 'id',
@@ -412,6 +413,11 @@ if (!opts.action) {
                                 setTimeout(p, 1);
                             }
                         });
+                        break;
+                    case '12':
+                        // Send update (ignoreList) request
+                        quassel.requestUpdate(quassel.ignoreList.export());
+                        setTimeout(p, 1);
                         break;
                     default:
                         console.log('Wrong choice');
