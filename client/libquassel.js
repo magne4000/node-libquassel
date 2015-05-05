@@ -1865,6 +1865,7 @@ var IgnoreItem = function IgnoreItem(strictness, scopeRule, scope, isRegEx, isAc
 };
 
 IgnoreItem.prototype.matchScope = function(subject) {
+    if (typeof subject !== "string") return false;
     var ret = false, i = 0;
     for (; i<this.regexScope.length && !ret; i++) {
         ret = subject.match(this.regexScope[i]) !== null;
@@ -1873,6 +1874,7 @@ IgnoreItem.prototype.matchScope = function(subject) {
 };
 
 IgnoreItem.prototype.matchIgnore = function(subject) {
+    if (typeof subject !== "string") return false;
     return subject.match(this.regexIgnore) !== null;
 };
 
