@@ -1,4 +1,17 @@
 require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+// Fix Function#name on browsers that do not support it (IE):
+if (!(function f() {}).name) {
+    Object.defineProperty(Function.prototype, 'name', {
+        get: function() {
+            var name = this.toString().match(/^\s*function\s*(\S*)\s*\(/)[1];
+            // For better performance only parse once, and then cache the
+            // result through a new accessor for repeated access.
+            Object.defineProperty(this, 'name', { value: name });
+            return name;
+        }
+    });
+}
+},{}],2:[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -27,7 +40,7 @@ Glouton.extend = function(aclass) {
 };
 
 module.exports = Glouton;
-},{}],2:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -204,7 +217,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":3}],3:[function(require,module,exports){
+},{"./debug":4}],4:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -403,7 +416,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":4}],4:[function(require,module,exports){
+},{"ms":5}],5:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -528,7 +541,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -553,7 +566,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -612,14 +625,14 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -1209,7 +1222,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":7,"_process":6,"inherits":5}],9:[function(require,module,exports){
+},{"./support/isBuffer":8,"_process":7,"inherits":6}],10:[function(require,module,exports){
 /**
  * HashMap - HashMap Class for JavaScript
  * @author Ariel Flesler <aflesler@gmail.com>
@@ -1748,7 +1761,7 @@ IRCBuffer.Types = {
 exports.IRCBuffer = IRCBuffer;
 exports.IRCBufferCollection = IRCBufferCollection;
 
-},{"./glouton":1,"./hashmap":"serialized-hashmap","./message":"message","./serializer":"serializer","debug":2}],"extend":[function(require,module,exports){
+},{"./glouton":2,"./hashmap":"serialized-hashmap","./message":"message","./serializer":"serializer","debug":3}],"extend":[function(require,module,exports){
 var hasOwn = Object.prototype.hasOwnProperty;
 var toString = Object.prototype.toString;
 var undefined;
@@ -2343,7 +2356,7 @@ Network.prototype.getBuffer = function(ind) {
 exports.Network = Network;
 exports.NetworkCollection = NetworkCollection;
 
-},{"./buffer":"buffer","./glouton":1,"./hashmap":"serialized-hashmap","./serializer":"serializer","./user":"user","debug":2}],"serialized-hashmap":[function(require,module,exports){
+},{"./buffer":"buffer","./glouton":2,"./hashmap":"serialized-hashmap","./serializer":"serializer","./user":"user","debug":3}],"serialized-hashmap":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -2387,7 +2400,7 @@ HashMap.prototype.forEach = function(func, sortfunction, stop) {
 
 module.exports = HashMap;
 
-},{"./serializer":"serializer","hashmap":9,"util":8}],"serializer":[function(require,module,exports){
+},{"./serializer":"serializer","hashmap":10,"util":9}],"serializer":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -2543,4 +2556,4 @@ var IRCUser = function IRCUser(id, data) {
 Glouton.extend(IRCUser);
 
 module.exports = IRCUser;
-},{"./glouton":1,"./serializer":"serializer"}]},{},[]);
+},{"./glouton":2,"./serializer":"serializer"}]},{},[1]);

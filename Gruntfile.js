@@ -6,7 +6,7 @@ module.exports = function(grunt) {
   grunt.initConfig({
     browserify: {
       dist: {
-        src: [],
+        src: ['client/iefix.js'],
         dest: 'client/libquassel.js',
         options: {
           alias: [
