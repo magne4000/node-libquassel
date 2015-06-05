@@ -83,6 +83,10 @@ if (!opts.action) {
         // TODO
     });
     
+    quassel.on('coreinfo', function(coreinfo) {
+        console.log('Coreinfo', coreinfo);
+    });
+    
     quassel.on('network.addbuffer', function(network, bufferId) {
         network = quassel.getNetworks().get(network);
         var buffer = network.getBufferCollection().getBuffer(bufferId);

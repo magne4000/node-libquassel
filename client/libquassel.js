@@ -54,17 +54,10 @@ exports.formatArgs = formatArgs;
 exports.save = save;
 exports.load = load;
 exports.useColors = useColors;
-
-/**
- * Use chrome.storage.local if we are in an app
- */
-
-var storage;
-
-if (typeof chrome !== 'undefined' && typeof chrome.storage !== 'undefined')
-  storage = chrome.storage.local;
-else
-  storage = localstorage();
+exports.storage = 'undefined' != typeof chrome
+               && 'undefined' != typeof chrome.storage
+                  ? chrome.storage.local
+                  : localstorage();
 
 /**
  * Colors.
@@ -172,9 +165,9 @@ function log() {
 function save(namespaces) {
   try {
     if (null == namespaces) {
-      storage.removeItem('debug');
+      exports.storage.removeItem('debug');
     } else {
-      storage.debug = namespaces;
+      exports.storage.debug = namespaces;
     }
   } catch(e) {}
 }
@@ -189,7 +182,7 @@ function save(namespaces) {
 function load() {
   var r;
   try {
-    r = storage.debug;
+    r = exports.storage.debug;
   } catch(e) {}
   return r;
 }
@@ -457,6 +450,8 @@ module.exports = function(val, options){
  */
 
 function parse(str) {
+  str = '' + str;
+  if (str.length > 10000) return;
   var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(str);
   if (!match) return;
   var n = parseFloat(match[1]);
@@ -1226,7 +1221,7 @@ function hasOwnProperty(obj, prop) {
 /**
  * HashMap - HashMap Class for JavaScript
  * @author Ariel Flesler <aflesler@gmail.com>
- * @version 2.0.1
+ * @version 2.0.3
  * Homepage: https://github.com/flesler/hashmap
  */
 
@@ -1340,17 +1335,17 @@ function hasOwnProperty(obj, prop) {
 					return key + '';
 
 				case 'date':
-					return ':' + key.getTime();
+					return '♣' + key.getTime();
 
 				case 'string':
-					return '"' + key;
+					return '♠' + key;
 
 				case 'array':
 					var hashes = [];
 					for (var i = 0; i < key.length; i++) {
 						hashes[i] = this.hash(key[i]);
 					}
-					return '[' + hashes.join('|');
+					return '♥' + hashes.join('⁞');
 
 				default:
 					// TODO: Don't use expandos when Object.defineProperty is not available?
@@ -1359,14 +1354,14 @@ function hasOwnProperty(obj, prop) {
 						hide(key, '_hmuid_');
 					}
 
-					return '{' + key._hmuid_;
+					return '♦' + key._hmuid_;
 			}
 		},
 
-		forEach:function(func) {
+		forEach:function(func, ctx) {
 			for (var key in this._data) {
 				var data = this._data[key];
-				func.call(this, data[1], data[0]);
+				func.call(ctx || this, data[1], data[0]);
 			}
 		}
 	};
@@ -1763,12 +1758,20 @@ exports.IRCBufferCollection = IRCBufferCollection;
 
 },{"./glouton":2,"./hashmap":"serialized-hashmap","./message":"message","./serializer":"serializer","debug":3}],"extend":[function(require,module,exports){
 var hasOwn = Object.prototype.hasOwnProperty;
-var toString = Object.prototype.toString;
+var toStr = Object.prototype.toString;
 var undefined;
+
+var isArray = function isArray(arr) {
+	if (typeof Array.isArray === 'function') {
+		return Array.isArray(arr);
+	}
+
+	return toStr.call(arr) === '[object Array]';
+};
 
 var isPlainObject = function isPlainObject(obj) {
 	'use strict';
-	if (!obj || toString.call(obj) !== '[object Object]') {
+	if (!obj || toStr.call(obj) !== '[object Object]') {
 		return false;
 	}
 
@@ -1820,10 +1823,10 @@ module.exports = function extend() {
 				}
 
 				// Recurse if we're merging plain objects or arrays
-				if (deep && copy && (isPlainObject(copy) || (copyIsArray = Array.isArray(copy)))) {
+				if (deep && copy && (isPlainObject(copy) || (copyIsArray = isArray(copy)))) {
 					if (copyIsArray) {
 						copyIsArray = false;
-						clone = src && Array.isArray(src) ? src : [];
+						clone = src && isArray(src) ? src : [];
 					} else {
 						clone = src && isPlainObject(src) ? src : {};
 					}
