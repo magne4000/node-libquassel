@@ -1508,7 +1508,7 @@ IRCBuffer.prototype.isVoiced = function(nick) {
  */
 IRCBuffer.prototype.removeUserMode = function(user, mode) {
     if (user && typeof user.nick === "string") {
-        this.nickUserModesMap[user.nick] += this.nickUserModesMap[user.nick].replace(mode, "");
+        this.nickUserModesMap[user.nick] = this.nickUserModesMap[user.nick].replace(mode, "");
     }
 };
 
