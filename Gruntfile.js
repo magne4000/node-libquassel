@@ -10,15 +10,19 @@ module.exports = function(grunt) {
         dest: 'client/libquassel.js',
         options: {
           alias: [
+            './lib/libquassel.js:quassel',
             './lib/network.js:network',
             './node_modules/extend/index.js:extend',
             './lib/serializer.js:serializer',
             './lib/hashmap.js:serialized-hashmap',
             './lib/user.js:user',
-            './lib/buffer.js:buffer',
+            './lib/buffer.js:ircbuffer',
             './lib/message:message',
-            './lib/ignore:ignore'
-          ]
+            './lib/ignore:ignore',
+            './node_modules/net-browserify/browser.js:net',
+            './node_modules/tls-browserify/index.js:tls'
+          ],
+          require: ['buffer-browserify']
         }
       }
     },
