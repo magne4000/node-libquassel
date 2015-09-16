@@ -20327,7 +20327,7 @@ TLSSocket.prototype._init = function(socket) {
 		dataReady: function(connection) {
 			// clear data from the server is ready
 			var data = connection.data.getBytes(),
-				buffer = new Buffer(data);
+				buffer = new Buffer(data, 'binary');
 
 			console.log('[tls] received: ', data);
 			self.push(buffer);
@@ -20377,7 +20377,7 @@ TLSSocket.prototype._start = function () {
 
 TLSSocket.prototype._read = function () {};
 
-TLSSocket.prototype._write = function (data, encoding, cb) {
+TLSSocket.prototype._writenow = function (data, encoding, cb) {
 	cb = cb || function () {};
 
 	console.log('[tls] sending: ', data.toString('utf8'));
@@ -20387,6 +20387,17 @@ TLSSocket.prototype._write = function (data, encoding, cb) {
 		var err = (result !== false) ? null : 'Error while packaging data into a TLS record';
 		cb(err);
 	});
+};
+
+TLSSocket.prototype._write = function (data, encoding, cb) {
+    var self = this;
+    if (!self._secureEstablished) {
+        this.once('secure', function () {
+            self._writenow(data, encoding, cb);
+        });
+    } else {
+        this._writenow(data, encoding, cb);
+    }
 };
 
 TLSSocket.prototype.connect = function () {
