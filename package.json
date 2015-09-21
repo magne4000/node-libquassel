@@ -1,7 +1,7 @@
 {
   "name": "libquassel",
   "description": "NodeJS lib to connect and interact with Quassel IRC core",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "homepage": "https://github.com/magne4000/node-libquassel",
   "author": {
     "name": "Joël Charles",
@@ -33,7 +33,7 @@
     "grunt": "~0.4.5",
     "grunt-browserify": "^3.3.0",
     "grunt-contrib-watch": "~0.6.1",
-    "net-browserify": "^0.2.0",
+    "net-browserify": "git@github.com:magne4000/net-browserify.git",
     "nomnom": "^1.8.1",
     "prompt": "^0.2.14",
     "tls-browserify": "git@github.com:magne4000/tls-browserify.git"

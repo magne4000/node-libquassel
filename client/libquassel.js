@@ -18298,7 +18298,8 @@ var debug = util.debuglog('net');
 var proxy = {
 	protocol: (window.location.protocol == 'https:') ? 'wss' : 'ws',
 	hostname: window.location.hostname,
-	port: window.location.port
+	port: window.location.port,
+        url: '/api/vm/net'
 };
 function getProxy() {
 	return proxy;
@@ -18316,9 +18317,18 @@ function getProxyOrigin() {
 exports.setProxy = function (options) {
 	options = options || {};
 
-	proxy.protocol = options.protocol;
-	proxy.hostname = options.hostname;
-	proxy.port = options.port;
+	if (options.protocol) {
+            proxy.protocol = options.protocol;
+        }
+        if (options.hostname) {
+    	    proxy.hostname = options.hostname;
+        }
+        if (options.port) {
+    	    proxy.port = options.port;
+        }
+        if (options.url) {
+            proxy.url = options.url;
+        }
 };
 
 exports.createServer = function () {
@@ -18572,7 +18582,7 @@ Socket.prototype.connect = function(options, cb) {
 	var req = http.request({
 		hostname: getProxy().hostname,
 		port: getProxy().port,
-		path: '/api/vm/net/connect',
+		path: getProxy().url + '/connect',
 		method: 'POST'
 	}, function (res) {
 		var json = '';
@@ -18628,7 +18638,7 @@ Socket.prototype._connectWebSocket = function (token, cb) {
 		return;
 	}
 
-	this._ws = new WebSocket(getProxyOrigin()+'/api/vm/net/socket?token='+token);
+	this._ws = new WebSocket(getProxyOrigin() + getProxy().url + '/socket?token='+token);
 	this._handleWebsocket();
 
 	if (cb) {
@@ -20240,7 +20250,7 @@ if (forge.forge) {
 	forge = forge.forge;
 }
 
-function TLSSocket(socket, options, debug) {
+function TLSSocket(socket, options) {
 	if (!(this instanceof TLSSocket)) return new TLSSocket(socket, options);
 
 	var self = this;
@@ -20252,7 +20262,6 @@ function TLSSocket(socket, options, debug) {
 
 	this._tlsOptions = options;
 	this._secureEstablished = false;
-        this.debug = debug || false;
 
 	// Just a documented property to make secure sockets
 	// distinguishable from regular ones.
@@ -20280,7 +20289,7 @@ util.inherits(TLSSocket, net.Socket);
 exports.TLSSocket = TLSSocket;
 
 TLSSocket.prototype.log = function(arguments) {
-    if (this.debug) {
+    if (this._tlsOptions.debug) {
         console.log.apply(console, Array.prototype.slice.call(arguments));
     }
 }
