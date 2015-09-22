@@ -18299,7 +18299,7 @@ var proxy = {
 	protocol: (window.location.protocol == 'https:') ? 'wss' : 'ws',
 	hostname: window.location.hostname,
 	port: window.location.port,
-        url: '/api/vm/net'
+	path: '/api/vm/net'
 };
 function getProxy() {
 	return proxy;
@@ -18318,17 +18318,17 @@ exports.setProxy = function (options) {
 	options = options || {};
 
 	if (options.protocol) {
-            proxy.protocol = options.protocol;
-        }
-        if (options.hostname) {
-    	    proxy.hostname = options.hostname;
-        }
-        if (options.port) {
-    	    proxy.port = options.port;
-        }
-        if (options.url) {
-            proxy.url = options.url;
-        }
+		proxy.protocol = options.protocol;
+	}
+	if (options.hostname) {
+		proxy.hostname = options.hostname;
+	}
+	if (options.port) {
+		proxy.port = options.port;
+	}
+	if (options.path) {
+		proxy.path = options.path;
+	}
 };
 
 exports.createServer = function () {
@@ -18582,7 +18582,7 @@ Socket.prototype.connect = function(options, cb) {
 	var req = http.request({
 		hostname: getProxy().hostname,
 		port: getProxy().port,
-		path: getProxy().url + '/connect',
+		path: getProxy().path + '/connect',
 		method: 'POST'
 	}, function (res) {
 		var json = '';
@@ -18638,7 +18638,7 @@ Socket.prototype._connectWebSocket = function (token, cb) {
 		return;
 	}
 
-	this._ws = new WebSocket(getProxyOrigin() + getProxy().url + '/socket?token='+token);
+	this._ws = new WebSocket(getProxyOrigin() + getProxy().path + '/socket?token='+token);
 	this._handleWebsocket();
 
 	if (cb) {
