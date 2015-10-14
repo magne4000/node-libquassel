@@ -20,7 +20,8 @@ module.exports = function(grunt) {
             './lib/message:message',
             './lib/ignore:ignore',
             './node_modules/net-browserify/browser.js:net',
-            './node_modules/tls-browserify/index.js:tls'
+            './node_modules/tls-browserify/index.js:tls',
+            './node_modules/debug/browser.js:debug'
           ],
           require: ['buffer-browserify']
         }
