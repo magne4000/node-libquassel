@@ -4,6 +4,16 @@ module.exports = function(grunt) {
 
   // Project configuration.
   grunt.initConfig({
+    exec: {
+      lts: {
+          cwd: './node_modules/tls-browserify/node_modules/node-forge',
+          cmd: 'npm install && npm run minify'
+      },
+      stable: {
+          cwd: './node_modules/node-forge',
+          cmd: 'npm install && npm run minify'
+      }
+    },
     browserify: {
       dist: {
         src: ['client/iefix.js', 'client/bufferpatch.js'],
@@ -23,7 +33,7 @@ module.exports = function(grunt) {
             './node_modules/tls-browserify/index.js:tls',
             './node_modules/debug/browser.js:debug'
           ],
-          require: ['buffer-browserify']
+          require: ['buffer']
         }
       }
     },
@@ -36,10 +46,12 @@ module.exports = function(grunt) {
   });
 
   // These plugins provide necessary tasks.
+  grunt.loadNpmTasks('grunt-exec')
   grunt.loadNpmTasks('grunt-browserify');
   grunt.loadNpmTasks('grunt-contrib-watch');
 
   // Default task.
-  grunt.registerTask('default', ['browserify']);
+  grunt.registerTask('stable', ['exec:stable', 'browserify']);
+  grunt.registerTask('lts', ['exec:lts', 'browserify']);
 
 };

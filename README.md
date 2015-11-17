@@ -1,7 +1,19 @@
 # libquassel
-NodeJS lib to connect and interact with Quassel IRC server
+NodeJS lib to connect and interact with Quassel IRC server.
+The last version is only compatible with nodeJS>=5.
+For a version compatible with nodeJS between 0.12 and 4.x, please use 0.7.1 (through `npm`).
+
 ## Install
   npm install --production libquassel
+
+## Development
+  npm install libquassel
+
+In order to create a browser compatible file, run the following command
+  # for nodejs 0.12 to 4.x
+  grunt lts
+  # for nodejs >=5
+  grunt stable
 
 ## Getting Started
 ```javascript
