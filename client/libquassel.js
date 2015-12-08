@@ -18499,9 +18499,10 @@ Quassel.prototype.handleStruct = function(obj) {
                             if (buffer === null){
                                 break;
                             }
+                            buffer.setTemporarilyRemoved(false);
+                            buffer.setPermanentlyRemoved(false);
                             self.networks.get(buffer.network).getBufferCollection()._computeFilteredBuffers();
                             self.emit('buffer.unhide', bufferId);
-                            //TODO order
                             break;
                         case "removeBuffer":
                             var bufferId = obj[4];
