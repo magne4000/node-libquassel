@@ -18247,7 +18247,8 @@ var net = require('net'),
  * @param {number} port The port on which runs Quassel on the server
  * @param {Object} [options] Allows optionnal parameters :
  * * {nobacklogs:true} default: false; Do not request backlogs (mostly for debug purpose)
- * * {backloglimit:<int>} default: 50; number of backlogs to request per buffer at connection (default: 100)
+ * * {initialbackloglimit:<int>} default: backloglimit value; 
+ * * {backloglimit:<int>} default: 100; number of backlogs to request per buffer at connection
  * * {unsecurecore:true} default: false; Do not use SSL to connect to the core
  * @param {loginCallback} 
  */
@@ -18260,6 +18261,7 @@ var Quassel = function(server, port, options, loginCallback) {
     this.port = port;
     this.options = options || {};
     this.options.backloglimit = parseInt(options.backloglimit || 100, 10);
+    this.options.initialbackloglimit = parseInt(options.initialbackloglimit || this.options.backloglimit, 10);
     this.networks = new NetworkCollection();
     this.ignoreList = new ignore.IgnoreList();
     this.bufferViewId = 0;
@@ -18328,9 +18330,9 @@ Quassel.prototype.handleMsgType = function(obj) {
             self.sendInitRequest("BufferSyncer", "");
             self.sendInitRequest("BufferViewManager", "");
             self.sendInitRequest("IgnoreListManager", "");
-            if (!self.options.nobacklogs) {
+            if (!self.options.nobacklogs && this.options.initialbackloglimit > 0) {
                 setTimeout(function(){
-                    self.requestBacklogs();
+                    self.requestBacklogs(self.options.initialbackloglimit);
                 }, 1000);
             }
             self.heartbeatInterval = setInterval(function() {
@@ -18873,12 +18875,12 @@ Quassel.prototype.handleInitDataNetwork = function(obj) {
     return network;
 };
     
-Quassel.prototype.requestBacklogs = function(){
+Quassel.prototype.requestBacklogs = function(limit){
     var ind, networks = this.networks.all(), self = this;
     for (ind in networks) {
         var buffers = networks[ind].getBufferHashMap();
         buffers.forEach(function(value, key) {
-            self.requestBacklog(value.id);
+            self.requestBacklog(value.id, -1, -1, limit);
         });
     }
 };
