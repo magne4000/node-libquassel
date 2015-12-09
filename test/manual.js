@@ -83,6 +83,10 @@ if (!opts.action) {
         // TODO
     });
     
+    quassel.on('coreinfoinit', function(coreinfo) {
+        console.log('Coreinfoinit', coreinfo);
+    });
+
     quassel.on('coreinfo', function(coreinfo) {
         console.log('Coreinfo', coreinfo);
     });
