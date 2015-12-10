@@ -29,7 +29,7 @@ module.exports = function(grunt) {
             './lib/buffer.js:ircbuffer',
             './lib/message:message',
             './lib/ignore:ignore',
-            './node_modules/net-browserify/browser.js:net',
+            './node_modules/net-browserify-alt/browser.js:net',
             './node_modules/tls-browserify/index.js:tls',
             './node_modules/debug/browser.js:debug'
           ],
