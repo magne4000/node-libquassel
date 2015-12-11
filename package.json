@@ -1,7 +1,7 @@
 {
   "name": "libquassel",
   "description": "NodeJS lib to connect and interact with Quassel IRC core",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "homepage": "https://github.com/magne4000/node-libquassel",
   "author": {
     "name": "Joël Charles",
@@ -44,7 +44,7 @@
     "eventemitter2": "^0.4.14",
     "extend": "^3.0.0",
     "hashmap": "^2.0.4",
-    "net-browserify-alt": "^0.5.0",
+    "net-browserify-alt": "^0.6.1",
     "qtdatastream": "^0.5.1"
   }
 }
