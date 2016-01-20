@@ -17190,14 +17190,17 @@ IRCBuffer.prototype.removeUserMode = function(user, mode) {
 
 /**
  * Check if current buffer contains specified user
- * @param {IRCUser} user
+ * @param {(string|IRCUser)} user
  */
-IRCBuffer.prototype.hasUser = function(user) {
-    if (typeof user === 'undefined' || user === null) {
+IRCBuffer.prototype.hasUser = function(username) {
+    if (typeof username === 'undefined' || username === null) {
         logger("User should not be null or undefined");
         return null;
     }
-    return user.nick in this.nickUserMap;
+    if (typeof username.nick === 'string') {
+        username = username.nick;
+    }
+    return username in this.nickUserMap;
 };
 
 /**
@@ -17213,11 +17216,11 @@ IRCBuffer.prototype.removeUser = function(username) {
 };
 
 /**
- * Rename user
- * @param {IRCUser} user
+ * Update user maps hashes with current .nick
+ * @param {string} nick
  */
-IRCBuffer.prototype.renameUser = function(user, newnick) {
-    var oldnick = user.nick;
+IRCBuffer.prototype.updateUserMaps = function(oldnick) {
+    var newnick = this.nickUserMap[oldnick].nick;
     this.nickUserMap[newnick] = this.nickUserMap[oldnick];
     this.nickUserModesMap[newnick] = this.nickUserModesMap[oldnick];
     delete this.nickUserMap[oldnick];
@@ -18082,8 +18085,8 @@ Network.prototype.renameUser = function(oldNick, newNick) {
     delete this.nickUserMap[oldNick];
     this.getBufferHashMap().forEach(function(value, key){
         if (value.isChannel()) {
-            if (value.hasUser(user)) {
-                value.renameUser(user, newNick);
+            if (value.hasUser(oldNick)) {
+                value.updateUserMaps(oldNick);
             }
         }
     });
