@@ -1,8 +1,9 @@
 {
   "name": "libquassel",
   "description": "NodeJS lib to connect and interact with Quassel IRC core",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "homepage": "https://github.com/magne4000/node-libquassel",
+  "license": "MIT",
   "author": {
     "name": "Joël Charles",
     "email": "joel.charles91@gmail.com"
