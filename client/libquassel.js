@@ -18054,7 +18054,7 @@ Network.prototype.setName = function(networkName) {
 };
 
 /**
- * @param {Array<IrcUser>} networkName
+ * @param {Array<IrcUser>} userList
  */
 Network.prototype.setUserList = function(userList) {
     var i;
@@ -18067,8 +18067,7 @@ Network.prototype.setUserList = function(userList) {
 };
 
 /**
- * // Devour function
- * @param {Array<IrcUser>} networkName
+ * @param {string} nick
  */
 Network.prototype.setMyNick = function(nick) {
     this.nick = nick;
@@ -18080,16 +18079,18 @@ Network.prototype.setMyNick = function(nick) {
  */
 Network.prototype.renameUser = function(oldNick, newNick) {
     var user = this.getUserByNick(oldNick);
-    user.nick = newNick;
-    this.nickUserMap[newNick] = user;
-    delete this.nickUserMap[oldNick];
-    this.getBufferHashMap().forEach(function(value, key){
-        if (value.isChannel()) {
-            if (value.hasUser(oldNick)) {
-                value.updateUserMaps(oldNick);
+    if (user !== null) {
+        user.nick = newNick;
+        this.nickUserMap[newNick] = user;
+        delete this.nickUserMap[oldNick];
+        this.getBufferHashMap().forEach(function(value, key){
+            if (value.isChannel()) {
+                if (value.hasUser(oldNick)) {
+                    value.updateUserMaps(oldNick);
+                }
             }
-        }
-    });
+        });
+    }
 };
 
 /**
@@ -18429,22 +18430,22 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
 };
     
 Quassel.prototype.handleStruct = function(obj) {
-    var className = obj[1].toString();
-    var self = this;
+    var self = this, networkId, className, functionName, bufferId, buffer, bufferName, messageId, tmp, userNetworkId, userName, networkNick, user, mode, data, oldNick, i, ind;
     switch (obj[0]) {
         case RequestType.Sync:
-            var functionName = obj[3].toString();
+            className = obj[1].toString();
+            functionName = obj[3].toString();
             self.log(className + " received : " + functionName);
             switch(className) {
                 case "Network":
-                    var networkId = obj[2].toString();
+                    networkId = obj[2].toString();
                     switch(functionName) {
                         case "setLatency":
                             self.networks.get(networkId).setLatency(obj[4]);
                             self.emit('network.latency', networkId, obj[4]);
                             break;
                         case "addIrcUser":
-                            var user = new IRCUser(obj[4]);
+                            user = new IRCUser(obj[4]);
                             self.networks.get(networkId).addUser(user);
                             self.sendInitRequest("IrcUser", networkId + "/" + obj[4].split("!")[0]);
                             break;
@@ -18460,7 +18461,7 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.emit('network.connectionstate', networkId, connectionState);
                             break;
                         case "addIrcChannel":
-                            var bufferName = obj[4];
+                            bufferName = obj[4];
                             var hasBuffer = self.networks.get(networkId).getBufferCollection().hasBuffer(bufferName);
                             if (hasBuffer) {
                                 self.emit('network.addbuffer', networkId, self.networks.get(networkId).getBufferCollection().getBuffer(bufferName).id);
@@ -18478,8 +18479,8 @@ Quassel.prototype.handleStruct = function(obj) {
                             break;
                         case "setMyNick":
                             var nick = obj[4];
-                            var oldNick = self.networks.get(networkId).nick;
-                            self.networks.get(networkId).nick = nick;
+                            oldNick = self.networks.get(networkId).nick;
+                            self.networks.get(networkId).setMyNick(nick);
                             self.networks.get(networkId).renameUser(oldNick, nick);
                             self.emit("network.userrenamed", networkId, oldNick, nick);
                             self.emit('network.mynick', networkId, nick);
@@ -18501,26 +18502,26 @@ Quassel.prototype.handleStruct = function(obj) {
                 case "BufferSyncer":
                     switch(functionName) {
                         case "markBufferAsRead":
-                            var bufferId = obj[4];
+                            bufferId = obj[4];
                             self.emit('buffer.read', bufferId);
                             break;
                         case "setLastSeenMsg":
-                            var bufferId = obj[4];
-                            var messageId = obj[5];
+                            bufferId = obj[4];
+                            messageId = obj[5];
                             self.emit('buffer.lastseen', bufferId, messageId);
                             break;
                         case "setMarkerLine":
-                            var bufferId = obj[4];
-                            var messageId = obj[5];
+                            bufferId = obj[4];
+                            messageId = obj[5];
                             self.emit('buffer.markerline', bufferId, messageId);
                             break;
                         case "removeBuffer":
-                            var bufferId = obj[4];
+                            bufferId = obj[4];
                             self.networks.removeBuffer(bufferId);
                             self.emit('buffer.remove', bufferId);
                             break;
                         case "renameBuffer":
-                            var bufferId = obj[4];
+                            bufferId = obj[4];
                             var newName = obj[5];
                             self.networks.findBuffer(bufferId).setName(newName);
                             self.emit('buffer.rename', bufferId, newName);
@@ -18543,8 +18544,8 @@ Quassel.prototype.handleStruct = function(obj) {
                 case "BufferViewConfig":
                     switch(functionName) {
                         case "addBuffer":
-                            var bufferId = obj[4];
-                            var buffer = self.networks.findBuffer(bufferId);
+                            bufferId = obj[4];
+                            buffer = self.networks.findBuffer(bufferId);
                             if (buffer === null){
                                 break;
                             }
@@ -18554,8 +18555,8 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.emit('buffer.unhide', bufferId);
                             break;
                         case "removeBuffer":
-                            var bufferId = obj[4];
-                            var buffer = self.networks.findBuffer(bufferId);
+                            bufferId = obj[4];
+                            buffer = self.networks.findBuffer(bufferId);
                             if (buffer === null){
                                 self.log("Buffer #" + bufferId + " does not exists");
                                 break;
@@ -18565,8 +18566,8 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.emit('buffer.hidden', bufferId, "temp");
                             break;
                         case "removeBufferPermanently":
-                            var bufferId = obj[4];
-                            var buffer = self.networks.findBuffer(bufferId);
+                            bufferId = obj[4];
+                            buffer = self.networks.findBuffer(bufferId);
                             if (buffer === null){
                                 self.log("Buffer #" + bufferId + " does not exists");
                                 break;
@@ -18582,12 +18583,12 @@ Quassel.prototype.handleStruct = function(obj) {
                 case "IrcUser":
                     switch(functionName) {
                         case "partChannel":
-                            var tmp = splitOnce(obj[2], "/");
-                            var userNetworkId = parseInt(tmp[0], 10);
-                            var userName = tmp[1];
-                            var bufferName = obj[4];
-                            var networkNick = self.networks.get(userNetworkId).nick;
-                            var buffer = self.networks.get(userNetworkId).getBufferCollection().getBuffer(bufferName);
+                            tmp = splitOnce(obj[2], "/");
+                            userNetworkId = parseInt(tmp[0], 10);
+                            userName = tmp[1];
+                            bufferName = obj[4];
+                            networkNick = self.networks.get(userNetworkId).nick;
+                            buffer = self.networks.get(userNetworkId).getBufferCollection().getBuffer(bufferName);
                             self.networks.get(userNetworkId).getBufferCollection().getBuffer(bufferName).removeUser(userName);
                             self.emit('user.part', userNetworkId, userName, bufferName);
                             if (buffer.isChannel()) {
@@ -18602,10 +18603,10 @@ Quassel.prototype.handleStruct = function(obj) {
                             }
                             break;
                         case "quit":
-                            var tmp = splitOnce(obj[2], "/");
-                            var userNetworkId = parseInt(tmp[0], 10);
-                            var userName = tmp[1];
-                            var networkNick = self.networks.get(userNetworkId).nick;
+                            tmp = splitOnce(obj[2], "/");
+                            userNetworkId = parseInt(tmp[0], 10);
+                            userName = tmp[1];
+                            networkNick = self.networks.get(userNetworkId).nick;
                             self.networks.get(userNetworkId).removeUser(userName, function(buffer){
                                 if (buffer.isChannel()) {
                                     if (networkNick !== null && networkNick.toLowerCase() === userName.toLowerCase()) {
@@ -18627,22 +18628,22 @@ Quassel.prototype.handleStruct = function(obj) {
                             // TODO
                             break;
                         case "setAway":
-                            var tmp = splitOnce(obj[2], "/");
-                            var userNetworkId = parseInt(tmp[0], 10);
-                            var userName = tmp[1];
+                            tmp = splitOnce(obj[2], "/");
+                            userNetworkId = parseInt(tmp[0], 10);
+                            userName = tmp[1];
                             var isAway = obj[4];
-                            var user = self.networks.get(userNetworkId).getUserByNick(userName);
+                            user = self.networks.get(userNetworkId).getUserByNick(userName);
                             if (user !== null) {
                                 user.away = isAway;
                                 self.emit('user.away', userNetworkId, userName, isAway);
                             }
                             break;
                         case "setRealName":
-                            var tmp = splitOnce(obj[2], "/");
-                            var userNetworkId = parseInt(tmp[0], 10);
-                            var userName = tmp[1];
+                            tmp = splitOnce(obj[2], "/");
+                            userNetworkId = parseInt(tmp[0], 10);
+                            userName = tmp[1];
                             var realname = obj[4];
-                            var user = self.networks.get(userNetworkId).getUserByNick(userName);
+                            user = self.networks.get(userNetworkId).getUserByNick(userName);
                             if (user !== null) {
                                 user.realname = realname;
                                 self.emit('user.realname', userNetworkId, userName, realname);
@@ -18655,27 +18656,27 @@ Quassel.prototype.handleStruct = function(obj) {
                 case "IrcChannel":
                     var tmp2 = splitOnce(obj[2], "/");
                     var bufferNetworkId = parseInt(tmp2[0], 10);
-                    var bufferName = tmp2[1];
-                    var buffer = self.networks.get(bufferNetworkId).getBufferCollection().getBuffer(bufferName);
+                    bufferName = tmp2[1];
+                    buffer = self.networks.get(bufferNetworkId).getBufferCollection().getBuffer(bufferName);
                     switch(functionName) {
                         case "joinIrcUsers":
-                            for (var i=0; i<obj[4].length; i++) {
+                            for (i=0; i<obj[4].length; i++) {
                                 var user2 = self.networks.get(bufferNetworkId).getUserByNick(obj[4][i]);
                                 buffer.addUser(user2, obj[5][i]);
                                 self.emit('channel.join', buffer.id, obj[4][i]);
                             }
                             break;
                         case "addUserMode":
-                            var nick = obj[4];
-                            var mode = obj[5];
-                            var user = self.networks.get(bufferNetworkId).getUserByNick(nick);
+                            nick = obj[4];
+                            mode = obj[5];
+                            user = self.networks.get(bufferNetworkId).getUserByNick(nick);
                             buffer.addUserMode(user, mode);
                             self.emit('channel.addusermode', buffer.id, nick, mode);
                             break;
                         case "removeUserMode":
-                            var nick = obj[4];
-                            var mode = obj[5];
-                            var user = self.networks.get(bufferNetworkId).getUserByNick(nick);
+                            nick = obj[4];
+                            mode = obj[5];
+                            user = self.networks.get(bufferNetworkId).getUserByNick(nick);
                             buffer.removeUserMode(user, mode);
                             self.emit('channel.removeusermode', buffer.id, nick, mode);
                             break;
@@ -18691,13 +18692,13 @@ Quassel.prototype.handleStruct = function(obj) {
                 case "BacklogManager":
                     switch(functionName) {
                         case "receiveBacklog":
-                            var bufferId = obj[4];
-                            var data = obj[9];
-                            var buffer = self.networks.findBuffer(bufferId);
+                            bufferId = obj[4];
+                            data = obj[9];
+                            buffer = self.networks.findBuffer(bufferId);
                             if (buffer !== null) {
-                                var messageIds = [];
-                                for (var i=0; i<data.length; i++) {
-                                    var message = buffer.addMessage(data[i]);
+                                var messageIds = [], message;
+                                for (i=0; i<data.length; i++) {
+                                    message = buffer.addMessage(data[i]);
                                     if (!message) {
                                         self.log("Getting message buffer already have " + data[i].bufferInfo.name);
                                     } else {
@@ -18717,7 +18718,7 @@ Quassel.prototype.handleStruct = function(obj) {
                 case "IgnoreListManager":
                     switch(functionName) {
                         case "update":
-                            var data = obj[4];
+                            data = obj[4];
                             self.ignoreList.import(data);
                             self.emit('ignorelist', self.ignoreList);
                             break;
@@ -18730,12 +18731,13 @@ Quassel.prototype.handleStruct = function(obj) {
             }
             break;
         case RequestType.RpcCall:
-            switch(className) {
+            functionName = obj[1].toString();
+            switch(functionName) {
                 case "2displayMsg(Message)":
-                    var message = obj[2];
-                    var networkId = message.bufferInfo.network;
-                    var bufferId = message.bufferInfo.id;
-                    var buffer;
+                    message = obj[2];
+                    networkId = message.bufferInfo.network;
+                    bufferId = message.bufferInfo.id;
+                    buffer;
                     if (!self.networks.get(networkId).getBufferCollection().hasBuffer(bufferId)) {
                         if (self.networks.get(networkId).getBufferCollection().hasBuffer(message.bufferInfo.name)) {
                             buffer = self.networks.get(networkId).getBufferCollection().getBuffer(message.bufferInfo.name);
@@ -18767,7 +18769,7 @@ Quassel.prototype.handleStruct = function(obj) {
                     switch(renamedSubject) {
                         case "IrcUser":
                             var newNick = splitOnce(obj[3], "/"); // 1/Nick
-                            var oldNick = splitOnce(obj[4], "/"); // 1/Nick_
+                            oldNick = splitOnce(obj[4], "/"); // 1/Nick_
                             self.networks.get(newNick[0]).renameUser(oldNick[1], newNick[1]);
                             self.emit("network.userrenamed", newNick[0], oldNick[1], newNick[1]);
                             break;
@@ -18776,13 +18778,13 @@ Quassel.prototype.handleStruct = function(obj) {
                     }
                     break;
                 case "2networkCreated(NetworkId)":
-                    var networkId = obj[2];
+                    networkId = obj[2];
                     self.networks.add(networkId);
                     self.sendInitRequest("Network", ""+networkId);
                     self.emit("network.new", networkId);
                     break;
                 case "2networkRemoved(NetworkId)":
-                    var networkId = obj[2];
+                    networkId = obj[2];
                     self.networks.remove(networkId);
                     self.emit("network.remove", networkId);
                     break;
@@ -18791,9 +18793,10 @@ Quassel.prototype.handleStruct = function(obj) {
             }
             break;
         case RequestType.InitData:
+            className = obj[1].toString();
             switch(className) {
                 case "Network":
-                    var network = self.handleInitDataNetwork(obj);
+                    network = self.handleInitDataNetwork(obj);
                     var syncRequest = [
                         new qtdatastream.QUInt(RequestType.Sync),
                         new qtdatastream.QString("BufferSyncer"),
@@ -18804,13 +18807,13 @@ Quassel.prototype.handleStruct = function(obj) {
                     self.emit("network.init", network.networkId);
                     break;
                 case "BufferSyncer":
-                    var markerLinesData = obj[3]["MarkerLines"], i;
+                    var markerLinesData = obj[3]["MarkerLines"];
                     var lastSeenData = obj[3]["LastSeenMsg"];
                     if (lastSeenData !== null) {
                         for (i=0; i<lastSeenData.length; i+=2) {
-                            var bufferId = lastSeenData[i];
-                            var messageId = lastSeenData[i+1];
-                            var buffer = self.networks.findBuffer(bufferId);
+                            bufferId = lastSeenData[i];
+                            messageId = lastSeenData[i+1];
+                            buffer = self.networks.findBuffer(bufferId);
                             if (buffer !== null) {
                                 self.emit('buffer.lastseen', bufferId, messageId);
                             } else {
@@ -18822,9 +18825,9 @@ Quassel.prototype.handleStruct = function(obj) {
                     }
                     if (markerLinesData !== null) {
                         for (i=0; i<markerLinesData.length; i+=2) {
-                            var bufferId = markerLinesData[i];
-                            var messageId = markerLinesData[i+1];
-                            var buffer = self.networks.findBuffer(bufferId);
+                            bufferId = markerLinesData[i];
+                            messageId = markerLinesData[i+1];
+                            buffer = self.networks.findBuffer(bufferId);
                             if (buffer !== null) {
                                 self.emit('buffer.markerline', bufferId, messageId);
                             } else {
@@ -18836,35 +18839,35 @@ Quassel.prototype.handleStruct = function(obj) {
                     }
                     break;
                 case "IrcUser":
-                    var tmp = splitOnce(obj[2], "/");
-                    var data = obj[3];
-                    var networkId = parseInt(tmp[0], 10);
-                    var user = self.networks.get(networkId).getUserByNick(tmp[1]);
+                    tmp = splitOnce(obj[2], "/");
+                    data = obj[3];
+                    networkId = parseInt(tmp[0], 10);
+                    user = self.networks.get(networkId).getUserByNick(tmp[1]);
                     if (user !== null) {
                         user.devour(data);
                         self.emit('network.adduser', networkId, tmp[1]);
                     }
                     break;
                 case "IrcChannel":
-                    var tmp = splitOnce(obj[2], "/");
-                    var data = obj[3];
-                    var bufferNetworkId = parseInt(tmp[0], 10);
-                    var bufferName = tmp[1];
-                    var buffer = self.networks.get(bufferNetworkId).getBufferCollection().getBuffer(bufferName);
+                    tmp = splitOnce(obj[2], "/");
+                    data = obj[3];
+                    bufferNetworkId = parseInt(tmp[0], 10);
+                    bufferName = tmp[1];
+                    buffer = self.networks.get(bufferNetworkId).getBufferCollection().getBuffer(bufferName);
                     buffer.topic = data.topic;
                     buffer.active = true;
                     self.emit('channel.topic', bufferNetworkId, bufferName, data.topic);
                     self.emit('buffer.activate', buffer.id);
                     break;
                 case "BufferViewManager":
-                    var data = obj[3]["BufferViewIds"];
+                    data = obj[3]["BufferViewIds"];
                     if (data.length > 0) {
                         self.sendInitRequest("BufferViewConfig", ""+data[0]);
                     }
                     self.bufferViewId = data[0];
                     break;
                 case "BufferViewConfig":
-                    var data = obj[3], ind, buffer;
+                    data = obj[3];
                     for (ind in data.TemporarilyRemovedBuffers) {
                         buffer = self.networks.findBuffer(data.TemporarilyRemovedBuffers[ind]);
                         if (buffer !== null) {
@@ -18888,12 +18891,12 @@ Quassel.prototype.handleStruct = function(obj) {
                     }
                     break;
                 case "IgnoreListManager":
-                    var data = obj[3];
+                    data = obj[3];
                     self.ignoreList.import(data);
                     self.emit('ignorelist', self.ignoreList);
                     break;
                 case "CoreInfo":
-                    var data = obj[3];
+                    data = obj[3];
                     self.coreData = data;
                     self.emit('coreinfo', data);
                     break;
@@ -18911,7 +18914,6 @@ Quassel.prototype.handleStruct = function(obj) {
         default:
             self.log('Unhandled RequestType ' + obj[0]);
     }
-    self.log(obj[0] + " - Special structure : " + className);
 };
 
 Quassel.prototype.dispatch = function(obj) {
