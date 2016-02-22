@@ -16996,7 +16996,7 @@ IgnoreItem.prototype.revived = function() {
         this.regexScope.push(wildcardToRegex(scopeRules[i]));
     }
     try {
-        this.regexIgnore = this.isRegEx?new RegExp(this.ignoreRule, 'i'):new RegExp(this.ignoreRule.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1"), 'i');
+        this.regexIgnore = this.isRegEx?new RegExp(this.ignoreRule, 'i'):wildcardToRegex(this.ignoreRule);
     } catch (e) {
         console.log("Invalid RexExp", e);
         this.isActive = false;
