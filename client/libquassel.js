@@ -18315,6 +18315,7 @@ var Quassel = function(server, port, options, loginCallback) {
     this.options.backloglimit = parseInt(options.backloglimit || 100, 10);
     this.options.initialbackloglimit = parseInt(options.initialbackloglimit || this.options.backloglimit, 10);
     this.networks = new NetworkCollection();
+    this.identities = {};
     this.ignoreList = new ignore.IgnoreList();
     this.bufferViewId = 0;
     this.heartbeatInterval = null;
@@ -18790,6 +18791,16 @@ Quassel.prototype.handleStruct = function(obj) {
                     networkId = obj[2];
                     self.networks.remove(networkId);
                     self.emit("network.remove", networkId);
+                    break;
+                case "2identityCreated(Identity)":
+                    identity = obj[2];
+                    self.identities[identity.identityId] = identity;
+                    self.emit("identity.add", identity);
+                    break;
+                case "2identityRemoved(Identity)":
+                    identity = obj[2];
+                    delete self.identities[identity.identityId];
+                    self.emit('identity.remove', identity);
                     break;
                 default:
                     self.log('Unhandled RpcCall ' + className);
