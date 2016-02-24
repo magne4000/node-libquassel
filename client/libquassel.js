@@ -18379,7 +18379,7 @@ Quassel.prototype.handleMsgType = function(obj) {
                 self.emit("network.addbuffer", ircbuffer.network, obj.SessionState.BufferInfos[i].id);
             }
             
-            self.emit('init');
+            self.emit('init', obj);
             self.sendInitRequest("BufferSyncer", "");
             self.sendInitRequest("BufferViewManager", "");
             self.sendInitRequest("IgnoreListManager", "");
