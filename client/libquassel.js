@@ -19164,7 +19164,7 @@ Quassel.prototype.createNetwork = function(name, domain, identity) {
             Host: domain,
             Port: 6697,
             Password: "",
-            UseSsl: true,
+            UseSSL: true,
             sslVersion: 0, /* Lowercase in the protocol */
             UseProxy: false,
             ProxyType: 0,
