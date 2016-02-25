@@ -18434,7 +18434,7 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
 };
     
 Quassel.prototype.handleStruct = function(obj) {
-    var self = this, networkId, className, functionName, bufferId, buffer, bufferName, messageId, tmp, userNetworkId, userName, networkNick, user, mode, data, oldNick, i, ind;
+    var self = this, networkId, identity, className, functionName, bufferId, buffer, bufferName, messageId, tmp, userNetworkId, userName, networkNick, user, mode, data, oldNick, i, ind;
     switch (obj[0]) {
         case RequestType.Sync:
             className = obj[1].toString();
