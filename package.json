@@ -1,7 +1,7 @@
 {
   "name": "libquassel",
   "description": "Javascript lib to connect and interact with Quassel IRC core",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "homepage": "https://github.com/magne4000/node-libquassel",
   "license": "MIT",
   "author": {
@@ -26,15 +26,15 @@
     "node": ">= 0.12.0"
   },
   "devDependencies": {
-    "browserify": "^12.0.1",
-    "buffer": "^3.5.2",
+    "browserify": "^13.0.0",
+    "buffer": "^4.5.0",
     "grunt": "~0.4.5",
     "grunt-browserify": "^4.0.1",
     "grunt-contrib-watch": "~0.6.1",
     "grunt-exec": "^0.4.6",
     "nomnom": "^1.8.1",
     "prompt": "^0.2.14",
-    "tls-browserify": "git://github.com/magne4000/tls-browserify"
+    "tls-browserify": "https://github.com/magne4000/tls-browserify.git"
   },
   "keywords": [
     "quassel",
@@ -42,10 +42,10 @@
   ],
   "dependencies": {
     "debug": "^2.2.0",
-    "eventemitter2": "^0.4.14",
+    "eventemitter2": "^1.0.0",
     "extend": "^3.0.0",
     "hashmap": "^2.0.4",
     "net-browserify-alt": "^0.6.1",
-    "qtdatastream": "^0.5.1"
+    "qtdatastream": "^0.5.2"
   }
 }
