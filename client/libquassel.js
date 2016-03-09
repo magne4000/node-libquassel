@@ -18776,37 +18776,55 @@ Quassel.prototype.handleStruct = function(obj) {
                     var tmp2 = splitOnce(obj[2], "/");
                     var bufferNetworkId = parseInt(tmp2[0], 10);
                     bufferName = tmp2[1];
-                    buffer = self.networks.get(bufferNetworkId).getBufferCollection().getBuffer(bufferName);
-                    switch(functionName) {
-                        case "joinIrcUsers":
-                            for (i=0; i<obj[4].length; i++) {
-                                var user2 = self.networks.get(bufferNetworkId).getUserByNick(obj[4][i]);
-                                buffer.addUser(user2, obj[5][i]);
-                                self.emit('channel.join', buffer.id, obj[4][i]);
-                            }
-                            break;
-                        case "addUserMode":
-                            nick = obj[4];
-                            mode = obj[5];
-                            user = self.networks.get(bufferNetworkId).getUserByNick(nick);
-                            buffer.addUserMode(user, mode);
-                            self.emit('channel.addusermode', buffer.id, nick, mode);
-                            break;
-                        case "removeUserMode":
-                            nick = obj[4];
-                            mode = obj[5];
-                            user = self.networks.get(bufferNetworkId).getUserByNick(nick);
-                            buffer.removeUserMode(user, mode);
-                            self.emit('channel.removeusermode', buffer.id, nick, mode);
-                            break;
-                        case "setTopic":
-                            var topic = obj[4];
-                            buffer.topic = topic;
-                            self.emit('channel.topic', buffer.id, topic);
-                            break;
-                        default:
-                            self.log('Unhandled Sync.IrcChannel ' + functionName);
-                    }
+                    var attemps = 10;
+                    buffer = null;
+                    
+                    var bufferattempt = function bufferattempt(callback){
+                        buffer = self.networks.get(bufferNetworkId).getBufferCollection().getBuffer(bufferName);
+                        if (buffer === null && attemps >= 0) {
+                            attemps--;
+                            setTimeout(function() {
+                                bufferattempt(callback);
+                            }, 5);
+                        } else if (buffer !== null) {
+                            callback(buffer);
+                        } else {
+                            self.log('Did not succeed to get channel ' + tmp2 + ' after 10 attempts');
+                        }
+                    };
+                    
+                    bufferattempt(function(buffer){
+                        switch(functionName) {
+                            case "joinIrcUsers":
+                                for (i=0; i<obj[4].length; i++) {
+                                    var user2 = self.networks.get(bufferNetworkId).getUserByNick(obj[4][i]);
+                                    buffer.addUser(user2, obj[5][i]);
+                                    self.emit('channel.join', buffer.id, obj[4][i]);
+                                }
+                                break;
+                            case "addUserMode":
+                                nick = obj[4];
+                                mode = obj[5];
+                                user = self.networks.get(bufferNetworkId).getUserByNick(nick);
+                                buffer.addUserMode(user, mode);
+                                self.emit('channel.addusermode', buffer.id, nick, mode);
+                                break;
+                            case "removeUserMode":
+                                nick = obj[4];
+                                mode = obj[5];
+                                user = self.networks.get(bufferNetworkId).getUserByNick(nick);
+                                buffer.removeUserMode(user, mode);
+                                self.emit('channel.removeusermode', buffer.id, nick, mode);
+                                break;
+                            case "setTopic":
+                                var topic = obj[4];
+                                buffer.topic = topic;
+                                self.emit('channel.topic', buffer.id, topic);
+                                break;
+                            default:
+                                self.log('Unhandled Sync.IrcChannel ' + functionName);
+                        }
+                    });
                     break;
                 case "BacklogManager":
                     switch(functionName) {
