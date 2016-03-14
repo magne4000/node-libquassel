@@ -18431,6 +18431,7 @@ var Quassel = function(server, port, options, loginCallback) {
     this.options.backloglimit = parseInt(options.backloglimit || 100, 10);
     this.options.initialbackloglimit = parseInt(options.initialbackloglimit || this.options.backloglimit, 10);
     this.networks = new NetworkCollection();
+    this.identities = {};
     this.ignoreList = new ignore.IgnoreList();
     this.bufferViewId = 0;
     this.heartbeatInterval = null;
@@ -18495,7 +18496,7 @@ Quassel.prototype.handleMsgType = function(obj) {
                 self.emit("network.addbuffer", ircbuffer.network, obj.SessionState.BufferInfos[i].id);
             }
             
-            self.emit('init');
+            self.emit('init', obj);
             self.sendInitRequest("BufferSyncer", "");
             self.sendInitRequest("BufferViewManager", "");
             self.sendInitRequest("IgnoreListManager", "");
@@ -18549,7 +18550,7 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
 };
     
 Quassel.prototype.handleStruct = function(obj) {
-    var self = this, networkId, className, functionName, bufferId, buffer, bufferName, messageId, tmp, userNetworkId, userName, networkNick, user, mode, data, oldNick, i, ind;
+    var self = this, networkId, identity, className, functionName, bufferId, buffer, bufferName, messageId, tmp, userNetworkId, userName, networkNick, user, mode, data, oldNick, i, ind;
     switch (obj[0]) {
         case RequestType.Sync:
             className = obj[1].toString();
@@ -18925,6 +18926,16 @@ Quassel.prototype.handleStruct = function(obj) {
                     self.networks.remove(networkId);
                     self.emit("network.remove", networkId);
                     break;
+                case "2identityCreated(Identity)":
+                    identity = obj[2];
+                    self.identities[identity.identityId] = identity;
+                    self.emit("identity.add", identity);
+                    break;
+                case "2identityRemoved(Identity)":
+                    identity = obj[2];
+                    delete self.identities[identity.identityId];
+                    self.emit('identity.remove', identity);
+                    break;
                 default:
                     self.log('Unhandled RpcCall ' + className);
             }
@@ -19240,6 +19251,82 @@ Quassel.prototype.sendMessage = function(bufferId, message) {
     }
 };
 
+Quassel.prototype.createIdentity = function(nick) {
+    var slit = [
+        new qtdatastream.QInt(RequestType.RpcCall),
+        "2createIdentity(Identity,QVariantMap)",
+        new qtdatastream.QUserType("Identity", {
+          identityId: new qtdatastream.QUserType("IdentityId", 1),
+          identityName: "<empty>",
+          realName: nick,
+          nicks: [ nick ],
+          awayNick: "",
+          awayNickEnabled: false,
+          awayReason: "away",
+          awayReasonEnabled: true,
+          autoAwayEnabled: false,
+          autoAwayTime: 10,
+          autoAwayReason: "away",
+          autoAwayReasonEnabled: false,
+          detachAwayEnabled: "",
+          detachAwayReason: "away",
+          detachAwayReasonEnabled: false,
+          ident: "quassel",
+          kickReason: ".",
+          partReason: "Leaving.",
+          quitReason: "Leaving."
+        }),
+        {}
+    ];
+    this.log('Creating identity');
+    this.qtsocket.write(slit);
+};
+
+Quassel.prototype.createNetwork = function(name, domain, identity) {
+    var slit = [
+        new qtdatastream.QInt(RequestType.RpcCall),
+        "2createNetwork(NetworkInfo,QStringList)",
+        new qtdatastream.QUserType("NetworkInfo", {
+          NetworkId: new qtdatastream.QUserType("NetworkId", 0),
+          NetworkName: name,
+          Identity: new qtdatastream.QUserType("IdentityId", identity),
+          // useCustomEncodings: false,
+          CodecForServer: new qtdatastream.QByteArray(""),
+          CodecForEncoding: new qtdatastream.QByteArray(""),
+          CodecForDecoding: new qtdatastream.QByteArray(""),
+          ServerList: [ new qtdatastream.QUserType("Network::Server", {
+            Host: domain,
+            Port: 6697,
+            Password: "",
+            UseSSL: true,
+            sslVersion: 0, /* Lowercase in the protocol */
+            UseProxy: false,
+            ProxyType: 0,
+            ProxyHost: "localhost",
+            ProxyPort: "8080",
+            ProxyUser: "",
+            ProxyPass: ""
+          }) ],
+          UseRandomServer: false,
+          Perform: [],
+          UseAutoIdentify: false,
+          AutoIdentifyService: "NickServ",
+          AutoIdentifyPassword: "",
+          UseSasl: false,
+          SaslAccount: "",
+          SaslPassword: "",
+          UseAutoReconnect: true,
+          AutoReconnectInterval: 60,
+          AutoReconnectRetries: 20,
+          UnlimitedReconnectRetries: false,
+          RejoinChannels: true
+        }),
+        new qtdatastream.QStringList([])
+    ];
+    this.log('Creating network');
+    this.qtsocket.write(slit);
+};
+
 Quassel.prototype.requestBacklog = function(bufferId, firstMsgId, lastMsgId, maxAmount) {
     firstMsgId = firstMsgId || -1;
     lastMsgId = lastMsgId || -1;
@@ -19452,6 +19539,7 @@ qtdatastream.registerUserType("IdentityId", qtdatastream.Types.INT);
 qtdatastream.registerUserType("BufferId", qtdatastream.Types.INT);
 qtdatastream.registerUserType("MsgId", qtdatastream.Types.INT);
 qtdatastream.registerUserType("Identity", qtdatastream.Types.MAP);
+qtdatastream.registerUserType("NetworkInfo", qtdatastream.Types.MAP);
 qtdatastream.registerUserType("Network::Server", qtdatastream.Types.MAP);
 qtdatastream.registerUserType("NetworkId", qtdatastream.Types.INT);
 qtdatastream.registerUserType("BufferInfo", [
