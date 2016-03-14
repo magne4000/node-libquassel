@@ -17221,7 +17221,7 @@ var IRCBuffer = function IRCBuffer(id, data) {
     this.id = id;
     this.nickUserMap = {};
     this.nickUserModesMap = {};
-    this.messages = new HashMap();
+    this.messages = new Map;
     this.active = false;
     this._isStatusBuffer = false;
     this.order = null;
@@ -17356,8 +17356,9 @@ IRCBuffer.prototype.addMessage = function(message) {
     if (this.messages.has(message.id)) {
         return null;
     }
-    this.messages.set(message.id, new IRCMessage(message));
-    return this.messages.get(message.id);
+    var ircmsg = new IRCMessage(message);
+    this.messages.set(message.id, ircmsg);
+    return ircmsg;
 };
 
 /**
@@ -18431,7 +18432,7 @@ var Quassel = function(server, port, options, loginCallback) {
     this.options.backloglimit = parseInt(options.backloglimit || 100, 10);
     this.options.initialbackloglimit = parseInt(options.initialbackloglimit || this.options.backloglimit, 10);
     this.networks = new NetworkCollection();
-    this.identities = {};
+    this.identities = new Map;
     this.ignoreList = new ignore.IgnoreList();
     this.bufferViewId = 0;
     this.heartbeatInterval = null;
@@ -18495,8 +18496,12 @@ Quassel.prototype.handleMsgType = function(obj) {
                 }
                 self.emit("network.addbuffer", ircbuffer.network, obj.SessionState.BufferInfos[i].id);
             }
-            
+            // Init Identities
+            for (i=0; i<obj.SessionState.Identities.length; i++) {
+                self.identities.set(parseInt(obj.SessionState.Identities[i].identityId, 10), obj.SessionState.Identities[i]);
+            }
             self.emit('init', obj);
+            self.emit('identities.init', self.identities);
             self.sendInitRequest("BufferSyncer", "");
             self.sendInitRequest("BufferViewManager", "");
             self.sendInitRequest("IgnoreListManager", "");
@@ -18779,7 +18784,7 @@ Quassel.prototype.handleStruct = function(obj) {
                     bufferName = tmp2[1];
                     var attemps = 10;
                     buffer = null;
-                    
+
                     var bufferattempt = function bufferattempt(callback){
                         buffer = self.networks.get(bufferNetworkId).getBufferCollection().getBuffer(bufferName);
                         if (buffer === null && attemps >= 0) {
@@ -18793,7 +18798,7 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.log('Did not succeed to get channel ' + tmp2 + ' after 10 attempts');
                         }
                     };
-                    
+
                     bufferattempt(function(buffer){
                         switch(functionName) {
                             case "joinIrcUsers":
@@ -18928,16 +18933,16 @@ Quassel.prototype.handleStruct = function(obj) {
                     break;
                 case "2identityCreated(Identity)":
                     identity = obj[2];
-                    self.identities[identity.identityId] = identity;
-                    self.emit("identity.add", identity);
+                    self.identities.set(identity.identityId, identity);
+                    self.emit("identity.new", identity);
                     break;
-                case "2identityRemoved(Identity)":
-                    identity = obj[2];
-                    delete self.identities[identity.identityId];
-                    self.emit('identity.remove', identity);
+                case "2identityRemoved(IdentityId)":
+                    var identityId = obj[2];
+                    self.identities.delete(identityId);
+                    self.emit('identity.remove', identityId);
                     break;
                 default:
-                    self.log('Unhandled RpcCall ' + className);
+                    self.log('Unhandled RpcCall ' + functionName);
             }
             break;
         case RequestType.InitData:
@@ -19235,6 +19240,110 @@ Quassel.prototype.disconnect = function() {
     this.connected = false;
 };
 
+Quassel.prototype.createIdentity = function(identityName, options) {
+    options = options || {};
+    var slit = [
+        new qtdatastream.QInt(RequestType.RpcCall),
+        "2createIdentity(Identity,QVariantMap)",
+        new qtdatastream.QUserType("Identity", {
+            identityId: new qtdatastream.QUserType("IdentityId", 0),
+            identityName: identityName,
+            realName: options.realName || identityName,
+            nicks: [options.nick || identityName],
+            awayNick: options.awayNick || "",
+            awayNickEnabled: options.awayNickEnabled || false,
+            awayReason: options.awayReason || "Gone fishing.",
+            awayReasonEnabled: options.awayReasonEnabled || true,
+            autoAwayEnabled: options.autoAwayEnabled || false,
+            autoAwayTime: options.autoAwayTime || 10,
+            autoAwayReason: options.autoAwayReason || "Not here. No, really. not here!",
+            autoAwayReasonEnabled: options.autoAwayReasonEnabled || false,
+            detachAwayEnabled: options.detachAwayEnabled || false,
+            detachAwayReason: options.detachAwayReason || "All Quassel clients vanished from the face of the earth...",
+            detachAwayReasonEnabled: options.detachAwayReasonEnabled || false,
+            ident: options.ident || "quassel",
+            kickReason: options.kickReason || "Kindergarten is elsewhere!",
+            partReason: options.partReason || "http://quassel-irc.org - Chat comfortably. Anywhere.",
+            quitReason: options.quitReason || "http://quassel-irc.org - Chat comfortably. Anywhere."
+        }),
+        {}
+    ];
+    this.log('Creating identity');
+    this.qtsocket.write(slit);
+};
+
+Quassel.prototype.removeIdentity = function(identityId) {
+    var slit = [
+        new qtdatastream.QInt(RequestType.RpcCall),
+        "2removeIdentity(IdentityId)",
+        new qtdatastream.QUserType("IdentityId", identityId)
+    ];
+    this.log('Deleting identity');
+    this.qtsocket.write(slit);
+};
+
+Quassel.prototype.createNetwork = function(networkName, identityId, initialServer, options) {
+    options = options || {};
+    if (typeof initialServer === "string") {
+        initialServer = {
+            host: initialServer
+        };
+    }
+    var slit = [
+        new qtdatastream.QInt(RequestType.RpcCall),
+        "2createNetwork(NetworkInfo,QStringList)",
+        new qtdatastream.QUserType("NetworkInfo", {
+            NetworkId: new qtdatastream.QUserType("NetworkId", 0),
+            NetworkName: networkName,
+            Identity: new qtdatastream.QUserType("IdentityId", identityId),
+            // useCustomEncodings: false,
+            CodecForServer: new qtdatastream.QByteArray(options.codecForServer || ""),
+            CodecForEncoding: new qtdatastream.QByteArray(options.codecForEncoding || ""),
+            CodecForDecoding: new qtdatastream.QByteArray(options.codecForDecoding || ""),
+            ServerList: [new qtdatastream.QUserType("Network::Server", {
+                Host: initialServer.host,
+                Port: initialServer.port || "6667",
+                Password: initialServer.password || "",
+                UseSSL: initialServer.useSsl || true,
+                sslVersion: initialServer.sslVersion || 0,
+                /* Lowercase in the protocol */
+                UseProxy: initialServer.useProxy || false,
+                ProxyType: initialServer.proxyType || 0,
+                ProxyHost: initialServer.proxyHost || "",
+                ProxyPort: initialServer.proxyPort || "",
+                ProxyUser: initialServer.proxyUser || "",
+                ProxyPass: initialServer.proxyPass || ""
+            })],
+            UseRandomServer: options.useRandomServer || false,
+            Perform: options.perform || [],
+            UseAutoIdentify: options.useAutoIdentify || false,
+            AutoIdentifyService: options.autoIdentifyService || "NickServ",
+            AutoIdentifyPassword: options.autoIdentifyPassword || "",
+            UseSasl: options.useSasl || false,
+            SaslAccount: options.saslAccount || "",
+            SaslPassword: options.saslPassword || "",
+            UseAutoReconnect: options.useAutoReconnect || true,
+            AutoReconnectInterval: options.autoReconnectInterval || 60,
+            AutoReconnectRetries: options.autoReconnectRetries || 20,
+            UnlimitedReconnectRetries: options.unlimitedReconnectRetries || false,
+            RejoinChannels: options.rejoinChannels || true
+        }),
+        new qtdatastream.QStringList([])
+    ];
+    this.log('Creating network');
+    this.qtsocket.write(slit);
+};
+
+Quassel.prototype.removeNetwork = function(networkId) {
+    var slit = [
+        new qtdatastream.QInt(RequestType.RpcCall),
+        "2removeNetwork(NetworkId)",
+        new qtdatastream.QUserType("NetworkId", networkId)
+    ];
+    this.log('Deleting nhetwork');
+    this.qtsocket.write(slit);
+};
+
 Quassel.prototype.sendMessage = function(bufferId, message) {
     var buffer = this.networks.findBuffer(parseInt(bufferId, 10));
     if (buffer !== null) {
@@ -19249,82 +19358,6 @@ Quassel.prototype.sendMessage = function(bufferId, message) {
     } else {
         this.log("Could not send message to buffer " + bufferId + ". Buffer not found.");
     }
-};
-
-Quassel.prototype.createIdentity = function(nick) {
-    var slit = [
-        new qtdatastream.QInt(RequestType.RpcCall),
-        "2createIdentity(Identity,QVariantMap)",
-        new qtdatastream.QUserType("Identity", {
-          identityId: new qtdatastream.QUserType("IdentityId", 1),
-          identityName: "<empty>",
-          realName: nick,
-          nicks: [ nick ],
-          awayNick: "",
-          awayNickEnabled: false,
-          awayReason: "away",
-          awayReasonEnabled: true,
-          autoAwayEnabled: false,
-          autoAwayTime: 10,
-          autoAwayReason: "away",
-          autoAwayReasonEnabled: false,
-          detachAwayEnabled: "",
-          detachAwayReason: "away",
-          detachAwayReasonEnabled: false,
-          ident: "quassel",
-          kickReason: ".",
-          partReason: "Leaving.",
-          quitReason: "Leaving."
-        }),
-        {}
-    ];
-    this.log('Creating identity');
-    this.qtsocket.write(slit);
-};
-
-Quassel.prototype.createNetwork = function(name, domain, identity) {
-    var slit = [
-        new qtdatastream.QInt(RequestType.RpcCall),
-        "2createNetwork(NetworkInfo,QStringList)",
-        new qtdatastream.QUserType("NetworkInfo", {
-          NetworkId: new qtdatastream.QUserType("NetworkId", 0),
-          NetworkName: name,
-          Identity: new qtdatastream.QUserType("IdentityId", identity),
-          // useCustomEncodings: false,
-          CodecForServer: new qtdatastream.QByteArray(""),
-          CodecForEncoding: new qtdatastream.QByteArray(""),
-          CodecForDecoding: new qtdatastream.QByteArray(""),
-          ServerList: [ new qtdatastream.QUserType("Network::Server", {
-            Host: domain,
-            Port: 6697,
-            Password: "",
-            UseSSL: true,
-            sslVersion: 0, /* Lowercase in the protocol */
-            UseProxy: false,
-            ProxyType: 0,
-            ProxyHost: "localhost",
-            ProxyPort: "8080",
-            ProxyUser: "",
-            ProxyPass: ""
-          }) ],
-          UseRandomServer: false,
-          Perform: [],
-          UseAutoIdentify: false,
-          AutoIdentifyService: "NickServ",
-          AutoIdentifyPassword: "",
-          UseSasl: false,
-          SaslAccount: "",
-          SaslPassword: "",
-          UseAutoReconnect: true,
-          AutoReconnectInterval: 60,
-          AutoReconnectRetries: 20,
-          UnlimitedReconnectRetries: false,
-          RejoinChannels: true
-        }),
-        new qtdatastream.QStringList([])
-    ];
-    this.log('Creating network');
-    this.qtsocket.write(slit);
 };
 
 Quassel.prototype.requestBacklog = function(bufferId, firstMsgId, lastMsgId, maxAmount) {

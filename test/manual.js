@@ -1,5 +1,4 @@
 var Quassel = require('../lib/libquassel.js'),
-    ignore = require('../lib/ignore.js'),
     pprompt = require('prompt');
 var opts = require("nomnom")
    .option('backlog', {
@@ -27,6 +26,10 @@ function echoActionChoices() {
     console.log("10. Send a message");
     console.log("11. Merge buffers request");
     console.log("12. Update ignoreList");
+    console.log("13. Create identity");
+    console.log("14. Remove identity");
+    console.log("15. Create network");
+    console.log("16. Remove network");
     console.log("(CTRL^C CTRL^C to quit)");
 }
 
@@ -54,6 +57,12 @@ var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog}, fu
         next(result.user, result.password);
     });
 });
+
+function echoIdentities() {
+    quassel.identities.forEach(function(value, key) {
+        console.log(value.identityName + ": " + key);
+    });
+}
 
 function echoBufferList() {
     quassel.getNetworksHashMap().forEach(function(val, key){
@@ -244,12 +253,32 @@ if (!opts.action) {
         console.log('IgnoreList received', ignorelist);
     });
     
+    quassel.on('network.new', function(networkId) {
+        console.log('Network created', networkId);
+    });
+    
+    quassel.on('network.remove', function(networkId) {
+        console.log('Network removed', networkId);
+    });
+    
+    quassel.on('identity.new', function(identity) {
+        console.log('Identity created', identity.identityId);
+    });
+    
+    quassel.on('identity.removed', function(identity) {
+        console.log('Identity removed', identity.identityId);
+    });
+    
+    quassel.on('identities.init', function(identities) {
+        console.log('Identities initalized', identities);
+    });
+    
 } else {
     
     var schemaActionChoices = [{
         name: 'id',
         description: 'Choose action',
-        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16'],
         required: true
     }], schemaBuffer = [{
         name: 'id',
@@ -280,6 +309,16 @@ if (!opts.action) {
         name: 'id2',
         type: 'string',
         description: 'Buffer ID 2',
+        required: true
+    }], schemaName = [{
+        name: 'id',
+        type: 'string',
+        description: 'Name',
+        required: true
+    }], schemaId = [{
+        name: 'id',
+        type: 'number',
+        description: 'ID',
         required: true
     }];
     
@@ -426,6 +465,50 @@ if (!opts.action) {
                         // Send update (ignoreList) request
                         quassel.requestUpdate(quassel.ignoreList.export());
                         setTimeout(p, 1);
+                        break;
+                    case '13':
+                        // Send create identity request
+                        pprompt.get(schemaName, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.createIdentity(result2.id);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '14':
+                        // Send remove identity request
+                        echoIdentities();
+                        pprompt.get(schemaId, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                if (result2.id > 1 && quassel.identities.has(result2.id)) {
+                                    quassel.removeIdentity(result2.id);
+                                    setTimeout(p, 1);
+                                }
+                            }
+                        });
+                        break;
+                    case '15':
+                        // Send create network request
+                        pprompt.get(schemaName, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.createNetwork(result2.id, 1, "test.test.test");
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '16':
+                        // Send remove network request
+                        echoNetworkList();
+                        pprompt.get(schemaId, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.removeNetwork(result2.id);
+                                setTimeout(p, 1);
+                            }
+                        });
                         break;
                     default:
                         console.log('Wrong choice');
