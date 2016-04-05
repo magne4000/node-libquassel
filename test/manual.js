@@ -30,16 +30,16 @@ function echoActionChoices() {
     console.log("14. Remove identity");
     console.log("15. Create network");
     console.log("16. Remove network");
+    console.log("17. Update identity");
+    console.log("18. Update network");
+    console.log("19. Setup core");
     console.log("(CTRL^C CTRL^C to quit)");
 }
 
-if (opts.action) {
-    opts.backlog = true;
-}
+pprompt.start();
 
-var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog}, function(next) {
+var quassel = new Quassel("localhost", 64242, {nobacklogs: !opts.backlog}, function(next) {
     console.log("Connected");
-    pprompt.start();
     var schema = {
         properties: {
             user: {
@@ -57,6 +57,12 @@ var quassel = new Quassel("getonmyhor.se", 4242, {nobacklogs: !opts.backlog}, fu
         next(result.user, result.password);
     });
 });
+
+function echoBackends() {
+    for (var i=0; i<quassel.coreInfo.StorageBackends.length; i++) {
+        console.log(quassel.coreInfo.StorageBackends[i].DisplayName + ": " + i);
+    }
+}
 
 function echoIdentities() {
     quassel.identities.forEach(function(value, key) {
@@ -261,16 +267,20 @@ if (!opts.action) {
         console.log('Network removed', networkId);
     });
     
-    quassel.on('identity.new', function(identity) {
-        console.log('Identity created', identity.identityId);
+    quassel.on('identity.new', function(identityId) {
+        console.log('Identity created', identityId);
     });
     
-    quassel.on('identity.removed', function(identity) {
-        console.log('Identity removed', identity.identityId);
+    quassel.on('identity.remove', function(identityId) {
+        console.log('Identity removed', identityId);
     });
     
     quassel.on('identities.init', function(identities) {
         console.log('Identities initalized', identities);
+    });
+    
+    quassel.on('setup', function(data) {
+        console.log('Core needs setup', data);
     });
     
 } else {
@@ -278,7 +288,7 @@ if (!opts.action) {
     var schemaActionChoices = [{
         name: 'id',
         description: 'Choose action',
-        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16'],
+        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'],
         required: true
     }], schemaBuffer = [{
         name: 'id',
@@ -319,6 +329,22 @@ if (!opts.action) {
         name: 'id',
         type: 'number',
         description: 'ID',
+        required: true
+    }], schemaCoreSetup = [{
+        name: 'backend',
+        type: 'number',
+        description: 'Storage backend',
+        required: true
+    }, {
+        name: 'adminuser',
+        type: 'string',
+        description: 'Admin user',
+        required: true
+    }, {
+        name: 'adminpassword',
+        type: 'string',
+        hidden: true,
+        description: 'Admin user',
         required: true
     }];
     
@@ -510,6 +536,45 @@ if (!opts.action) {
                             }
                         });
                         break;
+                    case '17':
+                        // Send update identity request
+                        echoIdentities();
+                        pprompt.get(schemaId, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                if (result2.id > 1 && quassel.identities.has(result2.id)) {
+                                    var identity = quassel.identities.get(result2.id);
+                                    identity.identityName += "_bis";
+                                    quassel.requestUpdateIdentity(result2.id, identity);
+                                    setTimeout(p, 1);
+                                }
+                            }
+                        });
+                        break;
+                    case '18':
+                        // Send update network request
+                        echoNetworkList();
+                        pprompt.get(schemaId, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                var network = quassel.networks.get(result2.id);
+                                network.networkName += "_bis";
+                                quassel.requestSetNetworkInfo(result2.id, network);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '19':
+                        // Setup core
+                        echoBackends();
+                        pprompt.get(schemaCoreSetup, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.setupCore(quassel.coreInfo.StorageBackends[result2.backend].DisplayName, result2.adminuser, result2.adminpassword);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
                     default:
                         console.log('Wrong choice');
                         setTimeout(p, 1);
@@ -518,16 +583,17 @@ if (!opts.action) {
         });
     };
     
-    var bufTimeout, once = false;
+    var bufTimeout;
     
-    quassel.on('network.addbuffer', function(network, bufferId) {
-        if (!once) {
-            clearTimeout(bufTimeout);
-            bufTimeout = setTimeout(function(){
-                once = true;
-                p();
-            }, 1000);
-        }
+    quassel.once('network.addbuffer', function(network, bufferId) {
+        clearTimeout(bufTimeout);
+        bufTimeout = setTimeout(function(){
+            p();
+        }, 1000);
+    });
+    
+    quassel.once('setup', function(network, bufferId) {
+        p();
     });
 }
 quassel.connect();

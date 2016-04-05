@@ -1,5 +1,5 @@
 # libquassel
-NodeJS lib to connect and interact with Quassel IRC server.
+Javascript library to connect and interact with Quassel IRC server.
 
 ## Install
 ```sh
@@ -18,6 +18,7 @@ grunt lts
 # for nodejs >=5
 grunt stable
 ```
+
 ## Getting Started
 ```javascript
 var Quassel = require('../lib/libquassel.js');
@@ -27,7 +28,7 @@ var quassel = new Quassel(
         // Options:
         //   nobacklogs (default false): if true, do not handle backlogs
         //   backloglimit: number of backlogs to request per buffer at connection
-        //   unsecurecore (default false): if true, do not use SSL to connect to the core
+        //   securecore (default true): if false, do not use SSL to connect to the core
         {backloglimit: 10}, 
         function(next) {
     next("user", "password");
@@ -43,11 +44,12 @@ quassel.on('network.init', function(networkId) {
 quassel.connect();
 ```
 
-All events are detailed in _test/manual.js_ for now.
+## Documentation
+[1.0.0](https://magne4000.github.com/libquassel/1.0.0 "libquassel 1.0.0 documentation")
 
 ## Examples
 See _test/manual.js_ for details.
 
 ## License
-Copyright (c) 2014-2015 Joël Charles  
+Copyright (c) 2014-2016 Joël Charles  
 Licensed under the MIT license.

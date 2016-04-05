@@ -14,17 +14,26 @@ module.exports = function(grunt) {
           cmd: 'npm install && npm run minify'
       }
     },
+    jsdoc: {
+      dist: {
+        src: ['lib/*.js', 'package.json', 'README.md'],
+        dest: 'doc',
+        options: {
+            template: 'node_modules/minami',
+            configure: 'jsdoc.conf.json'
+        }
+      }
+    },
     browserify: {
       dist: {
-        src: ['client/iefix.js', 'client/bufferpatch.js'],
+        src: ['client/iefix.js', './node_modules/es6-map/implement.js'],
         dest: 'client/libquassel.js',
         options: {
           alias: [
             './lib/libquassel.js:quassel',
             './lib/network.js:network',
+            './lib/identity.js:identity',
             './node_modules/extend/index.js:extend',
-            './lib/serializer.js:serializer',
-            './lib/hashmap.js:serialized-hashmap',
             './lib/user.js:user',
             './lib/buffer.js:ircbuffer',
             './lib/message:message',
@@ -38,10 +47,10 @@ module.exports = function(grunt) {
       }
     },
     watch: {
-      lib: {
+      dist: {
         files: 'lib/*.js',
-        tasks: ['browserify']
-      },
+        tasks: ['browserify', 'jsdoc']
+      }
     },
   });
 
@@ -49,9 +58,11 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-exec');
   grunt.loadNpmTasks('grunt-browserify');
   grunt.loadNpmTasks('grunt-contrib-watch');
+  grunt.loadNpmTasks('grunt-jsdoc');
 
-  // Default task.
-  grunt.registerTask('stable', ['exec:stable', 'browserify']);
-  grunt.registerTask('lts', ['exec:lts', 'browserify']);
+  grunt.registerTask('stable', ['exec:stable', 'browserify', 'jsdoc']);
+  grunt.registerTask('lts', ['exec:lts', 'browserify', 'jsdoc']);
+  
+  grunt.registerTask('doc', ['jsdoc']);
 
 };
