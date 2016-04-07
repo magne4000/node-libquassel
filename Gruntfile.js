@@ -41,8 +41,7 @@ module.exports = function(grunt) {
             './node_modules/net-browserify-alt/browser.js:net',
             './node_modules/tls-browserify/index.js:tls',
             './node_modules/debug/browser.js:debug'
-          ],
-          require: ['buffer']
+          ]
         }
       }
     },
