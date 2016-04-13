@@ -17339,7 +17339,7 @@ Reader.prototype.getUInt = function(){
  * @returns {Number} Current int64
  */
 Reader.prototype.getInt64 = function(){
-    var i = Int64(this.buffer.slice(this.pos, this.pos+8)).toNumber();
+    var i = Int64(this.buffer, this.pos).toNumber();
     this.pos += 8;
     return i;
 };
@@ -17348,7 +17348,7 @@ Reader.prototype.getInt64 = function(){
  * @returns {Number} Current uint64
  */
 Reader.prototype.getUInt64 = function(){
-    var i = UInt64(this.buffer.slice(this.pos, this.pos+8)).toNumber();
+    var i = UInt64(this.buffer, this.pos).toNumber();
     this.pos += 8;
     return i;
 };
@@ -19076,8 +19076,8 @@ IRCBuffer.prototype.removeUser = function(nick) {
  * @param {string} oldnick
  */
 IRCBuffer.prototype.updateUserMaps = function(oldnick) {
-    var user = this.users.get(oldnick);
-    this.users.set(user.nick, user);
+    var userAndModes = this.users.get(oldnick);
+    this.users.set(userAndModes.user.nick, userAndModes);
     this.users.delete(oldnick);
 };
 
