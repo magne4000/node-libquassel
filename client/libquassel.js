@@ -19077,8 +19077,10 @@ IRCBuffer.prototype.removeUser = function(nick) {
  */
 IRCBuffer.prototype.updateUserMaps = function(oldnick) {
     var userAndModes = this.users.get(oldnick);
-    this.users.set(userAndModes.user.nick, userAndModes);
-    this.users.delete(oldnick);
+    if (oldnick !== userAndModes.user.nick) {
+        this.users.set(userAndModes.user.nick, userAndModes);
+        this.users.delete(oldnick);
+    }
 };
 
 /**
@@ -20491,6 +20493,12 @@ util.inherits(Quassel, EventEmitter2);
  * @property {String} server
  */
 /**
+ * This event is fired when a network server list is updated
+ * @event module:libquassel~Quassel#event:"network.serverlist"
+ * @property {number} networkId
+ * @property {Object[]} serverlist
+ */
+/**
  * Buffer has been marked as read
  * @event module:libquassel~Quassel#event:"buffer.read"
  * @property {number} bufferId
@@ -20840,6 +20848,7 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
  * @fires module:libquassel~Quassel#event:"network.mynick"
  * @fires module:libquassel~Quassel#event:"network.networkname"
  * @fires module:libquassel~Quassel#event:"network.server"
+ * @fires module:libquassel~Quassel#event:"network.serverlist"
  * @fires module:libquassel~Quassel#event:"network.adduser"
  * @fires module:libquassel~Quassel#event:"network.new"
  * @fires module:libquassel~Quassel#event:"network.remove"
@@ -20935,6 +20944,11 @@ Quassel.prototype.handleStruct = function(obj) {
                             var server = obj[4];
                             self.networks.get(networkId).server = server;
                             self.emit('network.server', networkId, server);
+                            break;
+                        case "setServerList":
+                            var serverList = obj[4];
+                            self.networks.get(networkId).ServerList = serverList;
+                            self.emit('network.serverlist', networkId, serverList);
                             break;
                         default:
                             self.log('Unhandled Sync.Network ' + functionName);
@@ -21713,11 +21727,28 @@ Quassel.prototype.removeIdentity = function(identityId) {
     this.qtsocket.write(slit);
 };
 
+function _serverListDefaults(server) {
+    return {
+        Host: server.host,
+        Port: server.port || "6667",
+        Password: server.password || "",
+        UseSSL: server.useSsl || true,
+        sslVersion: server.sslVersion || 0,
+        /* Lowercase in the protocol */
+        UseProxy: server.useProxy || false,
+        ProxyType: server.proxyType || 0,
+        ProxyHost: server.proxyHost || "",
+        ProxyPort: server.proxyPort || "",
+        ProxyUser: server.proxyUser || "",
+        ProxyPass: server.proxyPass || ""
+    };
+}
+
 /**
  * Core RPC request - Create a {@link module:network.Network}
  * @param {String} networkName
  * @param {number} identityId
- * @param {(String|Object)} initialServer - Server hostname or IP, or full Network::Server Object
+ * @param {(String|Object)} initialServer - Server hostname or IP, or full Network::Server Object. Can also be undefined if options.ServerList is defined.
  * @param {String} [initialServer.host=initialServer]
  * @param {String} [initialServer.port="6667"]
  * @param {String} [initialServer.password=""]
@@ -21735,6 +21766,7 @@ Quassel.prototype.removeIdentity = function(identityId) {
  * @param {String} [options.codecForDecoding=""]
  * @param {boolean} [options.useRandomServer=false]
  * @param {String[]} [options.perform=[]]
+ * @param {Object[]} [options.ServerList=[]]
  * @param {boolean} [options.useAutoIdentify=false]
  * @param {String} [options.autoIdentifyService="NickServ"]
  * @param {String} [options.autoIdentifyPassword=""]
@@ -21754,6 +21786,14 @@ Quassel.prototype.createNetwork = function(networkName, identityId, initialServe
             host: initialServer
         };
     }
+    var serverList = [];
+    if (options.ServerList && options.ServerList.length > 0) {
+        for (var i=0; i<options.ServerList.length; i++) {
+            serverList.push(new qtdatastream.QUserType("Network::Server", _serverListDefaults(options.ServerList[i])));
+        }
+    } else {
+        serverList = [new qtdatastream.QUserType("Network::Server", _serverListDefaults(initialServer))];
+    }
     var slit = [
         new qtdatastream.QInt(RequestType.RpcCall),
         "2createNetwork(NetworkInfo,QStringList)",
@@ -21765,20 +21805,7 @@ Quassel.prototype.createNetwork = function(networkName, identityId, initialServe
             CodecForServer: new qtdatastream.QByteArray(options.codecForServer || ""),
             CodecForEncoding: new qtdatastream.QByteArray(options.codecForEncoding || ""),
             CodecForDecoding: new qtdatastream.QByteArray(options.codecForDecoding || ""),
-            ServerList: [new qtdatastream.QUserType("Network::Server", {
-                Host: initialServer.host,
-                Port: initialServer.port || "6667",
-                Password: initialServer.password || "",
-                UseSSL: initialServer.useSsl || true,
-                sslVersion: initialServer.sslVersion || 0,
-                /* Lowercase in the protocol */
-                UseProxy: initialServer.useProxy || false,
-                ProxyType: initialServer.proxyType || 0,
-                ProxyHost: initialServer.proxyHost || "",
-                ProxyPort: initialServer.proxyPort || "",
-                ProxyUser: initialServer.proxyUser || "",
-                ProxyPass: initialServer.proxyPass || ""
-            })],
+            ServerList: serverList,
             UseRandomServer: options.useRandomServer || false,
             Perform: options.perform || [],
             UseAutoIdentify: options.useAutoIdentify || false,
