@@ -19969,7 +19969,7 @@ NetworkCollection.prototype.get = function(networkid) {
  * Delete the {@link module:network.Network} Object identified by `networkid` from the collection
  * @param {number} networkid
  */
-NetworkCollection.prototype.delete = function(networkid) {
+NetworkCollection.prototype.delete = NetworkCollection.prototype.remove = function(networkid) {
     networkid = parseInt(networkid, 10);
     this.hm.delete(networkid);
 };
@@ -21770,7 +21770,7 @@ function _serverListDefaults(server) {
  * @param {boolean} [options.useAutoIdentify=false]
  * @param {String} [options.autoIdentifyService="NickServ"]
  * @param {String} [options.autoIdentifyPassword=""]
- * @param {boolean} [options.useSasl=false
+ * @param {boolean} [options.useSasl=false]
  * @param {String} [options.saslAccount=""]
  * @param {String} [options.saslPassword=""]
  * @param {boolean} [options.useAutoReconnect=true]
