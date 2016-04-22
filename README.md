@@ -6,6 +6,9 @@ Javascript library to connect and interact with Quassel IRC server.
 npm install --production libquassel
 ```
 
+## Use in browser
+You just need to import `client/libquassel.js` or `client/libquassel.min.js` in your HTML page.
+
 ## Development
 ```sh
 npm install libquassel
@@ -19,7 +22,7 @@ grunt lts
 grunt stable
 ```
 
-## Getting Started
+### Getting Started
 ```javascript
 var Quassel = require('../lib/libquassel.js');
 var quassel = new Quassel(
@@ -44,10 +47,10 @@ quassel.on('network.init', function(networkId) {
 quassel.connect();
 ```
 
-## Documentation
-[1.0.5](https://magne4000.github.com/libquassel/1.0.5 "libquassel 1.0.5 documentation")
+### Documentation
+[1.1.0](https://magne4000.github.com/libquassel/1.1.0 "libquassel 1.1.0 documentation")
 
-## Examples
+### Examples
 See _test/manual.js_ for details.
 
 ## License

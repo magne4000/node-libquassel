@@ -19885,6 +19885,7 @@ exports.isIPv6 = function(input) {
 
 }).call(this,require('_process'),require("buffer").Buffer)
 },{"_process":23,"buffer":55,"http":42,"stream":41,"timers":49,"util":53}],"network":[function(require,module,exports){
+(function (Buffer){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -19908,17 +19909,46 @@ var Glouton = require('./glouton'),
  * @param {number} networkId
  */
 var Network = function Network(networkId) {
+    /** @member {number} networkId */
     this.networkId = networkId;
+    /** @member {module:buffer.IRCBufferCollection} buffers */
     this.buffers = new IRCBufferCollection();
-    this.users = new Map; // Map<String, IrcUser>
+    /** @member {Map.<String, module:user>} users */
+    this.users = new Map;
+    /** @member {boolean} open */
     this.open = false;
+    /** @member {module:network.Network.ConnectionState} connectionState */
     this.connectionState = Network.ConnectionState.Disconnected;
+    /** @member {boolean} isConnected */
     this.isConnected = false;
+    /** @member {number} latency */
     this.latency = 0;
+    /** @member {?module:buffer.IRCBuffer} statusBuffer */
     this.statusBuffer = null;
+    /** @member {?string} networkName */
     this.networkName = null;
+    /** @member {?string} networkName */
     this.nick = null;
-    this.server = null;
+    /** @member {Object[]} ServerList */
+    // TODO create type for ServerList element
+    /** @member {?string} autoIdentifyPassword */
+    /** @member {?string} autoIdentifyService */
+    /** @member {number} autoReconnectInterval */
+    /** @member {number} autoReconnectRetries */
+    /** @member {?string} codecForDecoding */
+    /** @member {?string} codecForEncoding */
+    /** @member {?string} codecForServer */
+    /** @member {?string} currentServer */
+    /** @member {number} identityId */
+    /** @member {string[]} perform */
+    /** @member {boolean} rejoinChannels */
+    /** @member {?string} saslAccount */
+    /** @member {?string} saslPassword */
+    /** @member {boolean} unlimitedReconnectRetries */
+    /** @member {boolean} useAutoIdentify */
+    /** @member {boolean} useAutoReconnect */
+    /** @member {boolean} useRandomServer */
+    /** @member {boolean} useSasl */
 };
 
 Glouton.extend(Network);
@@ -20192,14 +20222,6 @@ Network.prototype.setLatency = function(latency) {
 };
 
 /**
- * Update server
- * @param {string} server
- */
-Network.prototype.setServer = function(server) {
-    this.server = server;
-};
-
-/**
  * Actually set empty topic for statusBuffer, otherwise it does nothing
  */
 Network.prototype.updateTopic = function() {
@@ -20246,6 +20268,42 @@ Network.prototype.getBufferMap = function() {
  */
 Network.prototype.getBuffer = function(ind) {
     return this.buffers.getBuffer(ind);
+};
+
+/**
+ * Set current codec for decoding messages
+ * @param {(Buffer|string)} s
+ */
+Network.prototype.setCodecForDecoding = function(s) {
+    if (Buffer.isBuffer(s)) {
+        this.codecForDecoding = qtdatastream.util.str(s);
+    } else {
+        this.codecForDecoding = s;
+    }
+};
+
+/**
+ * Set current codec for encoding messages
+ * @param {(Buffer|string)} s
+ */
+Network.prototype.setCodecForEncoding = function(s) {
+    if (Buffer.isBuffer(s)) {
+        this.codecForEncoding = qtdatastream.util.str(s);
+    } else {
+        this.codecForEncoding = s;
+    }
+};
+
+/**
+ * Set current codec used by the server
+ * @param {(Buffer|string)} s
+ */
+Network.prototype.setCodecForServer = function(s) {
+    if (Buffer.isBuffer(s)) {
+        this.codecForServer = qtdatastream.util.str(s);
+    } else {
+        this.codecForServer = s;
+    }
 };
 
 /**
@@ -20298,7 +20356,8 @@ Network.toQ = function(network) {
 exports.Network = Network;
 exports.NetworkCollection = NetworkCollection;
 
-},{"./buffer":"ircbuffer","./glouton":2,"./user":"user","debug":"debug","qtdatastream":118}],"quassel":[function(require,module,exports){
+}).call(this,{"isBuffer":require("../node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js")})
+},{"../node_modules/browserify/node_modules/insert-module-globals/node_modules/is-buffer/index.js":21,"./buffer":"ircbuffer","./glouton":2,"./user":"user","debug":"debug","qtdatastream":118}],"quassel":[function(require,module,exports){
 (function (Buffer){
 /*
  * libquassel
@@ -20497,6 +20556,90 @@ util.inherits(Quassel, EventEmitter2);
  * @event module:libquassel~Quassel#event:"network.serverlist"
  * @property {number} networkId
  * @property {Object[]} serverlist
+ */
+/**
+ * Fired when encoding for sent messages has changed
+ * @event module:libquassel~Quassel#event:"network.codec.decoding"
+ * @property {number} networkId
+ * @property {String} codec
+ */
+/**
+ * Fired when encoding for received messages has changed
+ * @event module:libquassel~Quassel#event:"network.codec.encoding"
+ * @property {number} networkId
+ * @property {String} codec
+ */
+/**
+ * Fired when server encoding has changed
+ * @event module:libquassel~Quassel#event:"network.codec.server"
+ * @property {number} networkId
+ * @property {String} codec
+ */
+/**
+ * Fired when the list of commands to perform on connection to a server has changed
+ * @event module:libquassel~Quassel#event:"network.perform"
+ * @property {number} networkId
+ * @property {String[]} commands
+ */
+/**
+ * Fired when the network identity changed
+ * @event module:libquassel~Quassel#event:"network.identity"
+ * @property {number} networkId
+ * @property {number} identityId
+ */
+/**
+ * Fired when interval value for reconnecting to the network changed
+ * @event module:libquassel~Quassel#event:"network.autoreconnect.interval"
+ * @property {number} networkId
+ * @property {number} interval
+ */
+/**
+ * Fired when retries value for reconnecting to the network changed
+ * @event module:libquassel~Quassel#event:"network.autoreconnect.retries"
+ * @property {number} networkId
+ * @property {number} retries
+ */
+/**
+ * Fired when auto identify service changed
+ * @event module:libquassel~Quassel#event:"network.autoidentify.service"
+ * @property {number} networkId
+ * @property {String} service
+ */
+/**
+ * Fired when auto identify service password changed
+ * @event module:libquassel~Quassel#event:"network.autoidentify.password"
+ * @property {number} networkId
+ * @property {String} password
+ */
+/**
+ * Fired when Unlimited reconnect retries value has changed
+ * @event module:libquassel~Quassel#event:"network.unlimitedreconnectretries"
+ * @property {number} networkId
+ * @property {boolean} unlimitedreconnectretries
+ */
+/**
+ * Fired when Use Sasl value has changed
+ * @event module:libquassel~Quassel#event:"network.usesasl"
+ * @property {number} networkId
+ * @property {boolean} usesasl
+ */
+/**
+ * Fired when Sasl account has changed
+ * @event module:libquassel~Quassel#event:"network.sasl.account"
+ * @property {number} networkId
+ * @property {String} account
+ */
+/**
+ * Fired when Sasl account password has changed
+ * @event module:libquassel~Quassel#event:"network.sasl.password"
+ * @property {number} networkId
+ * @property {String} password
+ */
+/**
+ * Fired when Rejoin Channels value has changed
+ * @event module:libquassel~Quassel#event:"network.rejoinchannels"
+ * @property {number} networkId
+ * @property {boolean} rejoinchannels
  */
 /**
  * Buffer has been marked as read
@@ -20852,6 +20995,20 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
  * @fires module:libquassel~Quassel#event:"network.adduser"
  * @fires module:libquassel~Quassel#event:"network.new"
  * @fires module:libquassel~Quassel#event:"network.remove"
+ * @fires module:libquassel~Quassel#event:"network.codec.decoding"
+ * @fires module:libquassel~Quassel#event:"network.codec.encoding"
+ * @fires module:libquassel~Quassel#event:"network.codec.server"
+ * @fires module:libquassel~Quassel#event:"network.perform"
+ * @fires module:libquassel~Quassel#event:"network.identity"
+ * @fires module:libquassel~Quassel#event:"network.autoreconnect.interval"
+ * @fires module:libquassel~Quassel#event:"network.autoreconnect.retries"
+ * @fires module:libquassel~Quassel#event:"network.autoidentify.service"
+ * @fires module:libquassel~Quassel#event:"network.autoidentify.password"
+ * @fires module:libquassel~Quassel#event:"network.unlimitedreconnectretries"
+ * @fires module:libquassel~Quassel#event:"network.usesasl"
+ * @fires module:libquassel~Quassel#event:"network.sasl.account"
+ * @fires module:libquassel~Quassel#event:"network.sasl.password"
+ * @fires module:libquassel~Quassel#event:"network.rejoinchannels"
  * @fires module:libquassel~Quassel#event:"buffer.read"
  * @fires module:libquassel~Quassel#event:"buffer.lastseen"
  * @fires module:libquassel~Quassel#event:"buffer.markerline"
@@ -20880,7 +21037,8 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
  * @protected
  */
 Quassel.prototype.handleStruct = function(obj) {
-    var self = this, networkId, identity, identityId, className, functionName, bufferId, buffer, bufferName, messageId, tmp, userNetworkId, userName, networkNick, user, mode, data, oldNick, i, ind, bufferCollection;
+    var self = this, networkId, identity, identityId, className, functionName, bufferId, buffer, bufferName,
+               messageId, tmp, userNetworkId, userName, networkNick, user, mode, data, oldNick, i, ind, bufferCollection, codec;
     switch (obj[0]) {
         case RequestType.Sync:
             className = obj[1].toString();
@@ -20942,13 +21100,74 @@ Quassel.prototype.handleStruct = function(obj) {
                             break;
                         case "setCurrentServer":
                             var server = obj[4];
-                            self.networks.get(networkId).server = server;
+                            self.networks.get(networkId).currentServer = server;
                             self.emit('network.server', networkId, server);
                             break;
                         case "setServerList":
                             var serverList = obj[4];
                             self.networks.get(networkId).ServerList = serverList;
                             self.emit('network.serverlist', networkId, serverList);
+                            break;
+                        case "setCodecForDecoding":
+                            codec = obj[4];
+                            self.networks.get(networkId).setCodecForDecoding(codec);
+                            self.emit('network.codec.decoding', networkId, codec);
+                            break;
+                        case "setCodecForEncoding":
+                            codec = obj[4];
+                            self.networks.get(networkId).setCodecForEncoding(codec);
+                            self.emit('network.codec.encoding', networkId, codec);
+                            break;
+                        case "setCodecForServer":
+                            codec = obj[4];
+                            self.networks.get(networkId).setCodecForServer(codec);
+                            self.emit('network.codec.server', networkId, codec);
+                            break;
+                        case "setPerform":
+                            var commands = obj[4];
+                            self.networks.get(networkId).perform = commands;
+                            self.emit('network.perform', networkId, commands);
+                            break;
+                        case "setIdentity":
+                            identityId = obj[4];
+                            self.networks.get(networkId).identityId = identityId;
+                            self.emit('network.identity', networkId, identityId);
+                            break;
+                        case "setAutoReconnectInterval":
+                            self.networks.get(networkId).autoReconnectInterval = obj[4];
+                            self.emit('network.autoreconnect.interval', networkId, obj[4]);
+                            break;
+                        case "setAutoReconnectRetries":
+                            self.networks.get(networkId).autoReconnectRetries = obj[4];
+                            self.emit('network.autoreconnect.retries', networkId, obj[4]);
+                            break;
+                        case "setAutoIdentifyService":
+                            self.networks.get(networkId).autoIdentifyService = obj[4];
+                            self.emit('network.autoidentify.service', networkId, obj[4]);
+                            break;
+                        case "setAutoIdentifyPassword":
+                            self.networks.get(networkId).autoIdentifyPassword = obj[4];
+                            self.emit('network.autoidentify.password', networkId, obj[4]);
+                            break;
+                        case "setUnlimitedReconnectRetries":
+                            self.networks.get(networkId).unlimitedReconnectRetries = obj[4];
+                            self.emit('network.unlimitedreconnectretries', networkId, obj[4]);
+                            break;
+                        case "setUseSasl":
+                            self.networks.get(networkId).useSasl = obj[4];
+                            self.emit('network.usesasl', networkId, obj[4]);
+                            break;
+                        case "setSaslAccount":
+                            self.networks.get(networkId).saslAccount = obj[4];
+                            self.emit('network.sasl.account', networkId, obj[4]);
+                            break;
+                        case "setSaslPassword":
+                            self.networks.get(networkId).saslPassword = obj[4];
+                            self.emit('network.sasl.password', networkId, obj[4]);
+                            break;
+                        case "setRejoinChannels":
+                            self.networks.get(networkId).rejoinChannels = obj[4];
+                            self.emit('network.rejoinchannels', networkId, obj[4]);
                             break;
                         default:
                             self.log('Unhandled Sync.Network ' + functionName);

@@ -25,7 +25,7 @@ module.exports = function(grunt) {
       }
     },
     browserify: {
-      dist: {
+      dev: {
         src: ['client/iefix.js', './node_modules/es6-map/implement.js'],
         dest: 'client/libquassel.js',
         options: {
@@ -43,12 +43,38 @@ module.exports = function(grunt) {
             './node_modules/debug/browser.js:debug'
           ]
         }
+      },
+      dist: {
+        src: ['client/iefix.js', './node_modules/es6-map/implement.js'],
+        dest: 'client/libquassel.min.js',
+        options: {
+          alias: [
+            './lib/libquassel.js:quassel',
+            './lib/network.js:network',
+            './lib/identity.js:identity',
+            './node_modules/extend/index.js:extend',
+            './lib/user.js:user',
+            './lib/buffer.js:ircbuffer',
+            './lib/message:message',
+            './lib/ignore:ignore',
+            './node_modules/net-browserify-alt/browser.js:net',
+            './node_modules/tls-browserify/index.js:tls',
+            './node_modules/debug/browser.js:debug'
+          ],
+          transform: [['uglifyify', {
+              global: true,
+              ignore: ['**/node_modules/node-forge/*', '**/node_modules/es6-map/*'],
+              compress: {
+                keep_fnames: true
+              },
+          }]]
+        }
       }
     },
     watch: {
       dist: {
         files: 'lib/*.js',
-        tasks: ['browserify', 'jsdoc']
+        tasks: ['browserify:dev']
       }
     },
   });
@@ -59,8 +85,8 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-watch');
   grunt.loadNpmTasks('grunt-jsdoc');
 
-  grunt.registerTask('stable', ['exec:stable', 'browserify', 'jsdoc']);
-  grunt.registerTask('lts', ['exec:lts', 'browserify', 'jsdoc']);
+  grunt.registerTask('stable', ['exec:stable', 'browserify:dev', 'browserify:dist', 'jsdoc']);
+  grunt.registerTask('lts', ['exec:lts', 'browserify:dev', 'browserify:dist', 'jsdoc']);
   
   grunt.registerTask('doc', ['jsdoc']);
 
