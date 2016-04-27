@@ -26,16 +26,18 @@ grunt stable
 ```javascript
 var Quassel = require('../lib/libquassel.js');
 var quassel = new Quassel(
-        "quassel.domain.tld", // Quasselcore address
-        4242, // Quasselcore port
-        // Options:
-        //   nobacklogs (default false): if true, do not handle backlogs
-        //   backloglimit: number of backlogs to request per buffer at connection
-        //   securecore (default true): if false, do not use SSL to connect to the core
-        {backloglimit: 10}, 
-        function(next) {
-    next("user", "password");
-});
+    "quassel.domain.tld", // Quasselcore address
+    4242, // Quasselcore port
+    // Options:
+    //   nobacklogs (default false): if true, do not handle backlogs
+    //   backloglimit: number of backlogs to request per buffer at connection
+    //   securecore (default true): if false, do not use SSL to connect to the core
+    //   highlightmode (default to current nick only): see documentation
+    {backloglimit: 10}, 
+    function(next) {
+        next("user", "password");
+    }
+);
 
 quassel.on('network.init', function(networkId) {
     network = quassel.getNetworks().get(networkId);
@@ -48,7 +50,7 @@ quassel.connect();
 ```
 
 ### Documentation
-[1.1.0](https://magne4000.github.com/libquassel/1.1.0 "libquassel 1.1.0 documentation")
+[1.1.1](https://magne4000.github.com/libquassel/1.1.1 "libquassel 1.1.1 documentation")
 
 ### Examples
 See _test/manual.js_ for details.

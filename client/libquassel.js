@@ -16010,85 +16010,103 @@ Object.defineProperty(MapPoly.prototype, Symbol.toStringTag, d('c', 'Map'));
     var type = arguments[0];
 
     if (type === 'newListener' && !this.newListener) {
-      if (!this._events.newListener) { return false; }
-    }
-
-    // Loop through the *_all* functions and invoke them.
-    if (this._all) {
-      var l = arguments.length;
-      var args = new Array(l - 1);
-      for (var i = 1; i < l; i++) args[i - 1] = arguments[i];
-      for (i = 0, l = this._all.length; i < l; i++) {
-        this.event = type;
-        this._all[i].apply(this, [type].concat(args));
-      }
-    }
-
-    // If there is no 'error' event listener then throw.
-    if (type === 'error') {
-
-      if (!this._all &&
-        !this._events.error &&
-        !(this.wildcard && this.listenerTree.error)) {
-
-        if (arguments[1] instanceof Error) {
-          throw arguments[1]; // Unhandled 'error' event
-        } else {
-          throw new Error("Uncaught, unspecified 'error' event.");
-        }
+      if (!this._events.newListener) {
         return false;
       }
     }
 
+    var al = arguments.length;
+    var args,l,i,j;
     var handler;
 
-    if(this.wildcard) {
+    if (this._all && this._all.length) {
+      handler = this._all.slice();
+      if (al > 3) {
+        args = new Array(al);
+        for (j = 1; j < al; j++) args[j] = arguments[j];
+      }
+
+      for (i = 0, l = handler.length; i < l; i++) {
+        this.event = type;
+        switch (al) {
+        case 1:
+          handler[i].call(this, type);
+          break;
+        case 2:
+          handler[i].call(this, type, arguments[1]);
+          break;
+        case 3:
+          handler[i].call(this, type, arguments[1], arguments[2]);
+          break;
+        default:
+          handler[i].apply(this, args);
+        }
+      }
+    }
+
+    if (this.wildcard) {
       handler = [];
       var ns = typeof type === 'string' ? type.split(this.delimiter) : type.slice();
       searchListenerTree.call(this, handler, ns, this.listenerTree, 0);
-    }
-    else {
+    } else {
       handler = this._events[type];
-    }
-
-    if (typeof handler === 'function') {
-      this.event = type;
-      if (arguments.length === 1) {
-        handler.call(this);
-      }
-      else if (arguments.length > 1)
-        switch (arguments.length) {
-          case 2:
-            handler.call(this, arguments[1]);
-            break;
-          case 3:
-            handler.call(this, arguments[1], arguments[2]);
-            break;
-          // slower
-          default:
-            var l = arguments.length;
-            var args = new Array(l - 1);
-            for (var i = 1; i < l; i++) args[i - 1] = arguments[i];
-            handler.apply(this, args);
-        }
-      return true;
-    }
-    else if (handler) {
-      var l = arguments.length;
-      var args = new Array(l - 1);
-      for (var i = 1; i < l; i++) args[i - 1] = arguments[i];
-
-      var listeners = handler.slice();
-      for (var i = 0, l = listeners.length; i < l; i++) {
+      if (typeof handler === 'function') {
         this.event = type;
-        listeners[i].apply(this, args);
+        switch (al) {
+        case 1:
+          handler.call(this);
+          break;
+        case 2:
+          handler.call(this, arguments[1]);
+          break;
+        case 3:
+          handler.call(this, arguments[1], arguments[2]);
+          break;
+        default:
+          args = new Array(al - 1);
+          for (j = 1; j < al; j++) args[j - 1] = arguments[j];
+          handler.apply(this, args);
+        }
+        return true;
+      } else if (handler) {
+        // need to make copy of handlers because list can change in the middle
+        // of emit call
+        handler = handler.slice();
       }
-      return (listeners.length > 0) || !!this._all;
-    }
-    else {
-      return !!this._all;
     }
 
+    if (handler && handler.length) {
+      if (al > 3) {
+        args = new Array(al - 1);
+        for (j = 1; j < al; j++) args[j - 1] = arguments[j];
+      }
+      for (i = 0, l = handler.length; i < l; i++) {
+        this.event = type;
+        switch (al) {
+        case 1:
+          handler[i].call(this);
+          break;
+        case 2:
+          handler[i].call(this, arguments[1]);
+          break;
+        case 3:
+          handler[i].call(this, arguments[1], arguments[2]);
+          break;
+        default:
+          handler[i].apply(this, args);
+        }
+      }
+      return true;
+    } else if (!this._all && type === 'error') {
+      if (arguments[1] instanceof Error) {
+        throw arguments[1]; // Unhandled 'error' event
+      } else {
+        throw new Error("Uncaught, unspecified 'error' event.");
+      }
+      return false;
+    }
+
+    return !!this._all;
   };
 
   EventEmitter.prototype.emitAsync = function() {
@@ -16098,81 +16116,92 @@ Object.defineProperty(MapPoly.prototype, Symbol.toStringTag, d('c', 'Map'));
     var type = arguments[0];
 
     if (type === 'newListener' && !this.newListener) {
-      if (!this._events.newListener) { return Promise.resolve([false]); }
+        if (!this._events.newListener) { return Promise.resolve([false]); }
     }
 
     var promises= [];
 
-    // Loop through the *_all* functions and invoke them.
+    var al = arguments.length;
+    var args,l,i,j;
+    var handler;
+
     if (this._all) {
-      var l = arguments.length;
-      var args = new Array(l - 1);
-      for (var i = 1; i < l; i++) args[i - 1] = arguments[i];
+      if (al > 3) {
+        args = new Array(al);
+        for (j = 1; j < al; j++) args[j] = arguments[j];
+      }
       for (i = 0, l = this._all.length; i < l; i++) {
         this.event = type;
-        promises.push(this._all[i].apply(this, args));
-      }
-    }
-
-    // If there is no 'error' event listener then throw.
-    if (type === 'error') {
-
-      if (!this._all &&
-        !this._events.error &&
-        !(this.wildcard && this.listenerTree.error)) {
-
-        if (arguments[1] instanceof Error) {
-          return Promise.reject(arguments[1]); // Unhandled 'error' event
-        } else {
-          return Promise.reject("Uncaught, unspecified 'error' event.");
+        switch (al) {
+        case 1:
+          promises.push(this._all[i].call(this, type));
+          break;
+        case 2:
+          promises.push(this._all[i].call(this, type, arguments[1]));
+          break;
+        case 3:
+          promises.push(this._all[i].call(this, type, arguments[1], arguments[2]));
+          break;
+        default:
+          promises.push(this._all[i].apply(this, args));
         }
       }
     }
 
-    var handler;
-
-    if(this.wildcard) {
+    if (this.wildcard) {
       handler = [];
       var ns = typeof type === 'string' ? type.split(this.delimiter) : type.slice();
       searchListenerTree.call(this, handler, ns, this.listenerTree, 0);
-    }
-    else {
+    } else {
       handler = this._events[type];
     }
 
     if (typeof handler === 'function') {
       this.event = type;
-      if (arguments.length === 1) {
+      switch (al) {
+      case 1:
         promises.push(handler.call(this));
+        break;
+      case 2:
+        promises.push(handler.call(this, arguments[1]));
+        break;
+      case 3:
+        promises.push(handler.call(this, arguments[1], arguments[2]));
+        break;
+      default:
+        args = new Array(al - 1);
+        for (j = 1; j < al; j++) args[j - 1] = arguments[j];
+        promises.push(handler.apply(this, args));
       }
-      else if (arguments.length > 1) {
-        switch (arguments.length) {
-          case 2:
-            promises.push(handler.call(this, arguments[1]));
-            break;
-          case 3:
-            promises.push(handler.call(this, arguments[1], arguments[2]));
-            break;
-          // slower
-          default:
-            var l = arguments.length;
-            var args = new Array(l - 1);
-            for (var i = 1; i < l; i++) args[i - 1] = arguments[i];
-            promises.push(handler.apply(this, args));
+    } else if (handler && handler.length) {
+      if (al > 3) {
+        args = new Array(al - 1);
+        for (j = 1; j < al; j++) args[j - 1] = arguments[j];
+      }
+      for (i = 0, l = handler.length; i < l; i++) {
+        this.event = type;
+        switch (al) {
+        case 1:
+          promises.push(handler[i].call(this));
+          break;
+        case 2:
+          promises.push(handler[i].call(this, arguments[1]));
+          break;
+        case 3:
+          promises.push(handler[i].call(this, arguments[1], arguments[2]));
+          break;
+        default:
+          promises.push(handler[i].apply(this, args));
         }
       }
-    }
-    else if (handler) {
-      var l = arguments.length;
-      var args = new Array(l - 1);
-      for (var i = 1; i < l; i++) args[i - 1] = arguments[i];
-
-      var listeners = handler.slice();
-      for (var i = 0, l = listeners.length; i < l; i++) {
-        this.event = type;
-        promises.push(listeners[i].apply(this, args));
+    } else if (!this._all && type === 'error') {
+      if (arguments[1] instanceof Error) {
+        return Promise.reject(arguments[1]); // Unhandled 'error' event
+      } else {
+        return Promise.reject("Uncaught, unspecified 'error' event.");
       }
     }
+
     return Promise.all(promises);
   };
 
@@ -16304,9 +16333,9 @@ Object.defineProperty(MapPoly.prototype, Symbol.toStringTag, d('c', 'Map'));
             delete this._events[type];
           }
         }
-        
+
         this.emit("removeListener", type, listener);
-        
+
         return this;
       }
       else if (handlers === listener ||
@@ -16318,7 +16347,7 @@ Object.defineProperty(MapPoly.prototype, Symbol.toStringTag, d('c', 'Map'));
         else {
           delete this._events[type];
         }
-        
+
         this.emit("removeListener", type, listener);
       }
     }
@@ -18373,95 +18402,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":59}],"extend":[function(require,module,exports){
-'use strict';
-
-var hasOwn = Object.prototype.hasOwnProperty;
-var toStr = Object.prototype.toString;
-
-var isArray = function isArray(arr) {
-	if (typeof Array.isArray === 'function') {
-		return Array.isArray(arr);
-	}
-
-	return toStr.call(arr) === '[object Array]';
-};
-
-var isPlainObject = function isPlainObject(obj) {
-	if (!obj || toStr.call(obj) !== '[object Object]') {
-		return false;
-	}
-
-	var hasOwnConstructor = hasOwn.call(obj, 'constructor');
-	var hasIsPrototypeOf = obj.constructor && obj.constructor.prototype && hasOwn.call(obj.constructor.prototype, 'isPrototypeOf');
-	// Not own constructor property must be Object
-	if (obj.constructor && !hasOwnConstructor && !hasIsPrototypeOf) {
-		return false;
-	}
-
-	// Own properties are enumerated firstly, so to speed up,
-	// if last one is own, then all properties are own.
-	var key;
-	for (key in obj) {/**/}
-
-	return typeof key === 'undefined' || hasOwn.call(obj, key);
-};
-
-module.exports = function extend() {
-	var options, name, src, copy, copyIsArray, clone,
-		target = arguments[0],
-		i = 1,
-		length = arguments.length,
-		deep = false;
-
-	// Handle a deep copy situation
-	if (typeof target === 'boolean') {
-		deep = target;
-		target = arguments[1] || {};
-		// skip the boolean and the target
-		i = 2;
-	} else if ((typeof target !== 'object' && typeof target !== 'function') || target == null) {
-		target = {};
-	}
-
-	for (; i < length; ++i) {
-		options = arguments[i];
-		// Only deal with non-null/undefined values
-		if (options != null) {
-			// Extend the base object
-			for (name in options) {
-				src = target[name];
-				copy = options[name];
-
-				// Prevent never-ending loop
-				if (target !== copy) {
-					// Recurse if we're merging plain objects or arrays
-					if (deep && copy && (isPlainObject(copy) || (copyIsArray = isArray(copy)))) {
-						if (copyIsArray) {
-							copyIsArray = false;
-							clone = src && isArray(src) ? src : [];
-						} else {
-							clone = src && isPlainObject(src) ? src : {};
-						}
-
-						// Never move original objects, clone them
-						target[name] = extend(deep, clone, copy);
-
-					// Don't bring in undefined values
-					} else if (typeof copy !== 'undefined') {
-						target[name] = copy;
-					}
-				}
-			}
-		}
-	}
-
-	// Return the modified object
-	return target;
-};
-
-
-},{}],"identity":[function(require,module,exports){
+},{"./debug":59}],"identity":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -19414,18 +19355,39 @@ IRCMessage.prototype.isSelf = function() {
 };
 
 /**
- * Update internal message flags (for highlights)
+ * Update internal highlight flags
+ * @param {module:network.Network} network
+ * @param {module:identity} identity
+ * @param {module:libquassel~Quassel.HighlightModes} mode
  * @protected
  */
-IRCMessage.prototype._updateFlags = function(nick) {
-    if (this.type == Type.Plain || this.type == Type.Action) {
-        if (nick) {
-            var quotedNick = nick.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
-            var regex = new RegExp("([\\W]|^)"+quotedNick+"([\\W]|$)", "i");
-            if (regex.test(this.content)) {
-                this.flags = this.flags | Flag.Highlight;
+IRCMessage.prototype._updateFlags = function(network, identity, mode) {
+    var nickRegex = null, nicks = [];
+    switch (mode) {
+        case 0x01:
+            // None, do nothing
+            return;
+        case 0x02:
+            if (this.type != Type.Plain && this.type != Type.Action) return;
+            if (!network.nick) return;
+            nickRegex = network.nick.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
+            break;
+        case 0x03:
+            if (this.type != Type.Plain && this.type != Type.Action) return;
+            if (identity.nicks.length === 0) return;
+            for (var i=0; i<identity.nicks.length; i++) {
+                nicks.push(identity.nicks[i].replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1"));
             }
-        }
+            nickRegex = '(' + nicks.join('|') + ')';
+            break;
+        default:
+            // Invalid, do nothing
+            console.log('Invalid _updateFlags mode', mode);
+            return;
+    }
+    var regex = new RegExp("([\\W]|^)"+nickRegex+"([\\W]|$)", "i");
+    if (regex.test(this.content)) {
+        this.flags = this.flags | Flag.Highlight;
     }
 };
 
@@ -20409,6 +20371,7 @@ var net = require('net'),
  * @param {number} [options.initialbackloglimit=options.backloglimit] number of backlogs to request per buffer at connection
  * @param {number} [options.backloglimit=100] number of backlogs to request per buffer after connection
  * @param {boolean} [options.securecore=true] Use SSL to connect to the core (if the core allows it)
+ * @param {module:libquassel~Quassel.HighlightModes} [options.highlightmode=0x02] Choose how highlights on nicks works. Defaults to only highlight a message if current nick is present.
  * @param {module:libquassel~Quassel~loginCallback} loginCallback
  * @example
  * var quassel = new Quassel("localhost", 4242, {}, function(next) {
@@ -20431,6 +20394,7 @@ var Quassel = function(server, port, options, loginCallback) {
     this.options = options || {};
     this.options.backloglimit = parseInt(options.backloglimit || 100, 10);
     this.options.initialbackloglimit = parseInt(options.initialbackloglimit || this.options.backloglimit, 10);
+    this.options.highlightmode = (typeof options.highlightmode === 'number') ? options.highlightmode : Quassel.HighlightModes.CurrentNick;
     /** @member {module:network.NetworkCollection} */
     this.networks = new NetworkCollection();
     /** @member {Map.<number, module:identity>} */
@@ -20465,6 +20429,17 @@ var Quassel = function(server, port, options, loginCallback) {
 };
 
 util.inherits(Quassel, EventEmitter2);
+
+/**
+ * @readonly
+ * @enum {number}
+ * @default
+ */
+Quassel.HighlightModes = {
+    None: 0x01,
+    CurrentNick: 0x02,
+    AllIdentityNicks: 0x03
+};
 
 /**
  * This event is fired when quasselcore information are received
@@ -21397,7 +21372,8 @@ Quassel.prototype.handleStruct = function(obj) {
                                         self.log("Getting message buffer already have " + data[i].bufferInfo.name);
                                     } else {
                                         messageIds.push(message.id);
-                                        message._updateFlags(self.networks.get(buffer.network).nick);
+                                        network = self.networks.get(buffer.network);
+                                        message._updateFlags(network, self.identities.get(network.identityId), self.options.highlightmode);
                                     }
                                 }
                                 self.emit("buffer.backlog", bufferId, messageIds);
@@ -21445,7 +21421,8 @@ Quassel.prototype.handleStruct = function(obj) {
                     message = obj[2];
                     networkId = message.bufferInfo.network;
                     bufferId = message.bufferInfo.id;
-                    bufferCollection = self.networks.get(networkId).getBufferCollection();
+                    network = self.networks.get(networkId);
+                    bufferCollection = network.getBufferCollection();
                     if (!bufferCollection.hasBuffer(bufferId)) {
                         if (bufferCollection.hasBuffer(message.bufferInfo.name)) {
                             buffer = bufferCollection.getBuffer(message.bufferInfo.name);
@@ -21467,7 +21444,7 @@ Quassel.prototype.handleStruct = function(obj) {
                     if (buffer !== null) {
                         var simpleMessage = buffer.addMessage(message);
                         if (simpleMessage) {
-                            simpleMessage._updateFlags(self.networks.get(networkId).nick);
+                            simpleMessage._updateFlags(network, self.identities.get(network.identityId), self.options.highlightmode);
                             self.emit("buffer.message", bufferId, simpleMessage.id);
                         }
                     }
