@@ -19046,6 +19046,15 @@ IRCBuffer.prototype.addMessage = function(message) {
 };
 
 /**
+ * Clear buffer messages
+ */
+IRCBuffer.prototype.clearMessages = function() {
+    this._lastMessageId = null;
+    this._firstMessageId = null;
+    this.messages.clear();
+};
+
+/**
  * Check if specified messageId is the last one of this buffer
  * @param {*} messageId
  * @returns {boolean}
