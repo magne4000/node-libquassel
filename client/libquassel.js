@@ -18011,18 +18011,25 @@ var Uint64BE, Int64BE;
     return init(this, buffer, offset, value, raddix);
   };
 
+  // member methods
+
+  var UPROTO = U.prototype;
+  var IPROTO = I.prototype;
+
   // constants
 
   var UNDEFIND = "undefined";
   var BUFFER = (UNDEFIND !== typeof Buffer) && Buffer;
   var UINT8ARRAY = (UNDEFIND !== typeof Uint8Array) && Uint8Array;
   var ARRAYBUFFER = (UNDEFIND !== typeof ArrayBuffer) && ArrayBuffer;
-  var STORAGE = BUFFER || UINT8ARRAY || Array;
   var ZERO = [0, 0, 0, 0, 0, 0, 0, 0];
   var isArray = Array.isArray || _isArray;
-  var isBuffer = BUFFER && BUFFER.isBuffer;
   var BIT32 = 4294967296;
   var BIT24 = 16777216;
+
+  // storage class
+
+  var storage; // Array;
 
   // initializer
 
@@ -18031,21 +18038,34 @@ var Uint64BE, Int64BE;
       if (buffer instanceof ARRAYBUFFER) buffer = new UINT8ARRAY(buffer);
       if (value instanceof ARRAYBUFFER) value = new UINT8ARRAY(value);
     }
-    if (isStorage(buffer, offset)) {
-      that.buffer = buffer;
-      that.offset = offset = offset | 0;
-      if (UNDEFIND === typeof value) return;
-      setValue(buffer, offset, value, raddix);
-    } else {
-      setValue((that.buffer = new STORAGE(8)), 0, buffer, offset);
-    }
-  }
 
-  function setValue(buffer, offset, value, raddix) {
-    if (isStorage(value, offset)) {
-      fromArray(buffer, offset, value, raddix | 0);
-    } else if ("string" === typeof value) {
+    // Int64BE() style
+    if (!buffer && !offset && !value && !storage) {
+      // shortcut to initialize with zero
+      that.buffer = newArray(ZERO, 0);
+      return;
+    }
+
+    // Int64BE(value, raddix) style
+    if (!isValidBuffer(buffer, offset)) {
+      var _storage = storage || Array;
+      raddix = offset;
+      value = buffer;
+      offset = 0;
+      buffer = new _storage(8);
+    }
+
+    that.buffer = buffer;
+    that.offset = offset |= 0;
+
+    // Int64BE(buffer, offset) style
+    if ("undefined" === typeof value) return;
+
+    // Int64BE(buffer, offset, value, raddix) style
+    if ("string" === typeof value) {
       fromString(buffer, offset, value, raddix || 10);
+    } else if (isValidBuffer(value, raddix)) {
+      fromArray(buffer, offset, value, raddix);
     } else if ("number" === typeof raddix) {
       writeUInt32BE(buffer, offset, value); // high
       writeUInt32BE(buffer, offset + 4, raddix); // low
@@ -18058,16 +18078,19 @@ var Uint64BE, Int64BE;
     }
   }
 
-  // member methods
-
-  var UPROTO = U.prototype;
-  var IPROTO = I.prototype;
-
   UPROTO.buffer = IPROTO.buffer = void 0;
 
   UPROTO.offset = IPROTO.offset = 0;
 
-  UPROTO.fragment = IPROTO.fragment = false;
+  UPROTO._isUint64BE = IPROTO._isInt64BE = true;
+
+  U.isUint64BE = function(b) {
+    return !!(b && b._isUint64BE);
+  };
+
+  I.isInt64BE = function(b) {
+    return !!(b && b._isInt64BE);
+  };
 
   UPROTO.toNumber = function() {
     var buffer = this.buffer;
@@ -18088,26 +18111,33 @@ var Uint64BE, Int64BE;
   UPROTO.toArray = IPROTO.toArray = function(raw) {
     var buffer = this.buffer;
     var offset = this.offset;
+    storage = null; // Array
     if (raw !== false && offset === 0 && buffer.length === 8 && isArray(buffer)) return buffer;
     return newArray(buffer, offset);
   };
+
+  // add .toBuffer() method only when Buffer available
 
   if (BUFFER) {
     UPROTO.toBuffer = IPROTO.toBuffer = function(raw) {
       var buffer = this.buffer;
       var offset = this.offset;
-      if (raw !== false && offset === 0 && buffer.length === 8 && isBuffer(buffer)) return buffer;
+      storage = BUFFER;
+      if (raw !== false && offset === 0 && buffer.length === 8 && Buffer.isBuffer(buffer)) return buffer;
       var dest = new BUFFER(8);
       fromArray(dest, 0, buffer, offset);
       return dest;
     };
   }
 
+  // add .toArrayBuffer() method only when Uint8Array available
+
   if (UINT8ARRAY) {
     UPROTO.toArrayBuffer = IPROTO.toArrayBuffer = function(raw) {
       var buffer = this.buffer;
       var offset = this.offset;
       var arrbuf = buffer.buffer;
+      storage = UINT8ARRAY;
       if (raw !== false && offset === 0 && (arrbuf instanceof ARRAYBUFFER) && arrbuf.byteLength === 8) return arrbuf;
       var dest = new UINT8ARRAY(8);
       fromArray(dest, 0, buffer, offset);
@@ -18116,25 +18146,21 @@ var Uint64BE, Int64BE;
   }
 
   IPROTO.toString = function(radix) {
-    var buffer = this.buffer;
-    var offset = this.offset;
-    var sign = (buffer[offset] & 0x80) ? "-" : "";
-    if (sign) buffer = neg(newArray(buffer, offset), 0);
-    return sign + toString(buffer, offset, radix);
+    return toString(this.buffer, this.offset, radix, true);
   };
 
   UPROTO.toString = function(radix) {
-    return toString(this.buffer, this.offset, radix);
+    return toString(this.buffer, this.offset, radix, false);
   };
 
-  UPROTO.toJSON = IPROTO.toJSON = function() {
-    return this.toString(10);
-  };
+  UPROTO.toJSON = UPROTO.toNumber;
+  IPROTO.toJSON = IPROTO.toNumber;
 
   // private methods
 
-  function isStorage(buffer, offset) {
+  function isValidBuffer(buffer, offset) {
     var len = buffer && buffer.length;
+    offset |= 0;
     return len && (offset + 8 <= len) && ("string" !== typeof buffer[offset]);
   }
 
@@ -18144,18 +18170,6 @@ var Uint64BE, Int64BE;
     for (var i = 0; i < 8; i++) {
       destbuf[destoff++] = srcbuf[srcoff++] & 255;
     }
-  }
-
-  function neg(buffer, offset) {
-    var p = 1;
-    var sign = buffer[offset] & 0x80;
-    for (var i = offset + 8; i >= offset; i--) {
-      var q = (buffer[i] ^ 255) + p;
-      p = (q > 255) ? 1 : 0;
-      buffer[i] = p ? 0 : q;
-    }
-    buffer[offset] = (buffer[offset] & 0x7F) | (sign ^ 0x80);
-    return buffer;
   }
 
   function fromString(buffer, offset, str, raddix) {
@@ -18172,15 +18186,27 @@ var Uint64BE, Int64BE;
       high = high * raddix + Math.floor(low / BIT32);
       low %= BIT32;
     }
+    if (sign) {
+      high = ~high;
+      if (low) {
+        low = BIT32 - low;
+      } else {
+        high++;
+      }
+    }
     writeUInt32BE(buffer, offset, high);
     writeUInt32BE(buffer, offset + 4, low);
-    if (sign) neg(buffer, offset);
   }
 
-  function toString(buffer, offset, radix) {
+  function toString(buffer, offset, radix, signed) {
     var str = "";
     var high = readUInt32BE(buffer, offset);
     var low = readUInt32BE(buffer, offset + 4);
+    var sign = signed && (high & 0x80000000);
+    if (sign) {
+      high = ~high;
+      low = BIT32 - low;
+    }
     radix = radix || 10;
     while (1) {
       var mod = (high % radix) * BIT32 + low;
@@ -18188,6 +18214,9 @@ var Uint64BE, Int64BE;
       low = Math.floor(mod / radix);
       str = (mod % radix).toString(radix) + str;
       if (!high && !low) break;
+    }
+    if (sign) {
+      str = "-" + str;
     }
     return str;
   }
@@ -18225,11 +18254,12 @@ var Uint64BE, Int64BE;
     }
   }
 
-  function _isArray(array) {
-    return array instanceof Array;
+  // https://github.com/retrofox/is-array
+  function _isArray(val) {
+    return !!val && "[object Array]" == Object.prototype.toString.call(val);
   }
 
-}(this || {});
+}(typeof exports === 'object' && typeof exports.nodeName !== 'string' ? exports : (this || {}));
 
 }).call(this,require("buffer").Buffer)
 },{"buffer":55}],"debug":[function(require,module,exports){
@@ -19791,7 +19821,7 @@ Socket.prototype._connectWebSocket = function (token, cb) {
 Socket.prototype._handleWebsocket = function () {
 	var self = this;
 
-	this._ws.addEventListener('open', function () {
+	this._ws.onopen = function () {
 		//console.log('TCP OK');
 
 		self._connecting = false;
@@ -19800,13 +19830,13 @@ Socket.prototype._handleWebsocket = function () {
 		self.emit('connect');
 
 		self.read(0);
-	});
-	this._ws.addEventListener('error', function (e) {
+	};
+	this._ws.onerror = function (e) {
 		// `e` doesn't contain anything useful (https://developer.mozilla.org/en/docs/WebSockets/Writing_WebSocket_client_applications#Connection_errors)
 		console.warn('TCP error', e);
 		self.emit('error', 'An error occured with the WebSocket');
-	});
-	this._ws.addEventListener('message', function (e) {
+	};
+	this._ws.onmessage = function (e) {
 		var contents = e.data;
 
 		var gotBuffer = function (buffer) {
@@ -19829,13 +19859,13 @@ Socket.prototype._handleWebsocket = function () {
 		} else {
 			console.warn('Cannot read TCP stream: unsupported message type', contents);
 		}
-	});
-	this._ws.addEventListener('close', function () {
+	};
+	this._ws.onclose = function () {
 		if (self.readyState == 'open') {
 			//console.log('TCP closed');
 			self.destroy();
 		}
-	});
+	};
 };
 
 exports.isIP = function (input) {
