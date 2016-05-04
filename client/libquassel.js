@@ -19076,12 +19076,60 @@ IRCBuffer.prototype.addMessage = function(message) {
 };
 
 /**
+ * Update internal _lastMessageId and _firstMessageId
+ * @protected
+ */
+IRCBuffer.prototype._updateFirstAndLast = function() {
+    this._lastMessageId = null;
+    this._firstMessageId = null;
+    this.messages.forEach(function(val, key) {
+        if (this._lastMessageId === null || this._lastMessageId < key) this._lastMessageId = key;
+        if (this._firstMessageId === null || this._firstMessageId > key) this._firstMessageId = key;
+    });
+};
+
+/**
  * Clear buffer messages
  */
 IRCBuffer.prototype.clearMessages = function() {
     this._lastMessageId = null;
     this._firstMessageId = null;
     this.messages.clear();
+};
+
+/**
+ * Delete a message from the buffer
+ * @param {number} messageId
+ */
+IRCBuffer.prototype.deleteMessage = function(messageId) {
+    if (this.messages.size <= 1) {
+        this.clearMessages();
+    } else {
+        this.messages.delete(messageId);
+        this._updateFirstAndLast();
+    }
+};
+
+/**
+ * Trim messages and leave only `n` messages
+ * @param {number} n
+ */
+IRCBuffer.prototype.trimMessages = function(n) {
+    if (n <= 0 || n >= this.messages.size) {
+        this.clearMessages();
+    } else {
+        var idsToKeep = [], newMap = new Map, self = this;
+        this.messages.forEach(function(val, key) {
+            idsToKeep.push(key);
+        });
+        idsToKeep.sort();
+        idsToKeep.splice(0, idsToKeep.length - n);
+        idsToKeep.forEach(function(val) {
+            newMap.set(val, self.messages.get(val));
+        });
+        this.messages = newMap;
+        this._updateFirstAndLast();
+    }
 };
 
 /**
