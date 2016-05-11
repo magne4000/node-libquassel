@@ -19115,9 +19115,9 @@ IRCBuffer.prototype.deleteMessage = function(messageId) {
  * @param {number} n
  */
 IRCBuffer.prototype.trimMessages = function(n) {
-    if (n <= 0 || n >= this.messages.size) {
+    if (n <= 0) {
         this.clearMessages();
-    } else {
+    } else if (n < this.messages.size) {
         var idsToKeep = [], newMap = new Map, self = this;
         this.messages.forEach(function(val, key) {
             idsToKeep.push(key);
