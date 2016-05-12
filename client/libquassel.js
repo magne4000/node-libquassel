@@ -19080,11 +19080,12 @@ IRCBuffer.prototype.addMessage = function(message) {
  * @protected
  */
 IRCBuffer.prototype._updateFirstAndLast = function() {
+    var self = this;
     this._lastMessageId = null;
     this._firstMessageId = null;
     this.messages.forEach(function(val, key) {
-        if (this._lastMessageId === null || this._lastMessageId < key) this._lastMessageId = key;
-        if (this._firstMessageId === null || this._firstMessageId > key) this._firstMessageId = key;
+        if (self._lastMessageId === null || self._lastMessageId < key) self._lastMessageId = key;
+        if (self._firstMessageId === null || self._firstMessageId > key) self._firstMessageId = key;
     });
 };
 
