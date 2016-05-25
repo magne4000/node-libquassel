@@ -19466,6 +19466,9 @@ IRCMessage.prototype._updateFlags = function(network, identity, mode) {
             for (var i=0; i<identity.nicks.length; i++) {
                 nicks.push(identity.nicks[i].replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1"));
             }
+            if (network.nick && identity.nicks.indexOf(network.nick) === -1) {
+                nicks.push(network.nick.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1"));
+            }
             nickRegex = '(' + nicks.join('|') + ')';
             break;
         default:
