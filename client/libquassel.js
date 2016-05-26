@@ -20956,11 +20956,6 @@ Quassel.prototype.handleMsgType = function(obj) {
             // Attach buffers to network
             for (i=0; i<obj.SessionState.BufferInfos.length; i++) {
                 var ircbuffer = new IRCBuffer(obj.SessionState.BufferInfos[i].id, obj.SessionState.BufferInfos[i]);
-                if (obj.SessionState.BufferInfos[i].type === IRCBuffer.Types.StatusBuffer) {
-                    // Status Buffer special case
-                    ircbuffer.isStatusBuffer(true);
-                    self.networks.get(ircbuffer.network).setStatusBuffer(ircbuffer);
-                }
                 self.networks.get(ircbuffer.network).getBufferCollection().addBuffer(ircbuffer);
                 if (ircbuffer.isChannel()) {
                     self.sendInitRequest("IrcChannel", ircbuffer.network + "/" + ircbuffer.name);
@@ -21126,13 +21121,10 @@ Quassel.prototype.handleStruct = function(obj) {
                         case "setConnectionState":
                             var connectionState = obj[4];
                             var network = self.networks.get(networkId);
-                            network.connectionState = connectionState;
-                            //If network has no status buffer it is the first time we are connecting to it
-                            if (connectionState == Network.ConnectionState.Connecting && network.getStatusBuffer() === null) {
-                                // So we create the corresponding object
-                                self.createBuffer(networkId, null);
+                            if (network) {
+                                network.connectionState = connectionState;
+                                self.emit('network.connectionstate', networkId, connectionState);
                             }
-                            self.emit('network.connectionstate', networkId, connectionState);
                             break;
                         case "addIrcChannel":
                             bufferName = obj[4];
@@ -21508,6 +21500,9 @@ Quassel.prototype.handleStruct = function(obj) {
         case RequestType.RpcCall:
             functionName = obj[1].toString();
             switch(functionName) {
+                case "2displayStatusMsg(QString,QString)":
+                    // Even official client doesn't use this ...
+                    break;
                 case "2displayMsg(Message)":
                     message = obj[2];
                     networkId = message.bufferInfo.network;
@@ -21521,6 +21516,11 @@ Quassel.prototype.handleStruct = function(obj) {
                         } else {
                             buffer = new IRCBuffer(bufferId, message.bufferInfo);
                             bufferCollection.addBuffer(buffer);
+                            if (message.bufferInfo.type === IRCBuffer.Types.StatusBuffer) {
+                                // Status Buffer special case
+                                buffer.isStatusBuffer(true);
+                                network.setStatusBuffer(buffer);
+                            }
                         }
                         self.emit("network.addbuffer", networkId, bufferId);
                     }
@@ -22019,7 +22019,7 @@ function _serverListDefaults(server) {
         Host: server.Host || server.host,
         Port: server.Port || server.port || "6667",
         Password: server.Password || server.password || "",
-        UseSSL: server.UseSsl || server.useSsl || true,
+        UseSSL: server.UseSsl || server.useSsl || false,
         sslVersion: server.SslVersion || server.sslVersion || 0,
         /* Lowercase in the protocol */
         UseProxy: server.UseProxy || server.useProxy || false,
