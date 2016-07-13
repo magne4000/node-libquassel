@@ -19097,7 +19097,34 @@ IRCBuffer.prototype.hasMode = function(nick, mode) {
  * @returns {boolean}
  */
 IRCBuffer.prototype.isOp = function(nick) {
-    return this.hasMode('o');
+    return this.hasMode(nick, 'o');
+};
+
+/**
+ * Returns true if user is chan half-operator
+ * @param {string} nick
+ * @returns {boolean}
+ */
+IRCBuffer.prototype.isHalfOp = function(nick) {
+    return this.hasMode(nick, 'h');
+};
+
+/**
+ * Returns true if user is owner
+ * @param {string} nick
+ * @returns {boolean}
+ */
+IRCBuffer.prototype.isOwner = function(nick) {
+    return this.hasMode(nick, 'q');
+};
+
+/**
+ * Returns true if user is admin
+ * @param {string} nick
+ * @returns {boolean}
+ */
+IRCBuffer.prototype.isAdmin = function(nick) {
+    return this.hasMode(nick, 'a');
 };
 
 /**
@@ -19106,7 +19133,7 @@ IRCBuffer.prototype.isOp = function(nick) {
  * @returns {boolean}
  */
 IRCBuffer.prototype.isVoiced = function(nick) {
-    return this.hasMode('v');
+    return this.hasMode(nick, 'v');
 };
 
 /**
