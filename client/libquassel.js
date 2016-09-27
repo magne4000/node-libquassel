@@ -18671,7 +18671,55 @@ var Uint64BE, Int64BE;
 }(typeof exports === 'object' && typeof exports.nodeName !== 'string' ? exports : (this || {}));
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":56}],"bufferview":[function(require,module,exports){
+},{"buffer":56}],"alias":[function(require,module,exports){
+/** @module alias */
+
+/**
+ * Returns a {@link module:alias.AliasItem[]} for the given object received from the core.
+ * @alias module:alias.toArray
+ * @param {object} data
+ * @returns {module:alias.AliasItem[]}
+ */
+function toArray(data) {
+    var i = 0, name, expansion, ret = [];
+    for (i; i<data.Aliases.names.length; i++) {
+        name = data.Aliases.names[i];
+        expansion = data.Aliases.expansions[i];
+        ret.push(new AliasItem(name, expansion));
+    }
+    return ret;
+}
+
+/**
+ * Returns an object that can be fed to the core
+ * @alias module:alias.toCoreObject
+ * @param {module:alias.AliasItem[]} data
+ * @returns {object}
+ */
+function toCoreObject(aliasitems) {
+    var i = 0, ret = {Aliases: {names: [], expansions: []}};
+    for (i; i<aliasitems.length; i++) {
+        ret.Aliases.names.push(aliasitems[i].name);
+        ret.Aliases.expansions.push(aliasitems[i].expansion);
+    }
+    return ret;
+}
+
+/**
+ * @class
+ * @alias module:alias.AliasItem
+ * @param {String} name
+ * @param {String} expansion
+ */
+var AliasItem = function AliasItem(name, expansion) {
+    this.name = name;
+    this.expansion = expansion;
+};
+
+exports.toArray = toArray;
+exports.toCoreObject = toCoreObject;
+exports.AliasItem = AliasItem;
+},{}],"bufferview":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -20952,6 +21000,7 @@ var net = require('net'),
     IRCUser = require('./user'),
     Identity = require('./identity'),
     BufferView = require('./bufferview'),
+    alias = require('./alias'),
     MessageType = require('./message').Type,
     ignore = require('./ignore'),
     qtdatastream = require('qtdatastream'),
@@ -21013,6 +21062,8 @@ var Quassel = function(server, port, options, loginCallback) {
     this.identities = new Map;
     /** @member {module:ignore.IgnoreList} */
     this.ignoreList = new ignore.IgnoreList();
+    /** @member {Map.<string, string>} */
+    this.aliases = new Map;
     /** @member {Map.<number, module:bufferview>} */
     this.bufferViews = new Map;
     /** @member {?number} */
@@ -21404,6 +21455,10 @@ Quassel.HighlightModes = {
  * @property {number} networkId
  */
 /**
+ * {@link module:aliases} updated
+ * @event module:libquassel~Quassel#event:"aliases"
+ */
+/**
  * This event is fired when the core needs it's first setup
  * @event module:libquassel~Quassel#event:"setup"
  * @property {Object[]} backends - List of available storage backends
@@ -21498,6 +21553,7 @@ Quassel.prototype.handleMsgType = function(obj) {
             self.sendInitRequest("BufferSyncer", "");
             self.sendInitRequest("BufferViewManager", "");
             self.sendInitRequest("IgnoreListManager", "");
+            self.sendInitRequest("AliasManager", "");
             if (!self.options.nobacklogs && this.options.initialbackloglimit > 0) {
                 setTimeout(function(){
                     self.requestBacklogs(self.options.initialbackloglimit);
@@ -21624,6 +21680,7 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
  * @fires module:libquassel~Quassel#event:"identity"
  * @fires module:libquassel~Quassel#event:"identity.new"
  * @fires module:libquassel~Quassel#event:"identity.remove"
+ * @fires module:libquassel~Quassel#event:"aliases"
  * @protected
  */
 Quassel.prototype.handleStruct = function(obj) {
@@ -22011,6 +22068,17 @@ Quassel.prototype.handleStruct = function(obj) {
                         self.log('Unknown Identity ' + obj[2]);
                     }
                     break;
+                case "AliasManager":
+                    switch(functionName) {
+                        case "update":
+                            data = obj[4];
+                            self.aliases = alias.toArray(data);
+                            self.emit('aliases', self.aliases);
+                            break;
+                        default:
+                            self.log('Unhandled Sync.AliasManager ' + functionName);
+                    }
+                    break;
                 default:
                     self.log('Unhandled Sync ' + className);
             }
@@ -22186,6 +22254,11 @@ Quassel.prototype.handleStruct = function(obj) {
                     data = obj[3];
                     self.ignoreList.import(data);
                     self.emit('ignorelist', self.ignoreList);
+                    break;
+                case "AliasManager":
+                    data = obj[3];
+                    self.aliases = alias.toArray(data);
+                    self.emit('aliases', self.aliases);
                     break;
                 case "CoreInfo":
                     data = obj[3];
@@ -22906,6 +22979,22 @@ Quassel.prototype.requestUpdateIdentity = function(identityId, identity) {
 };
 
 /**
+ * Core Sync request - Update aliases
+ * @param {object} data @see {@link module:alias.toCoreObject}
+ */
+Quassel.prototype.requestUpdateAliasManager = function(data) {
+    var slist = [
+        new qtdatastream.QInt(RequestType.Sync),
+        new qtdatastream.QByteArray("AliasManager"),
+        "",
+        new qtdatastream.QByteArray("requestUpdate"),
+        data
+    ];
+    this.log('Sending update request (AliasManager)');
+    this.qtsocket.write(slist);
+};
+
+/**
  * Core Sync request - Update network information
  * @param {Number} networkId
  * @param {object} network
@@ -23038,7 +23127,7 @@ function splitOnce(str, character) {
 module.exports = Quassel;
 
 }).call(this,require("buffer").Buffer)
-},{"./buffer":"ircbuffer","./bufferview":"bufferview","./identity":"identity","./ignore":"ignore","./message":"message","./network":"network","./requesttype":3,"./user":"user","buffer":56,"debug":"debug","eventemitter2":116,"net":"net","qtdatastream":120,"tls":"tls","util":54,"zlib":18}],"tls":[function(require,module,exports){
+},{"./alias":"alias","./buffer":"ircbuffer","./bufferview":"bufferview","./identity":"identity","./ignore":"ignore","./message":"message","./network":"network","./requesttype":3,"./user":"user","buffer":56,"debug":"debug","eventemitter2":116,"net":"net","qtdatastream":120,"tls":"tls","util":54,"zlib":18}],"tls":[function(require,module,exports){
 (function (process,Buffer){
 var net = require('net');
 var util = require('util');

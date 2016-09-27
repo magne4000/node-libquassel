@@ -38,6 +38,7 @@ module.exports = function(grunt) {
             './lib/buffer.js:ircbuffer',
             './lib/message:message',
             './lib/ignore:ignore',
+            './lib/alias:alias',
             './node_modules/net-browserify-alt/browser.js:net',
             './node_modules/tls-browserify/index.js:tls',
             './node_modules/debug/browser.js:debug'
@@ -57,6 +58,7 @@ module.exports = function(grunt) {
             './lib/buffer.js:ircbuffer',
             './lib/message:message',
             './lib/ignore:ignore',
+            './lib/alias:alias',
             './node_modules/net-browserify-alt/browser.js:net',
             './node_modules/tls-browserify/index.js:tls',
             './node_modules/debug/browser.js:debug'
