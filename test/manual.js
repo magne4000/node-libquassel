@@ -33,6 +33,7 @@ function echoActionChoices() {
     console.log("17. Update identity");
     console.log("18. Update network");
     console.log("19. Setup core");
+    console.log("20. Rename buffer");
     console.log("(CTRL^C CTRL^C to quit)");
 }
 
@@ -71,10 +72,10 @@ function echoIdentities() {
 }
 
 function echoBufferList() {
-    quassel.getNetworksHashMap().forEach(function(val, key){
+    quassel.getNetworksMap().forEach(function(val, key){
         console.log(val.networkName + " :");
         var buffs = [];
-        val.getBufferHashMap().forEach(function(val2, key2){
+        val.getBufferMap().forEach(function(val2, key2){
             buffs.push(val2.name + ": " + val2.id);
         });
         console.log(buffs.join(", "));
@@ -82,7 +83,7 @@ function echoBufferList() {
 }
 
 function echoNetworkList() {
-    quassel.getNetworksHashMap().forEach(function(val, key){
+    quassel.getNetworksMap().forEach(function(val, key){
         console.log(val.networkName + " : " + val.networkId);
     });
 }
@@ -292,7 +293,7 @@ if (!opts.action) {
     var schemaActionChoices = [{
         name: 'id',
         description: 'Choose action',
-        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'],
+        enum: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'],
         required: true
     }], schemaBuffer = [{
         name: 'id',
@@ -349,6 +350,16 @@ if (!opts.action) {
         type: 'string',
         hidden: true,
         description: 'Admin user',
+        required: true
+    }], schemaNewName = [{
+        name: 'id',
+        type: 'string',
+        description: 'Buffer ID',
+        required: true
+    }, {
+        name: 'name',
+        description: 'New name',
+        type: 'string',
         required: true
     }];
     
@@ -575,6 +586,17 @@ if (!opts.action) {
                             if (err2) console.log(err2);
                             else {
                                 quassel.setupCore(quassel.coreInfo.StorageBackends[result2.backend].DisplayName, result2.adminuser, result2.adminpassword);
+                                setTimeout(p, 1);
+                            }
+                        });
+                        break;
+                    case '20':
+                        // Rename buffer
+                        echoBufferList();
+                        pprompt.get(schemaNewName, function (err2, result2) {
+                            if (err2) console.log(err2);
+                            else {
+                                quassel.requestRenameBuffer(result2.id, result2.name);
                                 setTimeout(p, 1);
                             }
                         });
