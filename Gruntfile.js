@@ -1,5 +1,5 @@
 'use strict';
-
+var fs = require('fs');
 module.exports = function(grunt) {
 
   // Project configuration.
@@ -34,6 +34,7 @@ module.exports = function(grunt) {
             './lib/network.js:network',
             './lib/identity.js:identity',
             './lib/user.js:user',
+            './lib/bufferview.js:bufferview',
             './lib/buffer.js:ircbuffer',
             './lib/message:message',
             './lib/ignore:ignore',
@@ -52,6 +53,7 @@ module.exports = function(grunt) {
             './lib/network.js:network',
             './lib/identity.js:identity',
             './lib/user.js:user',
+            './lib/bufferview.js:bufferview',
             './lib/buffer.js:ircbuffer',
             './lib/message:message',
             './lib/ignore:ignore',
@@ -83,8 +85,8 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-watch');
   grunt.loadNpmTasks('grunt-jsdoc');
 
-  grunt.registerTask('stable', ['exec:stable', 'browserify:dev', 'browserify:dist', 'jsdoc']);
-  grunt.registerTask('lts', ['exec:lts', 'browserify:dev', 'browserify:dist', 'jsdoc']);
+  grunt.registerTask('stable', ['exec:stable', 'browserify:dev', 'browserify:dist']);
+  grunt.registerTask('lts', ['exec:lts', 'browserify:dev', 'browserify:dist']);
   
   grunt.registerTask('doc', ['jsdoc']);
 

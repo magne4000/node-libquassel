@@ -38,7 +38,7 @@ function echoActionChoices() {
 
 pprompt.start();
 
-var quassel = new Quassel("localhost", 64242, {nobacklogs: !opts.backlog}, function(next) {
+var quassel = new Quassel("localhost", 4242, {nobacklogs: !opts.backlog}, function(next) {
     console.log("Connected");
     var schema = {
         properties: {
@@ -197,22 +197,26 @@ if (!opts.action) {
         console.log('Buffer ' + bufferId + ' deactivated');
     });
     
-    quassel.on('buffer.unhide', function(bufferId) {
-        console.log('Buffer ' + bufferId + ' not hidden anymore');
+    quassel.on('bufferview.bufferunhide', function(bufferViewId, bufferId) {
+        console.log('Buffer ' + bufferId + ' not hidden anymore - BF[' + bufferViewId + ']');
     });
     
-    quassel.on('buffer.hidden', function(bufferId, type) {
+    quassel.on('bufferview.bufferhidden', function(bufferViewId, bufferId, type) {
         // type can be either "temp" or "perm"
         switch (type) {
             case "temp":
-                console.log('Buffer ' + bufferId + ' temporarily hidden');
+                console.log('Buffer ' + bufferId + ' temporarily hidden - BF[' + bufferViewId + ']');
                 break;
             case "perm":
-                console.log('Buffer ' + bufferId + ' permanently hidden');
+                console.log('Buffer ' + bufferId + ' permanently hidden - BF[' + bufferViewId + ']');
                 break;
             default:
                 console.log("Unknown type " + type);
         }
+    });
+    
+    quassel.on('bufferview.orderchanged', function(bufferViewId) {
+        console.log('Buffers order changed in BF[' + bufferViewId + ']');
     });
     
     quassel.on('user.quit', function(network, username) {

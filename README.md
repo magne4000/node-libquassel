@@ -22,6 +22,17 @@ grunt lts
 grunt stable
 ```
 
+### 2.0 breaking changes
+Version `2.0` introduces `BufferView` object, and this break some existing behavior.
+* New `bufferview` module
+* `IRCBuffer` changes
+  * unused `order` attribute removed
+  * `setTemporarilyRemoved`, `setPermanentlyRemoved` and `isHidden` are no longer part of this class. Those are moved to `BufferView` class.
+* events
+  * `buffer.unhide` replaced by `bufferview.bufferunhide`
+  * `buffer.hidden` replaced by `bufferview.bufferhidden`
+  * `buffer.order` deleted. New `bufferview.orderchanged` and `bufferview.init` events
+
 ### Getting Started
 ```javascript
 var Quassel = require('../lib/libquassel.js');
@@ -50,7 +61,7 @@ quassel.connect();
 ```
 
 ### Documentation
-[1.1.11](https://magne4000.github.com/libquassel/1.1.11 "libquassel 1.1.11 documentation")
+[2.0](https://magne4000.github.com/libquassel/2.0 "libquassel 2.0 documentation")
 
 ### Examples
 See _test/manual.js_ for details.

@@ -18671,7 +18671,162 @@ var Uint64BE, Int64BE;
 }(typeof exports === 'object' && typeof exports.nodeName !== 'string' ? exports : (this || {}));
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":56}],"debug":[function(require,module,exports){
+},{"buffer":56}],"bufferview":[function(require,module,exports){
+/*
+ * libquassel
+ * https://github.com/magne4000/node-libquassel
+ *
+ * Copyright (c) 2016 Joël Charles
+ * Licensed under the MIT license.
+ */
+
+/** @module bufferview */
+
+var Glouton = require('./glouton');
+
+/**
+ * @class
+ * @alias module:bufferview
+ * @augments module:glouton.Glouton
+ * @param {Object} data
+ */
+var BufferView = function BufferView(id, data) {
+    if (data) {
+        this.devour(data);
+    }
+    /** @member {number} id */
+    this.id = id;
+    /** @member {boolean} sortAlphabetically */
+    /** @member {number} showSearch */
+    /** @member {number} networkId */
+    /** @member {number} minimumActivity */
+    /** @member {boolean} hideInactiveNetworks */
+    /** @member {boolean} hideInactiveBuffers */
+    /** @member {boolean} disableDecoration */
+    /** @member {String} bufferViewName */
+    /** @member {number} allowedBufferTypes */
+    /** @member {boolean} addNewBuffersAutomatically */
+    /** @member {number[]} TemporarilyRemovedBuffers */
+    /** @member {number[]} RemovedBuffers */
+    /** @member {number[]} BufferList */
+};
+
+Glouton.extend(BufferView);
+
+/**
+ * @param {(number|boolean)} iBoolean
+ */
+BufferView.prototype.setSortAlphabetically = function(iBoolean) {
+    this.sortAlphabetically = !!iBoolean;
+};
+
+/**
+ * @param {(number|boolean)} iBoolean
+ */
+BufferView.prototype.setHideInactiveNetworks = function(iBoolean) {
+    this.hideInactiveNetworks = !!iBoolean;
+};
+
+/**
+ * @param {(number|boolean)} iBoolean
+ */
+BufferView.prototype.setHideInactiveBuffers = function(iBoolean) {
+    this.hideInactiveBuffers = !!iBoolean;
+};
+
+/**
+ * @param {(number|boolean)} iBoolean
+ */
+BufferView.prototype.setDisableDecoration = function(iBoolean) {
+    this.disableDecoration = !!iBoolean;
+};
+
+/**
+ * @param {(number|boolean)} iBoolean
+ */
+BufferView.prototype.setAddNewBuffersAutomatically = function(iBoolean) {
+    this.addNewBuffersAutomatically = !!iBoolean;
+};
+
+/**
+ * Returns `true` if given `bufferId` is temporarily hidden
+ * @param {number} bufferId
+ * @returns {?boolean}
+ */
+BufferView.prototype.isTemporarilyRemoved = function(bufferId) {
+    if (typeof bufferId !== "number") return null;
+    return this.TemporarilyRemovedBuffers.indexOf(bufferId) !== -1;
+};
+
+/**
+ * Returns `true` if given `bufferId` is permanently hidden
+ * @param {number} bufferId
+ * @returns {?boolean}
+ */
+BufferView.prototype.isPermanentlyRemoved = function(bufferId) {
+    if (typeof bufferId !== "number") return null;
+    return this.RemovedBuffers.indexOf(bufferId) !== -1;
+};
+
+/**
+ * Returns `true` if given `bufferId` is hidden
+ * @param {number} bufferId
+ * @returns {?boolean}
+ */
+BufferView.prototype.isHidden = function(bufferId) {
+    if (typeof bufferId !== "number") return null;
+    return this.isTemporarilyRemoved(bufferId) || this.isPermanentlyRemoved(bufferId);
+};
+
+/**
+ * Temporarily hide given `bufferId`
+ * @param {number} bufferId
+ */
+BufferView.prototype.setTemporarilyRemoved = function(bufferId) {
+    if (typeof bufferId !== "number") return;
+    this.unhide(bufferId);
+    this.TemporarilyRemovedBuffers.push(bufferId);
+};
+
+/**
+ * Permanently hide given `bufferId`
+ * @param {number} bufferId
+ */
+BufferView.prototype.setTemporarilyRemoved = function(bufferId) {
+    if (typeof bufferId !== "number") return;
+    this.unhide(bufferId);
+    this.RemovedBuffers.push(bufferId);
+};
+
+/**
+ * Remove hidden status for given `bufferId`
+ * @param {number} bufferId
+ */
+BufferView.prototype.unhide = function(bufferId) {
+    if (typeof bufferId !== "number") return;
+    var index = this.TemporarilyRemovedBuffers.indexOf(bufferId);
+    if (index !== -1) {
+        this.TemporarilyRemovedBuffers.slice(index, 1);
+    } else {
+        index = this.RemovedBuffers.indexOf(bufferId);
+        if (index !== -1) {
+            this.RemovedBuffers.slice(index, 1);
+        }
+    }
+};
+
+BufferView.prototype.comparator = function(id1, id2) {
+    if (!this.BufferList) return 0;
+    var iid1 = this.BufferList.indexOf(id1);
+    var iid2 = this.BufferList.indexOf(id2);
+    if (iid1 === iid2) {  // -1
+        return 0;
+    }
+    return iid1 < iid2 ? -1 : 1;
+};
+
+module.exports = BufferView;
+},{"./glouton":2}],"debug":[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -19315,10 +19470,6 @@ var IRCBuffer = function IRCBuffer(id, data) {
      * @protected
      */
     this._firstMessageId = null;
-    /**
-     * @member {?number}
-     */
-    this.order = null;
     if (this.type == IRCBuffer.Types.StatusBuffer) {
         this._isStatusBuffer = true;
     }
@@ -19339,14 +19490,6 @@ function _userAndModes(user, modes) {
  */
 IRCBuffer.prototype.setActive = function(bool) {
     this.active = bool;
-};
-
-/**
- * Set buffer index
- * @param {number} order
- */
-IRCBuffer.prototype.setOrder = function(order) {
-    this.order = order;
 };
 
 /**
@@ -19633,30 +19776,6 @@ IRCBuffer.prototype.isStatusBuffer = function(bool) {
 };
 
 /**
- * Flag the buffer as temporarily removed
- * @param {boolean} flag
- */
-IRCBuffer.prototype.setTemporarilyRemoved = function(flag) {
-    this.isTemporarilyRemoved = flag;
-};
-
-/**
- * Flag the buffer as permanently removed
- * @param {boolean} flag
- */
-IRCBuffer.prototype.setPermanentlyRemoved = function(flag) {
-    this.isPermanentlyRemoved = flag;
-};
-
-/**
- * Is the buffer hidden/removed (permanently or temporarily)
- * @returns {boolean}
- */
-IRCBuffer.prototype.isHidden = function() {
-    return this.isPermanentlyRemoved || this.isTemporarilyRemoved;
-};
-
-/**
  * A collection of buffers
  * @class
  * @alias module:buffer.IRCBufferCollection
@@ -19664,8 +19783,6 @@ IRCBuffer.prototype.isHidden = function() {
 var IRCBufferCollection = function IRCBufferCollection() {
     /** @member {Map} */
     this.buffers = new Map;
-    /** @member {Map} */
-    this.filteredBuffers = new Map;
 };
 
 /**
@@ -19678,17 +19795,6 @@ IRCBufferCollection.prototype.addBuffer = function(buffer) {
         return;
     }
     this.buffers.set(buffer.id, buffer);
-    this._computeFilteredBuffers();
-};
-
-/**
- * Is the specified buffer hidden
- * @param {IRCBuffer} buffer
- * @protected
- * @returns {boolean}
- */
-IRCBufferCollection.prototype._isBufferFiltered = function(buffer) {
-    return buffer.isPermanentlyRemoved || buffer.isTemporarilyRemoved;
 };
 
 /**
@@ -19756,28 +19862,6 @@ IRCBufferCollection.prototype.moveBuffer = function(buffer, bufferIdTo) {
     this.buffers.set(bufferIdTo, buffer);
     buffer.id = bufferIdTo;
     this.buffers.delete(bufferIdFrom);
-};
-
-/**
- * Update filteredBuffers attribute
- * @protected
- */
-IRCBufferCollection.prototype._computeFilteredBuffers = function() {
-    var buffers = this.buffers.values(), buffer, has;
-    buffer = buffers.next();
-    while(!buffer.done) {
-        has = this.filteredBuffers.has(buffer.value.id);
-        if (this._isBufferFiltered(buffer.value)){
-            if (!has) {
-                this.filteredBuffers.set(buffer.value.id, buffer.value);
-            }
-        } else {
-            if (has) {
-                this.filteredBuffers.delete(buffer.value.id);
-            }
-        }
-        buffer = buffers.next();
-    }
 };
 
 /**
@@ -20867,6 +20951,7 @@ var net = require('net'),
     IRCBuffer = require('./buffer').IRCBuffer,
     IRCUser = require('./user'),
     Identity = require('./identity'),
+    BufferView = require('./bufferview'),
     MessageType = require('./message').Type,
     ignore = require('./ignore'),
     qtdatastream = require('qtdatastream'),
@@ -20928,8 +21013,8 @@ var Quassel = function(server, port, options, loginCallback) {
     this.identities = new Map;
     /** @member {module:ignore.IgnoreList} */
     this.ignoreList = new ignore.IgnoreList();
-    /** @member {number} */
-    this.bufferViewId = 0;
+    /** @member {Map.<number, module:bufferview>} */
+    this.bufferViews = new Map;
     /** @member {?number} */
     this.heartbeatInterval = null;
     /** @member {boolean} */
@@ -21178,12 +21263,14 @@ Quassel.HighlightModes = {
  */
 /**
  * Buffer's hidden state removed
- * @event module:libquassel~Quassel#event:"buffer.unhide"
+ * @event module:libquassel~Quassel#event:"bufferview.bufferunhide"
+ * @property {number} bufferViewId
  * @property {number} bufferId
  */
 /**
  * Buffer's hidden state set
- * @event module:libquassel~Quassel#event:"buffer.hidden"
+ * @event module:libquassel~Quassel#event:"bufferview.bufferhidden"
+ * @property {number} bufferViewId
  * @property {number} bufferId
  * @property {String} type - Either "temp" or "perm"
  */
@@ -21268,10 +21355,14 @@ Quassel.HighlightModes = {
  * @property {number} messageId
  */
 /**
- * Buffer order changed
- * @event module:libquassel~Quassel#event:"buffer.order"
- * @property {number} bufferId
- * @property {number} indice
+ * Buffers order changed
+ * @event module:libquassel~Quassel#event:"bufferview.orderchanged"
+ * @property {number} bufferViewId
+ */
+/**
+ * Buffer view initialized
+ * @event module:libquassel~Quassel#event:"bufferview.init"
+ * @property {number} bufferViewId
  */
 /**
  * {@link module:ignore.IgnoreList} updated
@@ -21512,13 +21603,15 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
  * @fires module:libquassel~Quassel#event:"buffer.remove"
  * @fires module:libquassel~Quassel#event:"buffer.rename"
  * @fires module:libquassel~Quassel#event:"buffer.merge"
- * @fires module:libquassel~Quassel#event:"buffer.unhide"
- * @fires module:libquassel~Quassel#event:"buffer.hidden"
  * @fires module:libquassel~Quassel#event:"buffer.deactivate"
  * @fires module:libquassel~Quassel#event:"buffer.activate"
  * @fires module:libquassel~Quassel#event:"buffer.backlog"
  * @fires module:libquassel~Quassel#event:"buffer.message"
  * @fires module:libquassel~Quassel#event:"buffer.order"
+ * @fires module:libquassel~Quassel#event:"bufferview.bufferunhide"
+ * @fires module:libquassel~Quassel#event:"bufferview.bufferhidden"
+ * @fires module:libquassel~Quassel#event:"bufferview.orderchanged"
+ * @fires module:libquassel~Quassel#event:"bufferview.init"
  * @fires module:libquassel~Quassel#event:"user.part"
  * @fires module:libquassel~Quassel#event:"user.quit"
  * @fires module:libquassel~Quassel#event:"user.away"
@@ -21535,7 +21628,8 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
  */
 Quassel.prototype.handleStruct = function(obj) {
     var self = this, networkId, identity, identityId, className, functionName, bufferId, buffer, bufferName,
-               messageId, tmp, userNetworkId, userName, networkNick, user, mode, data, oldNick, i, ind, bufferCollection, codec;
+               messageId, tmp, userNetworkId, userName, networkNick, user, mode, data, oldNick, i, ind, bufferCollection,
+               codec, bufferViewId, bufferView;
     switch (obj[0]) {
         case RequestType.Sync:
             className = obj[1].toString();
@@ -21714,37 +21808,25 @@ Quassel.prototype.handleStruct = function(obj) {
                 case "BufferViewConfig":
                     switch(functionName) {
                         case "addBuffer":
+                            bufferViewId = parseInt(obj[2], 10);
                             bufferId = obj[4];
-                            buffer = self.networks.findBuffer(bufferId);
-                            if (buffer === null){
-                                break;
-                            }
-                            buffer.setTemporarilyRemoved(false);
-                            buffer.setPermanentlyRemoved(false);
-                            self.networks.get(buffer.network).getBufferCollection()._computeFilteredBuffers();
-                            self.emit('buffer.unhide', bufferId);
+                            bufferView = self.bufferViews.get(bufferViewId);
+                            bufferView.unhide(bufferId);
+                            self.emit('bufferview.bufferunhide', bufferViewId, bufferId);
                             break;
                         case "removeBuffer":
+                            bufferViewId = parseInt(obj[2], 10);
                             bufferId = obj[4];
-                            buffer = self.networks.findBuffer(bufferId);
-                            if (buffer === null){
-                                self.log("Buffer #" + bufferId + " does not exists");
-                                break;
-                            }
-                            buffer.setTemporarilyRemoved(true);
-                            self.networks.get(buffer.network).getBufferCollection()._computeFilteredBuffers();
-                            self.emit('buffer.hidden', bufferId, "temp");
+                            bufferView = self.bufferViews.get(bufferViewId);
+                            bufferView.setTemporarilyRemoved();
+                            self.emit('bufferview.bufferhidden', bufferViewId, bufferId, "temp");
                             break;
                         case "removeBufferPermanently":
+                            bufferViewId = parseInt(obj[2], 10);
                             bufferId = obj[4];
-                            buffer = self.networks.findBuffer(bufferId);
-                            if (buffer === null){
-                                self.log("Buffer #" + bufferId + " does not exists");
-                                break;
-                            }
-                            buffer.setPermanentlyRemoved(true);
-                            self.networks.get(buffer.network).getBufferCollection()._computeFilteredBuffers();
-                            self.emit('buffer.hidden', bufferId, "perm");
+                            bufferView = self.bufferViews.get(bufferViewId);
+                            bufferView.setPermanentlyRemoved();
+                            self.emit('bufferview.bufferhidden', bufferViewId, bufferId, "perm");
                             break;
                         default:
                             self.log('Unhandled Sync.BufferViewConfig ' + functionName);
@@ -22083,34 +22165,22 @@ Quassel.prototype.handleStruct = function(obj) {
                     break;
                 case "BufferViewManager":
                     data = obj[3]["BufferViewIds"];
-                    if (data.length > 0) {
-                        self.sendInitRequest("BufferViewConfig", ""+data[0]);
+                    for (ind in data) {
+                        self.sendInitRequest("BufferViewConfig", ""+data[ind]);
                     }
-                    self.bufferViewId = data[0];
                     break;
                 case "BufferViewConfig":
+                    bufferViewId = parseInt(obj[2], 10);
                     data = obj[3];
+                    this.bufferViews.set(bufferViewId, new BufferView(bufferViewId, data));
                     for (ind in data.TemporarilyRemovedBuffers) {
-                        buffer = self.networks.findBuffer(data.TemporarilyRemovedBuffers[ind]);
-                        if (buffer !== null) {
-                            buffer.setTemporarilyRemoved(true);
-                            self.emit('buffer.hidden', buffer.id, "temp");
-                        }
+                        self.emit('bufferview.bufferhidden', bufferViewId, data.TemporarilyRemovedBuffers[ind], "temp");
                     }
                     for (ind in data.RemovedBuffers) {
-                        buffer = self.networks.findBuffer(data.RemovedBuffers[ind]);
-                        if (buffer !== null) {
-                            buffer.setPermanentlyRemoved(true);
-                            self.emit('buffer.hidden', buffer.id, "perm");
-                        }
+                        self.emit('bufferview.bufferhidden', bufferViewId, data.RemovedBuffers[ind], "perm");
                     }
-                    for (ind in data.BufferList) {
-                        buffer = self.networks.findBuffer(data.BufferList[ind]);
-                        if (buffer !== null) {
-                            buffer.setOrder(ind);
-                            self.emit('buffer.order', buffer.id, ind);
-                        }
-                    }
+                    self.emit('bufferview.orderchanged', bufferViewId);
+                    self.emit('bufferview.init', bufferViewId);
                     break;
                 case "IgnoreListManager":
                     data = obj[3];
@@ -22728,13 +22798,14 @@ Quassel.prototype.requestMergeBuffersPermanently = function(bufferId1, bufferId2
 
 /**
  * Core Sync request - Hide a buffer temporarily
+ * @param {number} bufferViewId
  * @param {number} bufferId
  */
-Quassel.prototype.requestHideBufferTemporarily = function(bufferId) {
+Quassel.prototype.requestHideBufferTemporarily = function(bufferViewId, bufferId) {
     var slist = [
         new qtdatastream.QInt(RequestType.Sync),
         "BufferViewConfig",
-        ""+this.bufferViewId,
+        ""+bufferViewId,
         "requestRemoveBuffer",
         new qtdatastream.QUserType("BufferId", bufferId)
     ];
@@ -22744,13 +22815,15 @@ Quassel.prototype.requestHideBufferTemporarily = function(bufferId) {
 
 /**
  * Core Sync request - Hide a buffer permanently
+ * @param {number} bufferViewId
  * @param {number} bufferId
  */
-Quassel.prototype.requestHideBufferPermanently = function(bufferId) {
+Quassel.prototype.requestHideBufferPermanently = function(bufferViewId, bufferId) {
+    if (typeof bufferViewId === "undefined") bufferViewId = this.bufferViewId;
     var slist = [
         new qtdatastream.QInt(RequestType.Sync),
         "BufferViewConfig",
-        ""+this.bufferViewId,
+        ""+bufferViewId,
         "requestRemoveBufferPermanently",
         new qtdatastream.QUserType("BufferId", bufferId)
     ];
@@ -22760,16 +22833,18 @@ Quassel.prototype.requestHideBufferPermanently = function(bufferId) {
 
 /**
  * Core Sync request - Unhide a buffer
+ * @param {number} bufferViewId
  * @param {number} bufferId
  */
-Quassel.prototype.requestUnhideBuffer = function(bufferId) {
+Quassel.prototype.requestUnhideBuffer = function(bufferViewId, bufferId) {
     bufferId = parseInt(bufferId, 10);
     var buffer = this.getNetworks().findBuffer(bufferId);
     var bufferCount = this.getNetworks().get(buffer.network).getBufferMap().size;
+    if (typeof bufferViewId === "undefined") bufferViewId = this.bufferViewId;
     var slist = [
         new qtdatastream.QInt(RequestType.Sync),
         "BufferViewConfig",
-        ""+this.bufferViewId,
+        ""+bufferViewId,
         "requestAddBuffer",
         new qtdatastream.QUserType("BufferId", bufferId),
         new qtdatastream.QInt(bufferCount)
@@ -22944,7 +23019,7 @@ function splitOnce(str, character) {
 module.exports = Quassel;
 
 }).call(this,require("buffer").Buffer)
-},{"./buffer":"ircbuffer","./identity":"identity","./ignore":"ignore","./message":"message","./network":"network","./requesttype":3,"./user":"user","buffer":56,"debug":"debug","eventemitter2":116,"net":"net","qtdatastream":120,"tls":"tls","util":54,"zlib":18}],"tls":[function(require,module,exports){
+},{"./buffer":"ircbuffer","./bufferview":"bufferview","./identity":"identity","./ignore":"ignore","./message":"message","./network":"network","./requesttype":3,"./user":"user","buffer":56,"debug":"debug","eventemitter2":116,"net":"net","qtdatastream":120,"tls":"tls","util":54,"zlib":18}],"tls":[function(require,module,exports){
 (function (process,Buffer){
 var net = require('net');
 var util = require('util');
