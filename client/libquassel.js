@@ -18840,7 +18840,7 @@ BufferView.prototype.setTemporarilyRemoved = function(bufferId) {
  * Permanently hide given `bufferId`
  * @param {number} bufferId
  */
-BufferView.prototype.setTemporarilyRemoved = function(bufferId) {
+BufferView.prototype.setPermanentlyRemoved = function(bufferId) {
     if (typeof bufferId !== "number") return;
     this.unhide(bufferId);
     this.RemovedBuffers.push(bufferId);
@@ -18854,11 +18854,11 @@ BufferView.prototype.unhide = function(bufferId) {
     if (typeof bufferId !== "number") return;
     var index = this.TemporarilyRemovedBuffers.indexOf(bufferId);
     if (index !== -1) {
-        this.TemporarilyRemovedBuffers.slice(index, 1);
+        this.TemporarilyRemovedBuffers.splice(index, 1);
     } else {
         index = this.RemovedBuffers.indexOf(bufferId);
         if (index !== -1) {
-            this.RemovedBuffers.slice(index, 1);
+            this.RemovedBuffers.splice(index, 1);
         }
     }
 };
@@ -21875,14 +21875,14 @@ Quassel.prototype.handleStruct = function(obj) {
                             bufferViewId = parseInt(obj[2], 10);
                             bufferId = obj[4];
                             bufferView = self.bufferViews.get(bufferViewId);
-                            bufferView.setTemporarilyRemoved();
+                            bufferView.setTemporarilyRemoved(bufferId);
                             self.emit('bufferview.bufferhidden', bufferViewId, bufferId, "temp");
                             break;
                         case "removeBufferPermanently":
                             bufferViewId = parseInt(obj[2], 10);
                             bufferId = obj[4];
                             bufferView = self.bufferViews.get(bufferViewId);
-                            bufferView.setPermanentlyRemoved();
+                            bufferView.setPermanentlyRemoved(bufferId);
                             self.emit('bufferview.bufferhidden', bufferViewId, bufferId, "perm");
                             break;
                         default:
