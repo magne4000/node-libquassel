@@ -20946,7 +20946,8 @@ Network.toQ = function(network) {
             ProxyHost: new qtdatastream.QString(network.ServerList[i].ProxyHost),
             ProxyPort: new qtdatastream.QUInt(network.ServerList[i].ProxyPort),
             ProxyUser: new qtdatastream.QString(network.ServerList[i].ProxyUser),
-            ProxyPass: new qtdatastream.QString(network.ServerList[i].ProxyPass)
+            ProxyPass: new qtdatastream.QString(network.ServerList[i].ProxyPass),
+            sslVerify: new qtdatastream.QBool(network.ServerList[i].sslVerify)
         }));
     }
     var jNetwork = {
@@ -21102,6 +21103,24 @@ Quassel.HighlightModes = {
     None: 0x01,
     CurrentNick: 0x02,
     AllIdentityNicks: 0x03
+};
+
+/**
+ * @alias module:libquassel~Quassel.Feature
+ * @readonly
+ * @enum {number}
+ * @default
+ */
+Quassel.Feature = {
+    SynchronizedMarkerLine: 0x0001,
+    SaslAuthentication: 0x0002,
+    SaslExternal: 0x0004,
+    HideInactiveNetworks: 0x0008,
+    PasswordChange: 0x0010,
+    CapNegotiation: 0x0020,           /// IRCv3 capability negotiation, account tracking
+    VerifyServerSSL: 0x0040,          /// IRC server SSL validation
+
+    NumFeatures: 0x0040
 };
 
 /**
@@ -21566,6 +21585,17 @@ Quassel.prototype.handleMsgType = function(obj) {
         default:
             self.log('Unhandled MsgType ' + obj.MsgType);
     }
+};
+
+/**
+ * Returns `true` if the core supports the given feature
+ * @example
+ * quassel.supports(Quassel.Feature.PasswordChange);
+ * @param {module:libquassel~Quassel.Feature} feature
+ * @returns {boolean}
+ */
+Quassel.prototype.supports = function(feature) {
+    return this.coreInfo.CoreFeatures & feature > 0;
 };
 
 /**
@@ -22606,7 +22636,8 @@ function _serverListDefaults(server) {
         ProxyHost: server.ProxyHost || server.proxyHost || "",
         ProxyPort: server.ProxyPort || server.proxyPort || "",
         ProxyUser: server.ProxyUser || server.proxyUser || "",
-        ProxyPass: server.ProxyPass || server.proxyPass || ""
+        ProxyPass: server.ProxyPass || server.proxyPass || "",
+        sslVerify: server.SslVerify || server.sslVerify || false
     };
 }
 
