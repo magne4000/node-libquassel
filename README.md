@@ -61,7 +61,7 @@ quassel.connect();
 ```
 
 ### Documentation
-[2.0.3](https://magne4000.github.com/libquassel/2.0.3 "libquassel 2.0.3 documentation")
+[2.0.6](https://magne4000.github.com/libquassel/2.0.6 "libquassel 2.0.6 documentation")
 
 ### Examples
 See _test/manual.js_ for details.
