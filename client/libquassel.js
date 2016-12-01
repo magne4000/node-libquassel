@@ -21824,6 +21824,11 @@ Quassel.Feature = {
  * @property {number} bufferViewId
  */
 /**
+ * Buffer view manager init request received
+ * @event module:libquassel~Quassel#event:"bufferview.ids"
+ * @property {number[]} ids
+ */
+/**
  * Buffer view initialized
  * @event module:libquassel~Quassel#event:"bufferview.init"
  * @property {number} bufferViewId
@@ -22088,6 +22093,7 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
  * @fires module:libquassel~Quassel#event:"buffer.backlog"
  * @fires module:libquassel~Quassel#event:"buffer.message"
  * @fires module:libquassel~Quassel#event:"buffer.order"
+ * @fires module:libquassel~Quassel#event:"bufferview.ids"
  * @fires module:libquassel~Quassel#event:"bufferview.bufferunhide"
  * @fires module:libquassel~Quassel#event:"bufferview.bufferhidden"
  * @fires module:libquassel~Quassel#event:"bufferview.orderchanged"
@@ -22284,6 +22290,16 @@ Quassel.prototype.handleStruct = function(obj) {
                             break;
                         default:
                             self.log('Unhandled Sync.BufferSyncer ' + functionName);
+                    }
+                    break;
+                case "BufferViewManager":
+                    switch(functionName) {
+                        case "addBufferViewConfig":
+                            bufferViewId = obj[4];
+                            self.sendInitRequest("BufferViewConfig", ""+bufferViewId);
+                            break;
+                        default:
+                            self.log('Unhandled Sync.BufferViewManager ' + functionName);
                     }
                     break;
                 case "BufferViewConfig":
@@ -22660,6 +22676,7 @@ Quassel.prototype.handleStruct = function(obj) {
                     for (ind in data) {
                         self.sendInitRequest("BufferViewConfig", ""+data[ind]);
                     }
+                    self.emit('bufferview.ids', data);
                     break;
                 case "BufferViewConfig":
                     bufferViewId = parseInt(obj[2], 10);
@@ -23450,6 +23467,38 @@ Quassel.prototype.requestSetNetworkInfo = function(networkId, network) {
         Network.toQ(network)
     ];
     this.log('Sending update request (Network)');
+    this.qtsocket.write(slist);
+};
+
+/**
+ * Core Sync request - Create a new chat list
+ * @param {object} data
+ * @example
+ * quassel.requestCreateBufferView({
+ *     sortAlphabetically: 1,
+ *     showSearch: 0,
+ *     networkId: 0,
+ *     minimumActivity: 0,
+ *     hideInactiveNetworks: 0,
+ *     hideInactiveBuffers: 0,
+ *     disableDecoration: 0,
+ *     bufferViewName: 'All Chats',
+ *     allowedBufferTypes: 15,
+ *     addNewBuffersAutomatically: 1,
+ *     TemporarilyRemovedBuffers: [],
+ *     RemovedBuffers: [],
+ *     BufferList: []
+ * });
+ */
+Quassel.prototype.requestCreateBufferView = function(data) {
+    var slist = [
+        new qtdatastream.QInt(RequestType.Sync),
+        new qtdatastream.QByteArray("BufferViewManager"),
+        "",
+        "requestCreateBufferView",
+        data
+    ];
+    this.log('Sending create buffer view request');
     this.qtsocket.write(slist);
 };
 
