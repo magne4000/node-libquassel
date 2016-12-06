@@ -20964,6 +20964,10 @@ var Network = function Network(networkId) {
     /** @member {boolean} useAutoReconnect */
     /** @member {boolean} useRandomServer */
     /** @member {boolean} useSasl */
+    /** @member {boolean} useCustomMessageRate */
+    /** @member {boolean} unlimitedMessageRate */
+    /** @member {number} messageRateDelay */
+    /** @member {number} messageRateBurstSize */
 };
 
 Glouton.extend(Network);
@@ -21364,7 +21368,11 @@ Network.toQ = function(network) {
         AutoReconnectInterval: new qtdatastream.QUInt(network.autoReconnectInterval),
         AutoReconnectRetries: new qtdatastream.QUInt(network.autoReconnectRetries),
         UnlimitedReconnectRetries: new qtdatastream.QBool(network.unlimitedReconnectRetries),
-        RejoinChannels: new qtdatastream.QBool(network.rejoinChannels)
+        RejoinChannels: new qtdatastream.QBool(network.rejoinChannels),
+        UseCustomMessageRate: new qtdatastream.QBool(network.useCustomMessageRate),
+        UnlimitedMessageRate: new qtdatastream.QBool(network.unlimitedMessageRate),
+        MessageRateDelay: new qtdatastream.QUInt(network.msgRateMessageDelay),
+        MessageRateBurstSize: new qtdatastream.QUInt(network.msgRateBurstSize)
     };
     return new qtdatastream.QUserType("NetworkInfo", jNetwork);
 };
@@ -21513,8 +21521,9 @@ Quassel.Feature = {
     PasswordChange: 0x0010,
     CapNegotiation: 0x0020,           /// IRCv3 capability negotiation, account tracking
     VerifyServerSSL: 0x0040,          /// IRC server SSL validation
+    CustomRateLimits: 0x0080,         /// IRC server custom message rate limits
 
-    NumFeatures: 0x0040
+    NumFeatures: 0x0080
 };
 
 /**
@@ -21691,6 +21700,30 @@ Quassel.Feature = {
  * @event module:libquassel~Quassel#event:"network.rejoinchannels"
  * @property {number} networkId
  * @property {boolean} rejoinchannels
+ */
+/**
+ * Fired when Use Custom Message Rate value has changed
+ * @event module:libquassel~Quassel#event:"network.usecustommessagerate"
+ * @property {number} networkId
+ * @property {boolean} usecustommessagerate
+ */
+/**
+ * Fired when Unlimited Message Rate Burst Size value has changed
+ * @event module:libquassel~Quassel#event:"network.messagerate.unlimited"
+ * @property {number} networkId
+ * @property {boolean} unlimited
+ */
+/**
+ * Fired when Message Rate Burst Size value has changed
+ * @event module:libquassel~Quassel#event:"network.messagerate.burstsize"
+ * @property {number} networkId
+ * @property {number} burstsize
+ */
+/**
+ * Fired when Message Rate Delay value has changed
+ * @event module:libquassel~Quassel#event:"network.messagerate.delay"
+ * @property {number} networkId
+ * @property {number} delay
  */
 /**
  * Buffer has been marked as read
@@ -21994,7 +22027,7 @@ Quassel.prototype.handleMsgType = function(obj) {
  * @returns {boolean}
  */
 Quassel.prototype.supports = function(feature) {
-    return this.coreInfo.CoreFeatures & feature > 0;
+    return (this.coreInfo.CoreFeatures & feature) > 0;
 };
 
 /**
@@ -22082,6 +22115,10 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
  * @fires module:libquassel~Quassel#event:"network.sasl.account"
  * @fires module:libquassel~Quassel#event:"network.sasl.password"
  * @fires module:libquassel~Quassel#event:"network.rejoinchannels"
+ * @fires module:libquassel~Quassel#event:"network.usecustommessagerate"
+ * @fires module:libquassel~Quassel#event:"network.messagerate.unlimited"
+ * @fires module:libquassel~Quassel#event:"network.messagerate.delay"
+ * @fires module:libquassel~Quassel#event:"network.messagerate.burstsize"
  * @fires module:libquassel~Quassel#event:"buffer.read"
  * @fires module:libquassel~Quassel#event:"buffer.lastseen"
  * @fires module:libquassel~Quassel#event:"buffer.markerline"
@@ -22243,6 +22280,22 @@ Quassel.prototype.handleStruct = function(obj) {
                         case "setRejoinChannels":
                             self.networks.get(networkId).rejoinChannels = obj[4];
                             self.emit('network.rejoinchannels', networkId, obj[4]);
+                            break;
+                        case "setUseCustomMessageRate":
+                            self.networks.get(networkId).useCustomMessageRate = obj[4];
+                            self.emit('network.usecustommessagerate', networkId, obj[4]);
+                            break;
+                        case "setUnlimitedMessageRate":
+                            self.networks.get(networkId).unlimitedMessageRate = obj[4];
+                            self.emit('network.messagerate.unlimited', networkId, obj[4]);
+                            break;
+                        case "setMessageRateDelay":
+                            self.networks.get(networkId).msgRateMessageDelay = obj[4];
+                            self.emit('network.messagerate.delay', networkId, obj[4]);
+                            break;
+                        case "setMessageRateBurstSize":
+                            self.networks.get(networkId).msgRateBurstSize = obj[4];
+                            self.emit('network.messagerate.burstsize', networkId, obj[4]);
                             break;
                         default:
                             self.log('Unhandled Sync.Network ' + functionName);
@@ -23097,8 +23150,8 @@ function _serverListDefaults(server) {
  * @param {boolean} [options.rejoinChannels=true]
  * @param {boolean} [options.useCustomMessageRate=false]
  * @param {boolean} [options.unlimitedMessageRate=false]
- * @param {number} [options.messageRateDelay=2200]
- * @param {number} [options.messageRateBurstSize=5]
+ * @param {number} [options.msgRateMessageDelay=2200]
+ * @param {number} [options.msgRateBurstSize=5]
  */
 Quassel.prototype.createNetwork = function(networkName, identityId, initialServer, options) {
     options = options || {};
@@ -23142,8 +23195,8 @@ Quassel.prototype.createNetwork = function(networkName, identityId, initialServe
             RejoinChannels: options.rejoinChannels || true,
             UseCustomMessageRate: options.useCustomMessageRate || false,
             UnlimitedMessageRate: options.unlimitedMessageRate || false,
-            MessageRateDelay: options.messageRateDelay || 2200,
-            MessageRateBurstSize: options.messageRateBurstSize || 5
+            MessageRateDelay: options.msgRateMessageDelay || 2200,
+            MessageRateBurstSize: options.msgRateBurstSize || 5
         }),
         new qtdatastream.QStringList([])
     ];
