@@ -19246,6 +19246,33 @@ BufferView.prototype.unhide = function(bufferId) {
     }
 };
 
+/**
+ * Move a buffer to another position
+ * @param {number} bufferId
+ * @param {number} position
+ */
+BufferView.prototype.moveBuffer = function(bufferId, position) {
+    var index = this.BufferList.indexOf(bufferId);
+    if (index !== -1) {
+        this.BufferList.splice(index, 1);
+        this.BufferList.splice(position, 0, bufferId);
+    }
+};
+
+/**
+ * Add (or move) a buffer to a specified position
+ * @param {number} bufferId
+ * @param {number} position
+ */
+BufferView.prototype.addBuffer = function(bufferId, position) {
+    var index = this.BufferList.indexOf(bufferId);
+    if (index !== -1) {
+        this.moveBuffer(bufferId, position);
+    } else {
+        this.BufferList.splice(position, 0, bufferId);
+    }
+};
+
 BufferView.prototype.comparator = function(id1, id2) {
     if (!this.BufferList) return 0;
     var iid1 = this.BufferList.indexOf(id1);
@@ -21867,6 +21894,66 @@ Quassel.Feature = {
  * @property {number} bufferViewId
  */
 /**
+ * Buffer view networkId updated
+ * @event module:libquassel~Quassel#event:"bufferview.networkid"
+ * @property {number} bufferViewId
+ * @property {number} networkId
+ */
+/**
+ * Buffer view search updated
+ * @event module:libquassel~Quassel#event:"bufferview.search"
+ * @property {number} bufferViewId
+ * @property {boolean} search
+ */
+/**
+ * Buffer view hideInactiveNetworks updated
+ * @event module:libquassel~Quassel#event:"bufferview.hideinactivenetworks"
+ * @property {number} bufferViewId
+ * @property {boolean} hideinactivenetworks
+ */
+/**
+ * Buffer view hideInactiveBuffers updated
+ * @event module:libquassel~Quassel#event:"bufferview.hideinactivebuffers"
+ * @property {number} bufferViewId
+ * @property {boolean} hideinactivebuffers
+ */
+/**
+ * Buffer view allowedBufferTypes updated
+ * @event module:libquassel~Quassel#event:"bufferview.allowedbuffertypes"
+ * @property {number} bufferViewId
+ * @property {number} allowedbuffertypes
+ */
+/**
+ * Buffer view addNewBuffersAutomatically updated
+ * @event module:libquassel~Quassel#event:"bufferview.addnewbuffersautomatically"
+ * @property {number} bufferViewId
+ * @property {boolean} addnewbuffersautomatically
+ */
+/**
+ * Buffer view minimumActivity updated
+ * @event module:libquassel~Quassel#event:"bufferview.minimumactivity"
+ * @property {number} bufferViewId
+ * @property {boolean} minimumactivity
+ */
+/**
+ * Buffer view bufferViewName updated
+ * @event module:libquassel~Quassel#event:"bufferview.bufferviewname"
+ * @property {number} bufferViewId
+ * @property {String} bufferviewname
+ */
+/**
+ * Buffer view disableDecoration updated
+ * @event module:libquassel~Quassel#event:"bufferview.disabledecoration"
+ * @property {number} bufferViewId
+ * @property {boolean} disabledecoration
+ */
+/**
+ * Buffer view object updated
+ * @event module:libquassel~Quassel#event:"bufferview.update"
+ * @property {number} bufferViewId
+ * @property {object} data
+ */
+/**
  * {@link module:ignore.IgnoreList} updated
  * @event module:libquassel~Quassel#event:"ignorelist"
  */
@@ -22135,6 +22222,16 @@ Quassel.prototype.createBuffer = function(networkId, name, bufferId) {
  * @fires module:libquassel~Quassel#event:"bufferview.bufferhidden"
  * @fires module:libquassel~Quassel#event:"bufferview.orderchanged"
  * @fires module:libquassel~Quassel#event:"bufferview.init"
+ * @fires module:libquassel~Quassel#event:"bufferview.networkid"
+ * @fires module:libquassel~Quassel#event:"bufferview.search"
+ * @fires module:libquassel~Quassel#event:"bufferview.hideinactivenetworks"
+ * @fires module:libquassel~Quassel#event:"bufferview.hideinactivebuffers"
+ * @fires module:libquassel~Quassel#event:"bufferview.allowedbuffertypes"
+ * @fires module:libquassel~Quassel#event:"bufferview.addnewbuffersautomatically"
+ * @fires module:libquassel~Quassel#event:"bufferview.minimumactivity"
+ * @fires module:libquassel~Quassel#event:"bufferview.bufferviewname"
+ * @fires module:libquassel~Quassel#event:"bufferview.disabledecoration"
+ * @fires module:libquassel~Quassel#event:"bufferview.update"
  * @fires module:libquassel~Quassel#event:"user.part"
  * @fires module:libquassel~Quassel#event:"user.quit"
  * @fires module:libquassel~Quassel#event:"user.away"
@@ -22356,27 +22453,71 @@ Quassel.prototype.handleStruct = function(obj) {
                     }
                     break;
                 case "BufferViewConfig":
+                    bufferViewId = parseInt(obj[2], 10);
+                    bufferView = self.bufferViews.get(bufferViewId);
+                    if (!bufferView) return;
                     switch(functionName) {
                         case "addBuffer":
-                            bufferViewId = parseInt(obj[2], 10);
                             bufferId = obj[4];
-                            bufferView = self.bufferViews.get(bufferViewId);
+                            bufferView.addBuffer(bufferId, obj[5]);
                             bufferView.unhide(bufferId);
                             self.emit('bufferview.bufferunhide', bufferViewId, bufferId);
+                            self.emit('bufferview.orderchanged', bufferViewId);
                             break;
                         case "removeBuffer":
-                            bufferViewId = parseInt(obj[2], 10);
                             bufferId = obj[4];
-                            bufferView = self.bufferViews.get(bufferViewId);
                             bufferView.setTemporarilyRemoved(bufferId);
                             self.emit('bufferview.bufferhidden', bufferViewId, bufferId, "temp");
                             break;
                         case "removeBufferPermanently":
-                            bufferViewId = parseInt(obj[2], 10);
                             bufferId = obj[4];
-                            bufferView = self.bufferViews.get(bufferViewId);
                             bufferView.setPermanentlyRemoved(bufferId);
                             self.emit('bufferview.bufferhidden', bufferViewId, bufferId, "perm");
+                            break;
+                        case "moveBuffer":
+                            bufferId = obj[4];
+                            bufferView.moveBuffer(bufferId, obj[5]);
+                            self.emit('bufferview.orderchanged', bufferViewId);
+                            break;
+                        case "setNetworkId":
+                            bufferView.networkId = obj[4];
+                            self.emit('bufferview.networkid', bufferViewId, obj[4]);
+                            break;
+                        case "setShowSearch":
+                            bufferView.showSearch = obj[4] === 1;
+                            self.emit('bufferview.search', bufferViewId, bufferView.showSearch);
+                            break;
+                        case "setHideInactiveNetworks":
+                            bufferView.hideInactiveNetworks = obj[4] === 1;
+                            self.emit('bufferview.hideinactivenetworks', bufferViewId, bufferView.hideInactiveNetworks);
+                            break;
+                        case "setHideInactiveBuffers":
+                            bufferView.hideInactiveBuffers = obj[4] === 1;
+                            self.emit('bufferview.hideinactivebuffers', bufferViewId, bufferView.hideInactiveBuffers);
+                            break;
+                        case "setAllowedBufferTypes":
+                            bufferView.allowedBufferTypes = obj[4];
+                            self.emit('bufferview.allowedbuffertypes', bufferViewId, obj[4]);
+                            break;
+                        case "setAddNewBuffersAutomatically":
+                            bufferView.addNewBuffersAutomatically = obj[4] === 1;
+                            self.emit('bufferview.addnewbuffersautomatically', bufferViewId, bufferView.addNewBuffersAutomatically);
+                            break;
+                        case "setMinimumActivity":
+                            bufferView.minimumActivity = obj[4];
+                            self.emit('bufferview.minimumactivity', bufferViewId, obj[4]);
+                            break;
+                        case "setBufferViewName":
+                            bufferView.bufferViewName = obj[4];
+                            self.emit('bufferview.bufferviewname', bufferViewId, obj[4]);
+                            break;
+                        case "setDisableDecoration":
+                            bufferView.disableDecoration = obj[4] === 1;
+                            self.emit('bufferview.disabledecoration', bufferViewId, bufferView.disableDecoration);
+                            break;
+                        case "update":
+                            bufferView.devour(obj[4]);
+                            self.emit('bufferview.update', bufferViewId, obj[4]);
                             break;
                         default:
                             self.log('Unhandled Sync.BufferViewConfig ' + functionName);
