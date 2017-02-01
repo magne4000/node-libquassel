@@ -23084,6 +23084,8 @@ Quassel.prototype.getNetworksMap = function() {
  * @param {Object} [properties]
  */
 Quassel.prototype.setupCore = function(backend, adminuser, adminpassword, properties) {
+    var self = this;
+    
     properties = properties || {};
     var obj = {
         SetupData: {
@@ -23094,6 +23096,16 @@ Quassel.prototype.setupCore = function(backend, adminuser, adminpassword, proper
         },
         MsgType: 'CoreSetupData'
     };
+    
+    if (self.useSSL) {
+        var secureStream = tls.connect(null, {
+            socket: self.qtsocket.socket,
+            rejectUnauthorized: false,
+            secureProtocol: 'TLSv1_client_method'
+        });
+        self.qtsocket.updateSocket(secureStream);
+    }
+    
     this.qtsocket.write(obj);
 };
 
