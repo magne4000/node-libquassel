@@ -1,26 +1,21 @@
 'use strict';
-var fs = require('fs');
 module.exports = function(grunt) {
 
   // Project configuration.
   grunt.initConfig({
     exec: {
-      lts: {
-          cwd: './node_modules/tls-browserify/node_modules/node-forge',
-          cmd: 'npm install && npm run minify'
-      },
-      stable: {
-          cwd: './node_modules/node-forge',
-          cmd: 'npm install && npm run minify'
+      forge: {
+        cwd: './node_modules/node-forge',
+        cmd: 'npm install && npm run minify'
       }
     },
     jsdoc: {
       dist: {
         src: ['lib/*.js', 'package.json', 'README.md'],
-        dest: 'doc',
         options: {
-            template: 'node_modules/minami',
-            configure: 'jsdoc.conf.json'
+          template: 'node_modules/loke-jsdoc-theme',
+          configure: 'jsdoc.conf.json',
+          destination: 'doc'
         }
       }
     },
@@ -41,7 +36,7 @@ module.exports = function(grunt) {
             './lib/alias:alias',
             './node_modules/net-browserify-alt/browser.js:net',
             './node_modules/tls-browserify/index.js:tls',
-            './node_modules/debug/browser.js:debug'
+            './node_modules/debug/src/browser.js:debug'
           ]
         }
       },
@@ -61,7 +56,7 @@ module.exports = function(grunt) {
             './lib/alias:alias',
             './node_modules/net-browserify-alt/browser.js:net',
             './node_modules/tls-browserify/index.js:tls',
-            './node_modules/debug/browser.js:debug'
+            './node_modules/debug/src/browser.js:debug'
           ],
           transform: [['uglifyify', {
               global: true,
@@ -87,8 +82,8 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-watch');
   grunt.loadNpmTasks('grunt-jsdoc');
 
-  grunt.registerTask('stable', ['exec:stable', 'browserify:dev', 'browserify:dist']);
-  grunt.registerTask('lts', ['exec:lts', 'browserify:dev', 'browserify:dist']);
+  grunt.registerTask('dist', ['exec:forge', 'browserify:dev', 'browserify:dist', 'jsdoc']);
+  grunt.registerTask('dev', ['exec:forge', 'browserify:dev']);
   
   grunt.registerTask('doc', ['jsdoc']);
 
