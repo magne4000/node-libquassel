@@ -1,7 +1,7 @@
 {
   "name": "libquassel",
   "description": "Javascript lib to connect and interact with Quassel IRC core",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "homepage": "https://github.com/magne4000/node-libquassel",
   "license": "MIT",
   "author": {
@@ -34,14 +34,13 @@
     "grunt": "~1.0.1",
     "grunt-browserify": "^5.0.0",
     "grunt-contrib-watch": "^1.0.0",
-    "grunt-exec": "^1.0.1",
     "grunt-jsdoc": "^2.1.0",
     "jsdoc": "^3.4.3",
     "loke-jsdoc-theme": "^2.1.0",
     "nomnom": "^1.8.1",
     "prompt": "^0.2.14",
     "tape": "^4.6.3",
-    "tls-browserify": "^0.2.0",
+    "tls-browserify": "^0.2.1",
     "uglifyify": "^3.0.4"
   },
   "keywords": [
