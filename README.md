@@ -14,12 +14,14 @@ You just need to import `client/libquassel.js` or `client/libquassel.min.js` in 
 npm install libquassel
 ```
 
-In order to create a browser compatible file, run the following command
+In order to create a browser compatible file, run the following commands
 ```sh
-# for nodejs 0.12 to 4.x
-grunt lts
-# for nodejs >=5
-grunt stable
+# for development
+grunt dev
+# before commit, make the dev version + minified version + the doc
+grunt dist
+# or if there is not need to update the doc
+grunt browserify:dev browserify:dist
 ```
 
 ### 2.0 breaking changes

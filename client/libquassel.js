@@ -1965,7 +1965,7 @@ d.gs = function (dscr, get, set/*, options*/) {
  * Expose `debug()` as the module.
  */
 
-exports = module.exports = createDebug.debug = createDebug.default = createDebug;
+exports = module.exports = createDebug.debug = createDebug['default'] = createDebug;
 exports.coerce = coerce;
 exports.disable = disable;
 exports.enable = enable;
@@ -2096,6 +2096,9 @@ function createDebug(namespace) {
 
 function enable(namespaces) {
   exports.save(namespaces);
+
+  exports.names = [];
+  exports.skips = [];
 
   var split = (namespaces || '').split(/[\s,]+/);
   var len = split.length;
@@ -20146,7 +20149,7 @@ exports.ScopeType = ScopeType;
 /** @module buffer */
 
 var Glouton = require('./glouton'),
-    logger = require('debug', 'libquassel:buffer'),
+    logger = require('debug')('libquassel:buffer'),
     IRCMessage = require('./message').IRCMessage,
     util = require('qtdatastream').util;
 
@@ -20521,7 +20524,7 @@ var IRCBufferCollection = function IRCBufferCollection() {
  */
 IRCBufferCollection.prototype.addBuffer = function(buffer) {
     if (this.buffers.has(buffer.id)) {
-        logger("Buffer already added (" + buffer.name + ")");
+        logger("Buffer already added (%s)", buffer.name);
         return;
     }
     this.buffers.set(buffer.id, buffer);
@@ -21514,7 +21517,7 @@ Network.prototype.setIrcUsersAndChannels = function(uac) {
             if (user !== null) {
                 channel.addUser(user, uac.channels[key].UserModes[nick]);
             } else {
-                logger("User " + nick + " have not been found on server.");
+                logger("User %s have not been found on server", nick);
             }
         }
     }
@@ -22310,19 +22313,19 @@ Quassel.prototype.handleMsgType = function(obj) {
             }
             break;
         case 'ClientLoginAck':
-            self.log('Logged in');
+            logger('Logged in');
             self.emit('login');
             break;
         case 'ClientLoginReject':
-            self.log(obj);
+            logger(obj);
             self.emit('loginfailed');
             break;
         case 'CoreSetupAck':
-            self.log('Core setup successful');
+            logger('Core setup successful');
             self.emit('setupok');
             break;
         case 'CoreSetupReject':
-            self.log('Core setup failed');
+            logger('Core setup failed');
             self.emit('setupfailed', obj.Error);
             break;
         case 'SessionInit':
@@ -22363,7 +22366,7 @@ Quassel.prototype.handleMsgType = function(obj) {
             }, 30000);
             break;
         default:
-            self.log('Unhandled MsgType ' + obj.MsgType);
+            logger('Unhandled MsgType %s', obj.MsgType);
     }
 };
 
@@ -22390,7 +22393,7 @@ Quassel.prototype.heartBeat = function(reply) {
         reply?RequestType.HeartBeat:RequestType.HeartBeatReply,
         new qtdatastream.QTime(secs)
     ];
-    this.log('Sending heartbeat');
+    logger('Sending heartbeat');
     this.qtsocket.write(slist);
 };
 
@@ -22516,7 +22519,7 @@ Quassel.prototype.handleStruct = function(obj) {
         case RequestType.Sync:
             className = obj[1].toString();
             functionName = obj[3].toString();
-            self.log(className + " received : " + functionName);
+            logger("%s received : %s", className, functionName);
             switch(className) {
                 case "Network":
                     networkId = obj[2].toString();
@@ -22656,7 +22659,7 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.emit('network.messagerate.burstsize', networkId, obj[4]);
                             break;
                         default:
-                            self.log('Unhandled Sync.Network ' + functionName);
+                            logger('Unhandled Sync.Network %s', functionName);
                     }
                     break;
                 case "BufferSyncer":
@@ -22700,7 +22703,7 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.emit('buffer.merge', bufferId1, bufferId2);
                             break;
                         default:
-                            self.log('Unhandled Sync.BufferSyncer ' + functionName);
+                            logger('Unhandled Sync.BufferSyncer %s', functionName);
                     }
                     break;
                 case "BufferViewManager":
@@ -22710,7 +22713,7 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.sendInitRequest("BufferViewConfig", ""+bufferViewId);
                             break;
                         default:
-                            self.log('Unhandled Sync.BufferViewManager ' + functionName);
+                            logger('Unhandled Sync.BufferViewManager %s', functionName);
                     }
                     break;
                 case "BufferViewConfig":
@@ -22781,7 +22784,7 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.emit('bufferview.update', bufferViewId, obj[4]);
                             break;
                         default:
-                            self.log('Unhandled Sync.BufferViewConfig ' + functionName);
+                            logger('Unhandled Sync.BufferViewConfig %s', functionName);
                     }
                     break;
                 case "IrcUser":
@@ -22854,7 +22857,7 @@ Quassel.prototype.handleStruct = function(obj) {
                             }
                             break;
                         default:
-                            self.log('Unhandled Sync.IrcUser ' + functionName);
+                            logger('Unhandled Sync.IrcUser %s', functionName);
                     }
                     break;
                 case "IrcChannel":
@@ -22874,7 +22877,7 @@ Quassel.prototype.handleStruct = function(obj) {
                         } else if (buffer !== null) {
                             callback(buffer);
                         } else {
-                            self.log('Did not succeed to get channel ' + tmp2 + ' after 10 attempts');
+                            logger('Did not succeed to get channel %s after 10 attempts', tmp2);
                         }
                     };
 
@@ -22907,7 +22910,7 @@ Quassel.prototype.handleStruct = function(obj) {
                                 self.emit('channel.topic', buffer.id, topic);
                                 break;
                             default:
-                                self.log('Unhandled Sync.IrcChannel ' + functionName);
+                                logger('Unhandled Sync.IrcChannel %s', functionName);
                         }
                     });
                     break;
@@ -22922,7 +22925,7 @@ Quassel.prototype.handleStruct = function(obj) {
                                 for (i=0; i<data.length; i++) {
                                     message = buffer.addMessage(data[i]);
                                     if (!message) {
-                                        self.log("Getting message buffer already have " + data[i].bufferInfo.name);
+                                        logger("Getting message buffer already have %s", data[i].bufferInfo.name);
                                     } else {
                                         messageIds.push(message.id);
                                         network = self.networks.get(buffer.network);
@@ -22931,11 +22934,11 @@ Quassel.prototype.handleStruct = function(obj) {
                                 }
                                 self.emit("buffer.backlog", bufferId, messageIds);
                             } else {
-                                self.log("Buffer " + bufferId + " does not exists.");
+                                logger("Buffer %d does not exists.", bufferId);
                             }
                             break;
                         default:
-                            self.log('Unhandled Sync.BacklogManager ' + functionName);
+                            logger('Unhandled Sync.BacklogManager %s', functionName);
                     }
                     break;
                 case "IgnoreListManager":
@@ -22946,7 +22949,7 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.emit('ignorelist', self.ignoreList);
                             break;
                         default:
-                            self.log('Unhandled Sync.IgnoreListManager ' + functionName);
+                            logger('Unhandled Sync.IgnoreListManager %s', functionName);
                     }
                     break;
                 case "Identity":
@@ -22957,10 +22960,10 @@ Quassel.prototype.handleStruct = function(obj) {
                             identity[functionName](obj[4]);
                             self.emit('identity.' + functionName, identityId, obj[4]);
                         } else {
-                            self.log('Unhandled Sync.Identity ' + functionName);
+                            logger('Unhandled Sync.Identity %s', functionName);
                         }
                     } else {
-                        self.log('Unknown Identity ' + obj[2]);
+                        logger('Unknown Identity %s', obj[2]);
                     }
                     break;
                 case "AliasManager":
@@ -22971,11 +22974,11 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.emit('aliases', self.aliases);
                             break;
                         default:
-                            self.log('Unhandled Sync.AliasManager ' + functionName);
+                            logger('Unhandled Sync.AliasManager %s', functionName);
                     }
                     break;
                 default:
-                    self.log('Unhandled Sync ' + className);
+                    logger('Unhandled Sync %s', className);
             }
             break;
         case RequestType.RpcCall:
@@ -23031,7 +23034,7 @@ Quassel.prototype.handleStruct = function(obj) {
                             self.emit("network.userrenamed", newNick[0], oldNick[1], newNick[1]);
                             break;
                         default:
-                            self.log('Unhandled RpcCall.__objectRenamed__ ' + renamedSubject);
+                            logger('Unhandled RpcCall.__objectRenamed__ %s', renamedSubject);
                     }
                     break;
                 case "2networkCreated(NetworkId)":
@@ -23056,7 +23059,7 @@ Quassel.prototype.handleStruct = function(obj) {
                     self.emit('identity.remove', identityId);
                     break;
                 default:
-                    self.log('Unhandled RpcCall ' + functionName);
+                    logger('Unhandled RpcCall %s', functionName);
             }
             break;
         case RequestType.InitData:
@@ -23084,11 +23087,11 @@ Quassel.prototype.handleStruct = function(obj) {
                             if (buffer !== null) {
                                 self.emit('buffer.lastseen', bufferId, messageId);
                             } else {
-                                self.log("Buffer #" + bufferId + " does not exists");
+                                logger("Buffer #%d does not exists", bufferId);
                             }
                         }
                     } else {
-                        self.log("Received null LastSeenMsg");
+                        logger("Received null LastSeenMsg");
                     }
                     if (markerLinesData !== null) {
                         for (i=0; i<markerLinesData.length; i+=2) {
@@ -23098,11 +23101,11 @@ Quassel.prototype.handleStruct = function(obj) {
                             if (buffer !== null) {
                                 self.emit('buffer.markerline', bufferId, messageId);
                             } else {
-                                self.log("Buffer #" + bufferId + " does not exists");
+                                logger("Buffer #%d does not exists", bufferId);
                             }
                         }
                     } else {
-                        self.log("Received null markerLines");
+                        logger("Received null markerLines");
                     }
                     break;
                 case "IrcUser":
@@ -23162,18 +23165,18 @@ Quassel.prototype.handleStruct = function(obj) {
                     self.emit('coreinfo', data);
                     break;
                 default:
-                    self.log('Unhandled InitData ' + className);
+                    logger('Unhandled InitData %s', className);
             }
             break;
         case RequestType.HeartBeat:
-            self.log('HeartBeat');
+            logger('HeartBeat');
             self.heartBeat(true);
             break;
         case RequestType.HeartBeatReply:
-            self.log('HeartBeatReply');
+            logger('HeartBeatReply');
             break;
         default:
-            self.log('Unhandled RequestType ' + obj[0]);
+            logger('Unhandled RequestType %s', obj[0]);
     }
 };
 
@@ -23184,7 +23187,7 @@ Quassel.prototype.handleStruct = function(obj) {
  */
 Quassel.prototype.dispatch = function(obj) {
     if (obj === null) {
-        this.log("Received null object ... ?");
+        logger("Received null object ... ?");
     } else if (typeof obj.MsgType !== 'undefined') {
         this.handleMsgType(obj);
     } else if(Buffer.isBuffer(obj[1])) {
@@ -23249,7 +23252,7 @@ Quassel.prototype.sendClientInfo = function(useSSL, useCompression){
         "MsgType": "ClientInit",
         "ProtocolVersion": 10
     };
-    this.log('Sending client informations');
+    logger('Sending client informations');
     this.qtsocket.write(smap);
 };
 
@@ -23267,12 +23270,12 @@ Quassel.prototype.init = function() {
         var ret = data.readUInt32BE(0);
         if (((ret >> 24) & 0x01) > 0) {
             self.useSSL = true;
-            self.log('Using SSL');
+            logger('Using SSL');
         }
         
         if (((ret >> 24) & 0x02) > 0) {
             self.useCompression = true;
-            self.log('Using compression');
+            logger('Using compression');
         }
         
         
@@ -23287,7 +23290,7 @@ Quassel.prototype.init = function() {
                 });
                 
                 deflate.on('end', function() {
-                    self.log(buffers);
+                    logger(buffers);
                     next(null, Buffer.concat(buffers));
                 });
                 
@@ -23302,10 +23305,10 @@ Quassel.prototype.init = function() {
             self.dispatch(data);
         })
         .on('close', function() {
-            self.log('Connection closed');
+            logger('Connection closed');
         })
         .on('end', function() {
-            self.log('END');
+            logger('END');
         })
         .on('error', function(e) {
             console.log('ERROR', e);
@@ -23316,7 +23319,7 @@ Quassel.prototype.init = function() {
     });
     
     this.client.on('error', function(e) {
-        console.log('ERROR', e);
+        logger('ERROR', e);
         self.emit('error', e);
     });  
 };
@@ -23483,7 +23486,7 @@ Quassel.prototype.createIdentity = function(identityName, options) {
         }),
         {}
     ];
-    this.log('Creating identity');
+    logger('Creating identity');
     this.qtsocket.write(slit);
 };
 
@@ -23497,7 +23500,7 @@ Quassel.prototype.removeIdentity = function(identityId) {
         "2removeIdentity(IdentityId)",
         new qtdatastream.QUserType("IdentityId", identityId)
     ];
-    this.log('Deleting identity');
+    logger('Deleting identity');
     this.qtsocket.write(slit);
 };
 
@@ -23614,7 +23617,7 @@ Quassel.prototype.createNetwork = function(networkName, identityId, initialServe
         }),
         new qtdatastream.QStringList([])
     ];
-    this.log('Creating network');
+    logger('Creating network');
     this.qtsocket.write(slit);
 };
 
@@ -23628,7 +23631,7 @@ Quassel.prototype.removeNetwork = function(networkId) {
         "2removeNetwork(NetworkId)",
         new qtdatastream.QUserType("NetworkId", networkId)
     ];
-    this.log('Deleting nhetwork');
+    logger('Deleting nhetwork');
     this.qtsocket.write(slit);
 };
 
@@ -23646,10 +23649,10 @@ Quassel.prototype.sendMessage = function(bufferId, message) {
             new qtdatastream.QUserType("BufferInfo", buffer.getBufferInfo()),
             new qtdatastream.QString(message)
         ];
-        this.log('Sending message');
+        logger('Sending message');
         this.qtsocket.write(slit);
     } else {
-        this.log("Could not send message to buffer " + bufferId + ". Buffer not found.");
+        logger("Could not send message to buffer %d. Buffer not found.", bufferId);
     }
 };
 
@@ -23675,7 +23678,7 @@ Quassel.prototype.requestBacklog = function(bufferId, firstMsgId, lastMsgId, max
         new qtdatastream.QInt(maxAmount),
         new qtdatastream.QInt(0)
     ];
-    this.log('Sending backlog request');
+    logger('Sending backlog request');
     this.qtsocket.write(slist);
 };
 
@@ -23690,7 +23693,7 @@ Quassel.prototype.requestDisconnectNetwork = function(networkId) {
         ""+networkId,
         new qtdatastream.QByteArray("requestDisconnect")
     ];
-    this.log('Sending disconnection request');
+    logger('Sending disconnection request');
     this.qtsocket.write(slist);
 };
 
@@ -23705,7 +23708,7 @@ Quassel.prototype.requestConnectNetwork = function(networkId) {
         ""+networkId,
         new qtdatastream.QByteArray("requestConnect")
     ];
-    this.log('Sending connection request');
+    logger('Sending connection request');
     this.qtsocket.write(slist);
 };
 
@@ -23721,7 +23724,7 @@ Quassel.prototype.requestMarkBufferAsRead = function(bufferId) {
         new qtdatastream.QByteArray("requestMarkBufferAsRead"),
         new qtdatastream.QUserType("BufferId", bufferId)
     ];
-    this.log('Sending mark buffer as read request');
+    logger('Sending mark buffer as read request');
     this.qtsocket.write(slist);
 };
 
@@ -23739,7 +23742,7 @@ Quassel.prototype.requestSetLastMsgRead = function(bufferId, messageId) {
         new qtdatastream.QUserType("BufferId", bufferId),
         new qtdatastream.QUserType("MsgId", messageId)
     ];
-    this.log('Sending last message read request');
+    logger('Sending last message read request');
     this.qtsocket.write(slist);
 };
 
@@ -23757,7 +23760,7 @@ Quassel.prototype.requestSetMarkerLine = function(bufferId, messageId) {
         new qtdatastream.QUserType("BufferId", bufferId),
         new qtdatastream.QUserType("MsgId", messageId)
     ];
-    this.log('Sending mark line request');
+    logger('Sending mark line request');
     this.qtsocket.write(slist);
 };
 
@@ -23773,7 +23776,7 @@ Quassel.prototype.requestRemoveBuffer = function(bufferId) {
         new qtdatastream.QByteArray("requestRemoveBuffer"),
         new qtdatastream.QUserType("BufferId", bufferId)
     ];
-    this.log('Sending perm hide request');
+    logger('Sending perm hide request');
     this.qtsocket.write(slist);
 };
 
@@ -23791,7 +23794,7 @@ Quassel.prototype.requestMergeBuffersPermanently = function(bufferId1, bufferId2
         new qtdatastream.QUserType("BufferId", bufferId1),
         new qtdatastream.QUserType("BufferId", bufferId2)
     ];
-    this.log('Sending merge request');
+    logger('Sending merge request');
     this.qtsocket.write(slist);
 };
 
@@ -23808,7 +23811,7 @@ Quassel.prototype.requestHideBufferTemporarily = function(bufferViewId, bufferId
         "requestRemoveBuffer",
         new qtdatastream.QUserType("BufferId", bufferId)
     ];
-    this.log('Sending temp hide request');
+    logger('Sending temp hide request');
     this.qtsocket.write(slist);
 };
 
@@ -23826,7 +23829,7 @@ Quassel.prototype.requestHideBufferPermanently = function(bufferViewId, bufferId
         "requestRemoveBufferPermanently",
         new qtdatastream.QUserType("BufferId", bufferId)
     ];
-    this.log('Sending perm hide request');
+    logger('Sending perm hide request');
     this.qtsocket.write(slist);
 };
 
@@ -23848,7 +23851,7 @@ Quassel.prototype.requestUnhideBuffer = function(bufferViewId, bufferId) {
         new qtdatastream.QUserType("BufferId", bufferId),
         new qtdatastream.QInt(bufferCount)
     ];
-    this.log('Sending unhide request');
+    logger('Sending unhide request');
     this.qtsocket.write(slist);
 };
 
@@ -23867,7 +23870,7 @@ Quassel.prototype.requestRenameBuffer = function(bufferId, newName) {
         new qtdatastream.QUserType("BufferId", bufferId),
         newName
     ];
-    this.log('Sending rename buffer request');
+    logger('Sending rename buffer request');
     this.qtsocket.write(slist);
 };
 
@@ -23883,7 +23886,7 @@ Quassel.prototype.requestUpdateIgnoreListManager = function(ignoreList) {
         "requestUpdate",
         ignoreList
     ];
-    this.log('Sending update request (IgnoreListManager)');
+    logger('Sending update request (IgnoreListManager)');
     this.qtsocket.write(slist);
 };
 
@@ -23900,7 +23903,7 @@ Quassel.prototype.requestUpdateIdentity = function(identityId, identity) {
         new qtdatastream.QByteArray("requestUpdate"),
         identity
     ];
-    this.log('Sending update request (Identity)');
+    logger('Sending update request (Identity)');
     this.qtsocket.write(slist);
 };
 
@@ -23916,7 +23919,7 @@ Quassel.prototype.requestUpdateAliasManager = function(data) {
         new qtdatastream.QByteArray("requestUpdate"),
         data
     ];
-    this.log('Sending update request (AliasManager)');
+    logger('Sending update request (AliasManager)');
     this.qtsocket.write(slist);
 };
 
@@ -23933,7 +23936,7 @@ Quassel.prototype.requestSetNetworkInfo = function(networkId, network) {
         new qtdatastream.QByteArray("requestSetNetworkInfo"),
         Network.toQ(network)
     ];
-    this.log('Sending update request (Network)');
+    logger('Sending update request (Network)');
     this.qtsocket.write(slist);
 };
 
@@ -23965,12 +23968,8 @@ Quassel.prototype.requestCreateBufferView = function(data) {
         "requestCreateBufferView",
         data
     ];
-    this.log('Sending create buffer view request');
+    logger('Sending create buffer view request');
     this.qtsocket.write(slist);
-};
-
-Quassel.prototype.log = function(m) {
-    logger(m);
 };
 
 /**
