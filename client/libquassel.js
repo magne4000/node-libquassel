@@ -17532,8 +17532,6 @@ if (debug && !debuglib.enabled("qtdatastream:*")) {
     debuglib.enable("qtdatastream:*");
 }
 
-exports.QTDATASTREAMCLASS = "__QTDATASTREAMCLASS__";
-
 exports.userTypes = {};
 
 exports.toggleEndianness = function(buffer) {
@@ -17644,15 +17642,15 @@ exports.Socket.prototype.updateSocket = function(socket) {
                     ds.size = getsize(ds.data);
                 }
                 self.emit('progress', ds.recvd, ds.size);
-                if (ds.size > ds.recvd) {
+                if (ds.size + 4 > ds.recvd) {
                     if (debug) {
-                        logger("(%d/%d) Waiting for end of buffer", ds.recvd, ds.size);
+                        logger("(%d/%d) Waiting for end of buffer", ds.recvd, ds.size + 4);
                     }
                     stop = true;
                 } else {
                     reader = new Reader(Buffer.concat(ds.data, ds.recvd));
                     if (debug) {
-                        logger("(%d/%d) Received full buffer", ds.recvd, ds.size);
+                        logger("(%d/%d) Received full buffer", ds.recvd, ds.size + 4);
                     }
                     reader.parse();
                     if (debug) {
@@ -17742,7 +17740,6 @@ exports.isUserTypeComplex = function(key) {
  */
 exports.QVariant = function QVariant(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
     if (typeof obj === 'object') {
         var jstype = Object.prototype.toString.call(obj);
         if (obj instanceof exports.QString) {
@@ -17804,7 +17801,6 @@ exports.QVariant = function QVariant(obj){
  */
 exports.QTime = function QTime(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17816,7 +17812,6 @@ exports.QTime = function QTime(obj){
  */
 exports.QDateTime = function QDateTime(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17832,7 +17827,6 @@ exports.QDateTime = function QDateTime(obj){
  */
 exports.QString = function QString(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17844,7 +17838,6 @@ exports.QString = function QString(obj){
  */
 exports.QChar = function QChar(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17856,7 +17849,6 @@ exports.QChar = function QChar(obj){
  */
 exports.QMap = function QMap(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17870,7 +17862,6 @@ exports.QMap = function QMap(obj){
  */
 exports.QList = function QList(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17882,7 +17873,6 @@ exports.QList = function QList(obj){
  */
 exports.QStringList = function QStringList(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17896,7 +17886,6 @@ exports.QStringList = function QStringList(obj){
  */
 exports.QUInt = function QUInt(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17910,7 +17899,6 @@ exports.QUInt = function QUInt(obj){
  */
 exports.QBool = function QBool(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17922,7 +17910,6 @@ exports.QBool = function QBool(obj){
  */
 exports.QInt = function QInt(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17934,7 +17921,6 @@ exports.QInt = function QInt(obj){
  */
 exports.QInt64 = function QInt64(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17946,7 +17932,6 @@ exports.QInt64 = function QInt64(obj){
  */
 exports.QUInt64 = function QUInt64(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17958,7 +17943,6 @@ exports.QUInt64 = function QUInt64(obj){
  */
 exports.QShort = function QShort(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17970,7 +17954,6 @@ exports.QShort = function QShort(obj){
  */
 exports.QDouble = function QDouble(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 
@@ -17983,7 +17966,6 @@ exports.QDouble = function QDouble(obj){
  */
 exports.QByteArray = function QByteArray(obj){
     this.obj = obj;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -17995,7 +17977,6 @@ exports.QByteArray = function QByteArray(obj){
  */
 exports.QInvalid = function QInvalid(){
     this.obj = undefined;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -18009,7 +17990,6 @@ exports.QInvalid = function QInvalid(){
 exports.QUserType = function QUserType(name, obj){
     this.obj = obj;
     this._qusertype_name = name;
-    this._qclass = exports.QTDATASTREAMCLASS;
 };
 
 /**
@@ -18236,12 +18216,7 @@ Reader.prototype.getDateTime = function(){
 Reader.prototype.getQVariant = function(){
     var type = this.getQVariantType(),
         isNull = this.getBool();
-    try {
-        return this.getQVariantByType(type);
-    } catch (e) {
-        logger(e);
-        return null;
-    }
+    return this.getQVariantByType(type);
 };
 
 /**
@@ -18289,7 +18264,7 @@ Reader.prototype.getByteArray = function(){
  * @returns {Array} Current list
  */
 Reader.prototype.getList = function(){
-    var listSize = this.getUInt(), i, list = Array(listSize), val;
+    var listSize = this.getUInt(), i, list = Array(listSize);
     for (i=0; i<listSize; i++) {
         // get value
         list[i] = this.getQVariant();
@@ -18301,7 +18276,7 @@ Reader.prototype.getList = function(){
  * @returns {Array<string>} Current list of string
  */
 Reader.prototype.getStringList = function(){
-    var listSize = this.getUInt(), i, list = Array(listSize), val;
+    var listSize = this.getUInt(), i, list = Array(listSize);
     for (i=0; i<listSize; i++) {
         // get value
         list[i] = this.getString();
@@ -18548,8 +18523,9 @@ Writer.prototype.parse = function(obj){
  * @returns {Number} Type as defined in {@link module:qtdatastream.Types}
  */
 Writer.prototype._parse = function(obj){
-    if (typeof obj === 'undefined') return;
-    if (typeof obj === 'object') {
+    var typeofobj = typeof obj;
+    if (typeofobj === 'undefined') return;
+    if (typeofobj === 'object') {
         var type = Object.prototype.toString.call(obj);
         if (obj instanceof QVariant) {
             this._parse_qvariant(obj);
@@ -18614,13 +18590,13 @@ Writer.prototype._parse = function(obj){
         }
         this._parse_qmap(new QMap(obj));
         return T.MAP;
-    } else if (typeof obj === 'string') {
+    } else if (typeofobj === 'string') {
         this._parse_qstring(new QString(obj));
         return T.STRING;
-    } else if (typeof obj === 'number') {
+    } else if (typeofobj === 'number') {
         this._parse_quint(new QUInt(obj));
         return T.UINT;
-    } else if (typeof obj === 'boolean') {
+    } else if (typeofobj === 'boolean') {
         this._parse_bool(new QBool(obj));
         return T.BOOL;
     }
@@ -18739,8 +18715,9 @@ Writer.prototype._parse_qbytearray = function(obj){
  * @protected
  */
 Writer.prototype._parse_qusertype = function(obj){
-    if (qtdatastream.isUserTypeComplex(obj.getName())) {
-        var iter = this.getUserTypeIterator(obj.getName());
+    var name = obj.getName();
+    if (qtdatastream.isUserTypeComplex(name)) {
+        var iter = this.getUserTypeIterator(name);
         while (iter.hasNext()) {
             var item = iter.next();
             if (item.value.length > 1) { //QUserType
@@ -18754,7 +18731,7 @@ Writer.prototype._parse_qusertype = function(obj){
             }
         }
     } else {
-        var type = qtdatastream.getUserType(obj.getName());
+        var type = qtdatastream.getUserType(name);
         this._parse(new qtdatastream.Class(type, obj.obj));
     }
 };
@@ -18840,7 +18817,7 @@ Writer.prototype._parse_qmap = function(obj){
  */
 Writer.prototype._parse_qvariant = function(obj){
     var isNull = 0;
-    if (typeof obj.obj === 'undefined' || typeof obj.obj === 'null'){
+    if (typeof obj.obj === 'undefined' || obj.obj === null){
         isNull = 1;
     }
     this.writeQVariant(obj.type, isNull);
