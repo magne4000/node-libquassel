@@ -17426,1574 +17426,15 @@ function extend() {
 }
 
 },{}],119:[function(require,module,exports){
-/*
- * node-qtdatastream
- * https://github.com/magne4000/node-qtdatastream
- *
- * Copyright (c) 2016 Joël Charles
- * Licensed under the MIT license.
- */
-
-var qtdatastream = require('./qtdatastream');
-
-var Iterator = function(items, callback, context) {
-    this.index = 0;
-    this.items = items;
-    this.callbackValue = callback;
-    this.context = context;
-};
-
-Iterator.prototype = {
-    first: function() {
-        this.reset();
-        return this.next();
-    },
-    next: function() {
-        var key = Object.keys(this.items[this.index])[0];
-        var valType = this.items[this.index][key];
-        var params = [];
-        if (typeof valType === "string") { // it is a USERTYPE
-            params.push(qtdatastream.Types.USERTYPE);
-            params.push(valType);
-        } else {
-            params.push(valType);
-        }
-        var val = params;
-        if (typeof this.callbackValue === 'function') {
-            val = this.callbackValue.apply(this.context, params);
-        }
-        this.index++;
-        return {
-            key: key,
-            value: val
-        };
-    },
-    hasNext: function() {
-        return this.index < this.items.length;
-    },
-    reset: function() {
-        this.index = 0;
-    },
-    each: function(callback) {
-        for (var item = this.first(); this.hasNext(); item = this.next()) {
-            callback(item);
-        }
-    }
-};
-
-module.exports = Iterator;
-
-},{"./qtdatastream":120}],120:[function(require,module,exports){
-(function (process,Buffer){
-/*
- * node-qtdatastream
- * https://github.com/magne4000/node-qtdatastream
- *
- * Copyright (c) 2016 Joël Charles
- * Licensed under the MIT license.
- */
-
-var EventEmitter = require('events').EventEmitter,
-    NetSocket = require('net').Socket,
-    debuglib = require('debug'),
-    logger = debuglib('qtdatastream:main'),
-    loggerw = debuglib('qtdatastream:main-write'),
-    util = require('util'),
-    debug = !!process.env.QTDSDEBUG || debuglib.enabled("qtdatastream:*");
-    
-/** @module qtdatastream */
-
-/**
- * Qt types list
- * @readonly
- * @enum {number}
- */
-exports.Types = {
-    INVALID: 0,
-    BOOL: 1,
-    INT: 2,
-    UINT: 3,
-    INT64: 4,
-    UINT64: 5,
-    DOUBLE: 6,
-    CHAR: 7,
-    MAP: 8,
-    LIST: 9,
-    STRING: 10,
-    STRINGLIST: 11,
-    BYTEARRAY: 12,
-    TIME: 15,
-    DATETIME: 16,
-    USERTYPE: 127,
-    SHORT: 133
-};
-
-if (debug && !debuglib.enabled("qtdatastream:*")) {
-    debuglib.enable("qtdatastream:*");
-}
-
-exports.userTypes = {};
-
-exports.toggleEndianness = function(buffer) {
-    buffer.swap16();
-    return buffer;
-};
-
-/**
- * Qt compliant Socket overload.
- * 'data' event is triggered only when full buffer is received.
- * 'error', 'close' and 'end' event are not altered.
- * @class
- * @param {net.Socket} socket
- */
-exports.Socket = function Socket(socket, readCallback, writeCallback) {
-    if (!(socket instanceof NetSocket)) {
-        throw "Socket must be an instance of net.Socket";
-    }
-    var self = this;
-    self.socket = socket;
-    self.data_state = null;
-    self.readCallback = readCallback;
-    self.writeCallback = writeCallback;
-    
-    self.updateSocket(socket, readCallback, writeCallback);
-};
-util.inherits(exports.Socket, EventEmitter);
-
-/**
- * Write data to the socket
- * @param {*} data Data that will be written using Writer
- */
-exports.Socket.prototype.write = function(data) {
-    var Writer = require('./writer');
-    var writer = new Writer(data);
-    var buffer = writer.getBuffer();
-    var self = this;
-    if (typeof this.writeCallback === 'function') {
-        this.writeCallback(buffer, function(err, buffer2) {
-            if (!err) {
-                if (debug) {
-                    loggerw(buffer2);
-                }
-                self.socket.write(buffer2);
-            } else {
-                logger(err);
-            }
-        });
-    } else {
-        if (debug) {
-            loggerw(buffer);
-        }
-        this.socket.write(buffer);
-    }
-};
-
-/**
- * Update the socket (for example to promote it to SSL stream)
- * @param {Stream} socket object implementing Stream interface
- */
-exports.Socket.prototype.updateSocket = function(socket) {
-    var Reader = require('./reader');
-    var self = this;
-
-    this.socket.removeAllListeners();
-
-    this.socket = socket;
-
-    this.socket.on('data', function(data) {
-        if (typeof self.readCallback === 'function') {
-            self.readCallback(data, handleData);
-        } else {
-            handleData(null, data);
-        }
-    });
-
-    function getsize(bufferlist) {
-        // get 4 bytes
-        var final_buffer;
-        if (bufferlist[0] && bufferlist[0].length >= 4) {
-            final_buffer = bufferlist[0];
-        } else {
-            var totallength = 0, i = 0;
-            while(totallength < 4 && i < bufferlist.length) {
-                totallength += bufferlist[i++].length;
-            }
-            if (totallength < 4) return Infinity;
-            final_buffer = Buffer.concat(bufferlist.slice(0,i), totallength);
-        }
-        var reader = new Reader(final_buffer);
-        return reader.size;
-    }
-
-    function handleData(err, data) {
-        var reader;
-        if (!err) {
-            var stop = false;
-            while (!stop) {
-                if (!self.data_state) {
-                    self.data_state = {size: Infinity, data: [], recvd: 0};
-                }
-                var ds = self.data_state;
-                if (data !== null) {
-                    ds.data.push(data);
-                    ds.recvd += data.length;
-                }
-                if (ds.size == Infinity && ds.recvd >= 4) {
-                    ds.size = getsize(ds.data);
-                }
-                self.emit('progress', ds.recvd, ds.size);
-                if (ds.size + 4 > ds.recvd) {
-                    if (debug) {
-                        logger("(%d/%d) Waiting for end of buffer", ds.recvd, ds.size + 4);
-                    }
-                    stop = true;
-                } else {
-                    reader = new Reader(Buffer.concat(ds.data, ds.recvd));
-                    if (debug) {
-                        logger("(%d/%d) Received full buffer", ds.recvd, ds.size + 4);
-                    }
-                    reader.parse();
-                    if (debug) {
-                        logger('Received result');
-                        logger(reader.parsed);
-                    }
-                    if (reader.remaining && reader.remaining.length > 0) {
-                        self.data_state = {
-                            data: [reader.remaining],
-                            recvd: reader.remaining.length,
-                            size: Infinity
-                        };
-                        stop = false;
-                    } else {
-                        self.data_state = null;
-                        stop = true;
-                    }
-                    self.emit('data', reader.parsed);
-                }
-                if (!stop) {
-                    data = null;
-                }
-            }
-        } else {
-            logger(err);
-        }
-    }
-    
-    this.socket.on('error', function(e) {
-        if (debug) {
-            logger('ERROR');
-        }
-        self.emit('error', e);
-    });
-    
-    this.socket.on('close', function() {
-        if (debug) {
-            logger('Connection closed');
-        }
-        self.emit('close');
-    });
-    
-    this.socket.on('end', function() {
-        if (debug) {
-            logger('END');
-        }
-        self.emit('end');
-    });
-};
-
-/**
- * Register a new QUserType.
- * @param {string} key
- * @param {number} type
- */
-exports.registerUserType = function(key, type) {
-    exports.userTypes[key] = type;
-};
-
-/**
- * Get the QUserType definition
- * @param {string} key
- * @returns {*}
- */
-exports.getUserType = function(key) {
-    return exports.userTypes[key];
-};
-
-/**
- * Return true if the QUserType specified by key contains multiple fields
- * @param {string} key
- * @returns {*}
- */
-exports.isUserTypeComplex = function(key) {
-    return Object.prototype.toString.call(exports.getUserType(key)) === '[object Array]';
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QVariant for the Writer
- * @class
- * @name QVariant
- * @param {*} obj
- * @example
- * new Writer("a string"); // will be written as QString
- * new Writer(new QVariant("a string")); // will be written as QVariant<QString>
- */
-exports.QVariant = function QVariant(obj){
-    this.obj = obj;
-    if (typeof obj === 'object') {
-        var jstype = Object.prototype.toString.call(obj);
-        if (obj instanceof exports.QString) {
-            this.type = exports.Types.STRING;
-        } else if (obj instanceof exports.QChar) {
-            this.type = exports.Types.CHAR;
-        } else if (obj instanceof exports.QMap) {
-            this.type = exports.Types.MAP;
-        } else if (obj instanceof exports.QList) {
-            this.type = exports.Types.LIST;
-        } else if (jstype === '[object Array]') {
-            this.type = exports.Types.LIST;
-        } else if (obj instanceof exports.QUInt) {
-            this.type = exports.Types.UINT;
-        } else if (obj instanceof exports.QBool) {
-            this.type = exports.Types.BOOL;
-        } else if (obj instanceof exports.QShort) {
-            this.type = exports.Types.SHORT;
-        } else if (obj instanceof exports.QInt) {
-            this.type = exports.Types.INT;
-        } else if (obj instanceof exports.QInt64) {
-            this.type = exports.Types.INT64;
-        } else if (obj instanceof exports.QUInt64) {
-            this.type = exports.Types.UINT64;
-        } else if (obj instanceof exports.QDouble) {
-            this.type = exports.Types.DOUBLE;
-        } else if (obj instanceof exports.QStringList) {
-            this.type = exports.Types.STRINGLIST;
-        } else if (obj instanceof exports.QTime) {
-            this.type = exports.Types.TIME;
-        } else if (obj instanceof exports.QDateTime) {
-            this.type = exports.Types.DATETIME;
-        } else if (jstype === '[object Date]') {
-            this.type = exports.Types.DATETIME;
-        } else if (obj instanceof exports.QUserType) {
-            this.type = exports.Types.USERTYPE;
-        } else if (obj instanceof exports.QByteArray) {
-            this.type = exports.Types.BYTEARRAY;
-        } else if (obj instanceof exports.QInvalid) {
-            this.type = exports.Types.INVALID;
-        } else {
-            this.type = exports.Types.MAP;
-        }
-    } else if (typeof obj === 'string') {
-        this.type = exports.Types.STRING;
-    } else if (typeof obj === 'number') {
-        this.type = exports.Types.UINT;
-    } else if (typeof obj === 'boolean') {
-        this.type = exports.Types.BOOL;
-    }
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QTime for the Writer.
- * @class
- * @name QTime
- * @param {*} obj
- */
-exports.QTime = function QTime(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QDateTime for the Writer.
- * @class
- * @name QDateTime
- * @param {*} obj
- */
-exports.QDateTime = function QDateTime(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QString for the Writer.
- * Javascript string are converted to QString objects internally.
- * When parsed from reader, QString objects are converted back to Javascript string
- * @class
- * @name QString
- * @param {*} obj
- * @example
- * new Writer(new QString(null)); // will be written as a null QString
- */
-exports.QString = function QString(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QChar for the Writer.
- * @class
- * @name QChar
- * @param {*} obj
- */
-exports.QChar = function QChar(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QMap for the Writer.
- * @class
- * @name QMap
- * @param {*} obj
- */
-exports.QMap = function QMap(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QList for the Writer.
- * Javascript Array are converted to QList objects internally.
- * When parsed from reader, QList objects are converted back to Javascript Array
- * @class
- * @name QList
- * @param {*} obj
- */
-exports.QList = function QList(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QStringList for the Writer.
- * @class
- * @name QStringList
- * @param {*} obj
- */
-exports.QStringList = function QStringList(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QUInt for the Writer.
- * Javascript number are converted to QUInt objects internally.
- * When parsed from reader, QUInt objects are converted back to Javascript number
- * @class
- * @name QUInt
- * @param {*} obj
- */
-exports.QUInt = function QUInt(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QBool for the Writer.
- * Javascript boolean are converted to QBool objects internally.
- * When parsed from reader, QBool objects are converted to Javascript number
- * @class
- * @name QBool
- * @param {*} obj
- */
-exports.QBool = function QBool(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QInt for the Writer.
- * @class
- * @name QInt
- * @param {*} obj
- */
-exports.QInt = function QInt(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QInt64 for the Writer.
- * @class
- * @name QInt64
- * @param {*} obj
- */
-exports.QInt64 = function QInt64(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QUInt64 for the Writer.
- * @class
- * @name QUInt64
- * @param {*} obj
- */
-exports.QUInt64 = function QUInt64(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QShort for the Writer.
- * @class
- * @name QShort
- * @param {*} obj
- */
-exports.QShort = function QShort(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QDouble for the Writer.
- * @class
- * @name QDouble
- * @param {*} obj
- */
-exports.QDouble = function QDouble(obj){
-    this.obj = obj;
-};
-
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QByteArray for the Writer.
- * @class
- * @name QByteArray
- * @param {*} obj
- */
-exports.QByteArray = function QByteArray(obj){
-    this.obj = obj;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QInvalid for the Writer.
- * @class
- * @name QInvalid
- * @param {*} obj
- */
-exports.QInvalid = function QInvalid(){
-    this.obj = undefined;
-};
-
-/**
- * This class allow users to force a specific object to be recognized as
- * a QUserType for the Writer.
- * @class
- * @name QUserType
- * @param {string} name
- * @param {*} obj
- */
-exports.QUserType = function QUserType(name, obj){
-    this.obj = obj;
-    this._qusertype_name = name;
-};
-
-/**
- * Get user defined type name
- */
-exports.QUserType.prototype.getName = function() {
-    return this._qusertype_name;
-};
-
-exports.Writer = require('./writer');
-
-exports.Reader = require('./reader');
-
-exports.util = require('./util');
-
-exports.Class = function(type, value) {
-    switch(type) {
-        case exports.Types.INVALID:
-            return new exports.QInvalid(value);
-        case exports.Types.BOOL:
-            return new exports.QBool(value);
-        case exports.Types.INT:
-            return new exports.QInt(value);
-        case exports.Types.UINT:
-            return new exports.QUInt(value);
-        case exports.Types.INT64:
-            return new exports.QInt64(value);
-        case exports.Types.UINT64:
-            return new exports.QUInt64(value);
-        case exports.Types.DOUBLE:
-            return new exports.QDouble(value);
-        case exports.Types.MAP:
-            return new exports.QMap(value);
-        case exports.Types.LIST:
-            return new exports.QList(value);
-        case exports.Types.STRING:
-            return new exports.QString(value);
-        case exports.Types.CHAR:
-            return new exports.QChar(value);
-        case exports.Types.STRINGLIST:
-            return new exports.QStringList(value);
-        case exports.Types.BYTEARRAY:
-            return new exports.QByteArray(value);
-        case exports.Types.TIME:
-            return new exports.QTime(value);
-        case exports.Types.DATETIME:
-            return new exports.QDateTime(value);
-        case exports.Types.USERTYPE:
-            return new exports.QUserType(value);
-        case exports.Types.SHORT:
-            return new exports.QShort(value);
-    }
-};
-
-
-}).call(this,require('_process'),require("buffer").Buffer)
-},{"./reader":121,"./util":122,"./writer":123,"_process":88,"buffer":69,"debug":"debug","events":68,"net":"net","util":117}],121:[function(require,module,exports){
-/*
- * node-qtdatastream
- * https://github.com/magne4000/node-qtdatastream
- *
- * Copyright (c) 2016 Joël Charles
- * Licensed under the MIT license.
- */
-
-/** @module qtdatastream/reader */
-
-var qtdatastream = require('./qtdatastream'),
-    util = require('./util'),
-    T = qtdatastream.Types,
-    logger = require('debug')('qtdatastream:reader'),
-    Int64 = require('int64-buffer').Int64BE,
-    UInt64 = require('int64-buffer').Uint64BE,
-    debug = qtdatastream.debug,
-    Iterator = require('./iterator');
-
-/**
- * @class
- * @classdesc Class to read and parse a given Qt buffer
- * @param {Buffer} b Qt formatted buffer
- * @example
- * var r = new Reader(buffer);
- * var parsed = r.parse();
- * 
- * // parsed = {
- * //   "AString": "BString",
- * //   "CString": ["DString", 1, 4, true],
- * //   "EString": ""
- * // };
- */
-var Reader = function (b) {
-    this.buffer = b.slice(0, 4);
-    this.pos = 0;
-    this.parsed = null;
-    try {
-        this.size = this.getUInt();
-    } catch (e) {
-        logger("Error while fetching buffer size", e.message);
-        this.size = 0;
-    }
-    if (debug) {
-        logger("buffer size : " + this.size);
-    }
-    this.buffer = b.slice(0, this.size+4);
-    if (debug) {
-        logger("buffer length : " + this.buffer.length);
-    }
-    this.remaining = b.slice(this.size+4);
-    if (debug) {
-        logger("remaining length : " + this.remaining.length);
-    }
-};
-
-Reader.prototype.getUserTypeIterator = function(key) {
-    return new Iterator(qtdatastream.getUserType(key), this.getQVariantByType, this);
-};
-
-/**
- * Converts an UTF-16 buffer to an UTF-8 buffer
- * @param {Buffer} msg An UTF-16 Buffer
- * @returns {Buffer} An UTF-8 Buffer
- */
-Reader.conv = function(msg) {
-    return qtdatastream.toggleEndianness(msg).toString("ucs2");
-};
-
-/**
- * Parse buffer
- * @returns {Object} buffer converted to a Javascript object
- */
-Reader.prototype.parse = function(){
-    this.parsed = this.getQVariant();
-    return this.parsed;
-};
-
-/**
- * @param {Number} type A QVariant Type as defined in {@link module:qtdatastream.Types}
- * @param {string} [userType] Can specify userType in case of encapsulated userTypes
- * @returns {*} Corresponding QVariant result corresponding to the given type
- */
-Reader.prototype.getQVariantByType = function(type, userType){
-    switch(type) {
-        case T.INVALID:
-            return undefined;
-        case T.BOOL:
-            return this.getBool();
-        case T.SHORT:
-            return this.getShort();
-        case T.INT:
-            return this.getInt();
-        case T.UINT:
-            return this.getUInt();
-        case T.INT64:
-            return this.getInt64();
-        case T.UINT64:
-            return this.getUInt64();
-        case T.DOUBLE:
-            return this.getDouble();
-        case T.MAP:
-            return this.getMap();
-        case T.LIST:
-            return this.getList();
-        case T.STRING:
-            return this.getString();
-        case T.CHAR:
-            return this.getChar();
-        case T.STRINGLIST:
-            return this.getStringList();
-        case T.BYTEARRAY:
-            return this.getByteArray();
-        case T.TIME:
-            return this.getTime();
-        case T.DATETIME:
-            return this.getDateTime();
-        case T.USERTYPE:
-            var userTypeName = "";
-            if (userType) {
-                userTypeName = userType;
-            } else {
-                var t = this.getByteArray();
-                userTypeName = util.str(t);
-            }
-            if (qtdatastream.isUserTypeComplex(userTypeName)) {
-                var iter = this.getUserTypeIterator(userTypeName), ret = {};
-                while(iter.hasNext()){
-                    var item = iter.next();
-                    ret[item.key] = item.value;
-                }
-                return ret;
-            }
-            var qvtype = qtdatastream.getUserType(userTypeName);
-            if (qvtype) {
-                return this.getQVariantByType(qvtype);
-            } else {
-                throw "Unhandled userType " + userTypeName;
-            }
-        default:
-            throw "Unhandled type " + type;
-    }
-};
-
-/**
- * @returns {number} Current QTime (milliseconds since midnight)
- */
-Reader.prototype.getTime = function(){
-    return this.getUInt();
-};
-
-/**
- * @returns {Date} Current QDateTime as string
- */
-Reader.prototype.getDateTime = function(){
-    var julianDay = this.getUInt();
-    var msecondsSinceMidnight = this.getUInt();
-    var isUTC = this.getBool();
-    var dateAtMidnight = util.julianDayToDate(julianDay);
-    dateAtMidnight.setMilliseconds(msecondsSinceMidnight);
-    return dateAtMidnight;
-};
-
-/**
- * @returns {*} Corresponding QVariant result corresponding current QVariant type
- */
-Reader.prototype.getQVariant = function(){
-    var type = this.getQVariantType(),
-        isNull = this.getBool();
-    return this.getQVariantByType(type);
-};
-
-/**
- * @returns {Number} Current QVariant type as defined in {@link module:qtdatastream.Types}
- */
-Reader.prototype.getQVariantType = function(){
-    return this.getUInt();
-};
-
-/**
- * @returns {string} Current string
- */
-Reader.prototype.getString = function(){
-    var stringSize = this.getUInt();
-    if (stringSize === 0 || stringSize === 0xffffffff) return "";
-    
-    var stringBuffer = this.buffer.slice(this.pos, this.pos+stringSize);
-    var resultingString = Reader.conv(stringBuffer);
-    this.pos += stringSize;
-    return resultingString;
-};
-
-/**
- * @returns {string} Current char
- */
-Reader.prototype.getChar = function(){
-    var charBuffer = this.buffer.slice(this.pos, this.pos+2);
-    var resultingChar = Reader.conv(charBuffer);
-    this.pos += 2;
-    return resultingChar;
-};
-
-/**
- * @returns {Buffer} Current ByteArray
- */
-Reader.prototype.getByteArray = function(){
-    var arraySize = this.getUInt();
-    if (arraySize === 0 || arraySize === 0xffffffff) return null;
-    var buffer = this.buffer.slice(this.pos, this.pos+arraySize);
-    this.pos += arraySize;
-    return buffer;
-};
-
-/**
- * @returns {Array} Current list
- */
-Reader.prototype.getList = function(){
-    var listSize = this.getUInt(), i, list = Array(listSize);
-    for (i=0; i<listSize; i++) {
-        // get value
-        list[i] = this.getQVariant();
-    }
-    return list;
-};
-
-/**
- * @returns {Array<string>} Current list of string
- */
-Reader.prototype.getStringList = function(){
-    var listSize = this.getUInt(), i, list = Array(listSize);
-    for (i=0; i<listSize; i++) {
-        // get value
-        list[i] = this.getString();
-    }
-    return list;
-};
-
-/**
- * @returns {Object} Current map
- */
-Reader.prototype.getMap = function(){
-    var mapSize = this.getUInt(), i, map = {}, key, val;
-    for (i=0; i<mapSize; i++) {
-        // get key
-        key = this.getString();
-        // get value
-        val = this.getQVariant();
-        map[key] = val;
-    }
-    return map;
-};
-
-/**
- * @returns {Number} Current short
- */
-Reader.prototype.getShort = function(){
-    var i = this.buffer.readInt16BE(this.pos);
-    this.pos += 2;
-    return i;
-};
-
-/**
- * @returns {Number} Current int
- */
-Reader.prototype.getInt = function(){
-    var i = this.buffer.readInt32BE(this.pos);
-    this.pos += 4;
-    return i;
-};
-
-/**
- * @returns {Number} Current uint
- */
-Reader.prototype.getUInt = function(){
-    var i = this.buffer.readUInt32BE(this.pos);
-    this.pos += 4;
-    return i;
-};
-
-/**
- * @returns {Number} Current int64
- */
-Reader.prototype.getInt64 = function(){
-    var i = Int64(this.buffer, this.pos).toNumber();
-    this.pos += 8;
-    return i;
-};
-
-/**
- * @returns {Number} Current uint64
- */
-Reader.prototype.getUInt64 = function(){
-    var i = UInt64(this.buffer, this.pos).toNumber();
-    this.pos += 8;
-    return i;
-};
-
-/**
- * @returns {Number} Current double
- */
-Reader.prototype.getDouble = function(){
-    var i = this.buffer.readDoubleBE(this.pos);
-    this.pos += 8;
-    return i;
-};
-
-/**
- * @returns {Number} Current boolean
- */
-Reader.prototype.getBool = function(){
-    var i = this.buffer.readInt8(this.pos);
-    this.pos += 1;
-    return i;
-};
-
-module.exports = Reader;
-
-},{"./iterator":119,"./qtdatastream":120,"./util":122,"debug":"debug","int64-buffer":124}],122:[function(require,module,exports){
-/*
- * node-qtdatastream
- * https://github.com/magne4000/node-qtdatastream
- *
- * Copyright (c) 2016 Joël Charles
- * Licensed under the MIT license.
- */
-
-//Fix for Buffer.toString function
-exports.str = function(obj) {
-    var str = obj.toString();
-    return str.replace('\0', '');
-};
-
-exports.dateToJulianDay = function(d) {
-    var year = d.getFullYear();
-    var month = d.getMonth() + 1;
-    var day = d.getDate();
-    var a = Math.floor((14-month)/12);
-    var y = Math.floor(year+4800-a);
-    var m = month+12*a-3;
-    var jdn = day + Math.floor((153*m+2)/5)+(365*y)+Math.floor(y/4)-Math.floor(y/100)+Math.floor(y/400)-32045;
-    return jdn;
-};
-
-exports.julianDayToDate = function(i) {
-    var y = 4716;
-    var v = 3;
-    var j = 1401;
-    var u =  5;
-    var m =  2;
-    var s =  153;
-    var n = 12;
-    var w =  2;
-    var r =  4;
-    var B =  274277;
-    var p =  1461;
-    var C =  -38;
-    var f = i + j + Math.floor((Math.floor((4 * i + B) / 146097) * 3) / 4) + C;
-    var e = r * f + v;
-    var g = Math.floor((e % p) / r);
-    var h = u * g + w;
-    var D = Math.floor((h % s) / u) + 1;
-    var M = ((Math.floor(h / s) + m) % n) + 1;
-    var Y = Math.floor(e / p) - y + Math.floor((n + m - M) / n) ;
-    return new Date(Y,M-1,D);
-};
-},{}],123:[function(require,module,exports){
-(function (Buffer){
-/*
- * node-qtdatastream
- * https://github.com/magne4000/node-qtdatastream
- *
- * Copyright (c) 2016 Joël Charles
- * Licensed under the MIT license.
- */
-
-/** @module qtdatastream/writer */
-
-var qtdatastream = require('./qtdatastream'),
-    util = require('./util'),
-    Iterator = require('./iterator'),
-    Int64 = require('int64-buffer').Int64BE,
-    UInt64 = require('int64-buffer').Uint64BE,
-    T = qtdatastream.Types,
-    QVariant = qtdatastream.QVariant,
-    QString = qtdatastream.QString,
-    QChar = qtdatastream.QChar,
-    QMap = qtdatastream.QMap,
-    QList = qtdatastream.QList,
-    QUInt = qtdatastream.QUInt,
-    QInt64 = qtdatastream.QInt64,
-    QUInt64 = qtdatastream.QUInt64,
-    QDouble = qtdatastream.QDouble,
-    QBool = qtdatastream.QBool,
-    QInt = qtdatastream.QInt,
-    QShort = qtdatastream.QShort,
-    QStringList = qtdatastream.QStringList,
-    QUserType = qtdatastream.QUserType,
-    QByteArray = qtdatastream.QByteArray,
-    QTime = qtdatastream.QTime,
-    QDateTime = qtdatastream.QDateTime,
-    QInvalid = qtdatastream.QInvalid;
-
-/**
- * @class
- * @classdesc Class to generate a buffer from a Javascript object
- * @param {Object} obj Javascript object
- * @example
- * var w = new Writer(obj);
- * var buffer = w.getBuffer(); //Buffer ready to be sent to a socket !
- */
-var Writer = function(obj) {
-    this.bufs = [];
-    this.type = null;
-    this.parse(obj);
-};
-
-Writer.prototype.getUserTypeIterator = function(key) {
-    return new Iterator(qtdatastream.getUserType(key));
-};
-
-/**
- * Converts an UTF-8 string to an UTF-16 buffer
- * @param {Buffer} msg An UTF-8 string
- * @returns {Buffer} An UTF-16 Buffer
- */
-Writer.conv = function(msg) {
-    return qtdatastream.toggleEndianness(new Buffer(msg, "ucs2"));
-};
-
-/**
- * Get the buffer without prefixing it by its size.
- * @returns {Buffer}
- */
-Writer.prototype.getRawBuffer = function() {
-    return Buffer.concat(this.bufs);
-};
-
-/**
- * Get the buffer representation of the object.
- * It is prefixed by the packet size as defined in Qt framework.
- * @returns {Buffer} A Qt styled buffer ready to be sent through a socket
- */
-Writer.prototype.getBuffer = function(){
-    var tempBuf = Buffer.concat(this.bufs);
-    // Create QVariant type
-    var bqvariant = new Buffer(4);
-    var bqvariantisnull = new Buffer(1);
-    bqvariant.writeUInt32BE(this.type, 0, true);
-    if (this.bufs.length > 0) {
-        bqvariantisnull.writeInt8(0, 0);
-    } else {
-        bqvariantisnull.writeInt8(1, 0);
-    }
-    
-    // Calculate size
-    var bsize = new Buffer(4);
-    bsize.writeUInt32BE(bqvariant.length + bqvariantisnull.length + tempBuf.length, 0);
-    return Buffer.concat([bsize, bqvariant, bqvariantisnull, tempBuf]);
-};
-
-/**
- * Should not be called directly, it is better to call new Writer(...)
- * with the object as parameter
- * @param {*} obj
- */
-Writer.prototype.parse = function(obj){
-    this.type = this._parse(obj);
-};
-
-/**
- * Parses next element of the buffer
- * @protected
- * @param {*} obj
- * @returns {Number} Type as defined in {@link module:qtdatastream.Types}
- */
-Writer.prototype._parse = function(obj){
-    var typeofobj = typeof obj;
-    if (typeofobj === 'undefined') return;
-    if (typeofobj === 'object') {
-        var type = Object.prototype.toString.call(obj);
-        if (obj instanceof QVariant) {
-            this._parse_qvariant(obj);
-            return obj.type;
-        } else if (obj instanceof QString) {
-            this._parse_qstring(obj);
-            return T.STRING;
-        } else if (obj instanceof QInvalid) {
-            this._parse_qinvalid();
-            return T.INVALID;
-        } else if (obj instanceof QChar) {
-            this._parse_qchar(obj);
-            return T.CHAR;
-        } else if (obj instanceof QMap) {
-            this._parse_qmap(obj);
-            return T.MAP;
-        } else if (obj instanceof QList) {
-            this._parse_qlist(obj);
-            return T.LIST;
-        } else if (obj instanceof QStringList) {
-            this._parse_qstringlist(obj);
-            return T.STRINGLIST;
-        } else if (type === '[object Array]') {
-            this._parse_qlist(new QList(obj));
-            return T.LIST;
-        } else if (obj instanceof QUInt) {
-            this._parse_quint(obj);
-            return T.UINT;
-        } else if (obj instanceof QInt) {
-            this._parse_qint(obj);
-            return T.INT;
-        } else if (obj instanceof QInt64) {
-            this._parse_qint64(obj);
-            return T.INT;
-        } else if (obj instanceof QUInt64) {
-            this._parse_quint64(obj);
-            return T.INT;
-        } else if (obj instanceof QDouble) {
-            this._parse_qdouble(obj);
-            return T.INT;
-        } else if (obj instanceof QBool) {
-            this._parse_bool(obj);
-            return T.BOOL;
-        } else if (obj instanceof QShort) {
-            this._parse_qshort(obj);
-            return T.SHORT;
-        } else if (obj instanceof QByteArray) {
-            this._parse_qbytearray(obj);
-            return T.BYTEARRAY;
-        } else if (obj instanceof QTime) {
-            this._parse_quint(obj);
-            return T.TIME;
-        } else if (obj instanceof QDateTime) {
-            this._parse_qdatetime(obj);
-            return T.DATETIME;
-        } else if (type === '[object Date]') {
-            this._parse_qdatetime(new QDateTime(obj));
-            return T.DATETIME;
-        } else if (obj instanceof QUserType) {
-            this._parse_qusertype(obj);
-            return T.USERTYPE;
-        }
-        this._parse_qmap(new QMap(obj));
-        return T.MAP;
-    } else if (typeofobj === 'string') {
-        this._parse_qstring(new QString(obj));
-        return T.STRING;
-    } else if (typeofobj === 'number') {
-        this._parse_quint(new QUInt(obj));
-        return T.UINT;
-    } else if (typeofobj === 'boolean') {
-        this._parse_bool(new QBool(obj));
-        return T.BOOL;
-    }
-};
-
-/**
- * @protected
- */
-Writer.prototype._parse_qinvalid = function(){
-    // Actually do nothing
-    return;
-};
-
-/**
- * @param {QDateTime} obj
- * @protected
- */
-Writer.prototype._parse_qdatetime = function(obj){
-    this.writeDateTime(obj.obj);
-    return;
-};
-
-/**
- * @param {QShort} obj
- * @protected
- */
-Writer.prototype._parse_qshort = function(obj){
-    this.writeShort(obj.obj);
-    return;
-};
-
-/**
- * @param {QInt} obj
- * @protected
- */
-Writer.prototype._parse_qint = function(obj){
-    this.writeInt(obj.obj);
-    return;
-};
-
-/**
- * @param {QUInt} obj
- * @protected
- */
-Writer.prototype._parse_quint = function(obj){
-    this.writeUInt(obj.obj);
-    return;
-};
-
-/**
- * @param {QInt64} obj
- * @protected
- */
-Writer.prototype._parse_qint64 = function(obj){
-    this.writeInt64(obj.obj);
-    return;
-};
-
-/**
- * @param {QUInt64} obj
- * @protected
- */
-Writer.prototype._parse_quint64 = function(obj){
-    this.writeUInt64(obj.obj);
-    return;
-};
-
-/**
- * @param {QDouble} obj
- * @protected
- */
-Writer.prototype._parse_qdouble = function(obj){
-    this.writeDouble(obj.obj);
-    return;
-};
-
-/**
- * @param {QBool} obj
- * @protected
- */
-Writer.prototype._parse_bool = function(obj){
-    this.writeBool(obj.obj);
-    return;
-};
-
-/**
- * @param {QString} obj
- * @protected
- */
-Writer.prototype._parse_qstring = function(obj){
-    this.writeString(obj.obj);
-    return;
-};
-
-
-/**
- * @param {QChar} obj
- * @protected
- */
-Writer.prototype._parse_qchar = function(obj){
-    this.writeChar(obj.obj);
-    return;
-};
-
-/**
- * @param {QByteArray} obj
- * @protected
- */
-Writer.prototype._parse_qbytearray = function(obj){
-    this.writeByteArray(obj.obj);
-    return;
-};
-
-/**
- * @param {QUserType} obj
- * @protected
- */
-Writer.prototype._parse_qusertype = function(obj){
-    var name = obj.getName();
-    if (qtdatastream.isUserTypeComplex(name)) {
-        var iter = this.getUserTypeIterator(name);
-        while (iter.hasNext()) {
-            var item = iter.next();
-            if (item.value.length > 1) { //QUserType
-                if (obj.obj[item.key] instanceof QUserType) {
-                    this._parse(obj.obj[item.key]);
-                } else {
-                    this._parse(new QUserType(item.value[1], obj.obj[item.key]));
-                }
-            } else {
-                this._parse(new qtdatastream.Class(item.value[0], obj.obj[item.key]));
-            }
-        }
-    } else {
-        var type = qtdatastream.getUserType(name);
-        this._parse(new qtdatastream.Class(type, obj.obj));
-    }
-};
-
-/**
- * If obj[key] is not of class newclass, instanciate it.
- * Then call _parse().
- * @param {*} obj
- * @param {*} key
- * @param {*} newclass
- * @protected
- */
-Writer.prototype._parse_class = function(obj, key, newclass){
-    if (obj.obj[key] instanceof newclass) {
-        this._parse(obj.obj[key]);
-    } else {
-        this._parse(new newclass(obj.obj[key]));
-    }
-};
-
-/**
- * @param {QStringList} obj
- * @protected
- */
-Writer.prototype._parse_qstringlist = function(obj){
-    var size = 0, key;
-    for (key in obj.obj) {
-        if (obj.obj.hasOwnProperty(key)) size++;
-    }
-    this.writeUInt(size); // nb of elements in the list
-    for (key in obj.obj) {
-        if (obj.obj.hasOwnProperty(key)) {
-            // Value
-            this._parse_class(obj, key, QString);
-        }
-    }
-    return;
-};
-
-/**
- * @param {QList} obj
- * @protected
- */
-Writer.prototype._parse_qlist = function(obj){
-    var size = 0, key;
-    for (key in obj.obj) {
-        if (obj.obj.hasOwnProperty(key)) size++;
-    }
-    this.writeUInt(size); // nb of elements in the list
-    for (key in obj.obj) {
-        if (obj.obj.hasOwnProperty(key)) {
-            // Value
-            this._parse_class(obj, key, QVariant);
-        }
-    }
-    return;
-};
-
-/**
- * @param {QMap} obj
- * @protected
- */
-Writer.prototype._parse_qmap = function(obj){
-    var size = 0, key;
-    for (key in obj.obj) {
-        if (obj.obj.hasOwnProperty(key)) size++;
-    }
-    this.writeUInt(size); // nb of elements in the map
-    for (key in obj.obj) {
-        if (obj.obj.hasOwnProperty(key)) {
-            // Key
-            this._parse(key);
-            // Value
-            this._parse_class(obj, key, QVariant);
-        }
-    }
-    return;
-};
-
-/**
- * @param {QVariant} obj
- * @protected
- */
-Writer.prototype._parse_qvariant = function(obj){
-    var isNull = 0;
-    if (typeof obj.obj === 'undefined' || obj.obj === null){
-        isNull = 1;
-    }
-    this.writeQVariant(obj.type, isNull);
-    if (obj.obj instanceof QUserType) {
-        this.writeByteArray(obj.obj.getName());
-    }
-    return this._parse(obj.obj);
-};
-
-/**
- * Add specified buffer to the internal buffer list
- * @param {Buffer} b
- * @returns {Writer}
- */
-Writer.prototype.write = function(b){
-    this.bufs.push(b);
-    return this;
-};
-
-/**
- * Add a boolean buffer to the internal buffer list
- * @param {(Number|boolean)} bool
- * @returns {Writer}
- */
-Writer.prototype.writeBool = function(bool){
-    var b = new Buffer(1);
-    b.writeInt8(bool, 0);
-    this.write(b);
-    return this;
-};
-
-/**
- * Add a string buffer to the internal buffer list
- * @param {string} str
- * @returns {Writer}
- */
-Writer.prototype.writeString = function(str) {
-    if (str === null){
-        // Special case for NULL QString
-        this.writeUInt(0xffffffff);
-    } else {
-        var b = Writer.conv(str);
-        this.writeUInt(b.length);
-        this.write(b);
-    }
-    return this;
-};
-
-/**
- * Add a char buffer to the internal buffer list
- * @param {string} str
- * @returns {Writer}
- */
-Writer.prototype.writeChar = function(str) {
-    var b = Writer.conv(str);
-    this.write(b);
-    return this;
-};
-
-/**
- * Add a byteArray buffer to the internal buffer list
- * @param {(Array|string)} arr
- * @returns {Writer}
- */
-Writer.prototype.writeByteArray = function(arr) {
-    if (arr === null){
-        this.writeUInt(0xffffffff);
-    } else {
-        var b = new Buffer(arr);
-        this.writeUInt(b.length);
-        this.write(b);
-    }
-    return this;
-};
-
-/**
- * Add a int32 buffer to the internal buffer list
- * @param {Number} i
- * @returns {Writer}
- */
-Writer.prototype.writeInt = function(i){
-    var b = new Buffer(4);
-    b.writeInt32BE(i, 0, true);
-    this.write(b);
-    return this;
-};
-
-/**
- * Add a uint32 buffer to the internal buffer list
- * @param {Number} i
- * @returns {Writer}
- */
-Writer.prototype.writeUInt = function(i){
-    var b = new Buffer(4);
-    b.writeUInt32BE(i, 0, true);
-    this.write(b);
-    return this;
-};
-
-/**
- * Add a int64 buffer to the internal buffer list
- * @param {Number} i
- * @returns {Writer}
- */
-Writer.prototype.writeInt64 = function(i){
-    var b = Int64(i).toBuffer();
-    this.write(b);
-    return this;
-};
-
-/**
- * Add a uint64 buffer to the internal buffer list
- * @param {Number} i
- * @returns {Writer}
- */
-Writer.prototype.writeUInt64 = function(i){
-    var b = UInt64(i).toBuffer();
-    this.write(b);
-    return this;
-};
-
-/**
- * Add a double buffer to the internal buffer list
- * @param {Number} i
- * @returns {Writer}
- */
-Writer.prototype.writeDouble = function(i){
-    var b = new Buffer(8);
-    b.writeDoubleBE(i, 0, true);
-    this.write(b);
-    return this;
-};
-
-/**
- * Add a uint16 buffer to the internal buffer list
- * @param {Number} i
- * @returns {Writer}
- */
-Writer.prototype.writeShort = function(i){
-    var b = new Buffer(2);
-    b.writeUInt16BE(i, 0, true);
-    this.write(b);
-    return this;
-};
-
-/**
- * Add a QDateTime buffer to the internal buffer list.
- * <uint32 julian day><uint32 milliseconds since midnight><bool isUTC>
- * @param {Date} i
- * @returns {Writer}
- */
-Writer.prototype.writeDateTime = function(datetime){
-    var milliseconds = (datetime.getTime() - (datetime.getTimezoneOffset() * 60000)) % 86400000;
-    var julianday = util.dateToJulianDay(datetime);
-    this.writeUInt(julianday);
-    this.writeUInt(milliseconds);
-    this.writeBool(datetime.getTimezoneOffset() === 0);
-    return this;
-};
-
-/**
- * Add a qvariant buffer to the internal buffer list
- * @param {Number} type Type as defined in {@link module:qtdatastream.Types}
- * @param {(Number|boolean)} nullFlag must be true or 1 if the following QVariant is null
- * @returns {Writer}
- */
-Writer.prototype.writeQVariant = function(type, nullFlag) {
-    this.writeUInt(type);
-    this.writeBool(nullFlag);
-    return this;
-};
-
-module.exports = Writer;
-
-}).call(this,require("buffer").Buffer)
-},{"./iterator":119,"./qtdatastream":120,"./util":122,"buffer":69,"int64-buffer":124}],124:[function(require,module,exports){
+module.exports = {
+  util: require('./src/util'),
+  types: require('./src/types'),
+  buffer: require('./src/buffer'),
+  socket: require('./src/socket'),
+  transform: require('./src/transform')
+};
+
+},{"./src/buffer":121,"./src/socket":122,"./src/transform":123,"./src/types":124,"./src/util":125}],120:[function(require,module,exports){
 (function (Buffer){
 // int64-buffer.js
 
@@ -19290,7 +17731,1562 @@ var Uint64BE, Int64BE, Uint64LE, Int64LE;
 }(typeof exports === 'object' && typeof exports.nodeName !== 'string' ? exports : (this || {}));
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":69}],"alias":[function(require,module,exports){
+},{"buffer":69}],121:[function(require,module,exports){
+/*
+ * node-qtdatastream
+ * https://github.com/magne4000/node-qtdatastream
+ *
+ * Copyright (c) 2017 Joël Charles
+ * Licensed under the MIT license.
+ */
+
+/** @module qtdatastream/buffer */
+
+const { Int64BE, Uint64BE } = require('int64-buffer');
+
+/**
+ * Wraps a buffer with an internal read pointer for sequential reads
+ * @static
+ * @param {Buffer} buffer
+ */
+class ReadBuffer {
+  constructor(buffer) {
+    this.buffer = buffer;
+    this.read_offset = 0;
+  }
+
+  remaining() {
+    if (this.read_offset >= this.buffer.length) return null;
+    return this.buffer.slice(this.read_offset);
+  }
+
+  readInt8() {
+    const result = this.buffer.readInt8(this.read_offset);
+    this.read_offset += 1;
+    return result;
+  }
+
+  readInt16BE() {
+    const result = this.buffer.readInt16BE(this.read_offset);
+    this.read_offset += 2;
+    return result;
+  }
+
+  readUInt16BE() {
+    const result = this.buffer.readUInt16BE(this.read_offset);
+    this.read_offset += 2;
+    return result;
+  }
+
+  readInt32BE() {
+    const result = this.buffer.readInt32BE(this.read_offset);
+    this.read_offset += 4;
+    return result;
+  }
+
+  readUInt32BE() {
+    const result = this.buffer.readUInt32BE(this.read_offset);
+    this.read_offset += 4;
+    return result;
+  }
+
+  readInt64BE() {
+    const result = (new Int64BE(this.buffer, this.read_offset)).toNumber();
+    this.read_offset += 8;
+    return result;
+  }
+
+  readUInt64BE() {
+    const result = (new Uint64BE(this.buffer, this.read_offset)).toNumber();
+    this.read_offset += 8;
+    return result;
+  }
+
+  readDoubleBE() {
+    const result = this.buffer.readDoubleBE(this.read_offset);
+    this.read_offset += 8;
+    return result;
+  }
+
+  slice(size) {
+    const result = this.buffer.slice(this.read_offset, this.read_offset + size);
+    this.read_offset += size;
+    return result;
+  }
+}
+
+module.exports = {
+  ReadBuffer
+};
+
+},{"int64-buffer":120}],122:[function(require,module,exports){
+(function (process){
+/*
+ * node-qtdatastream
+ * https://github.com/magne4000/node-qtdatastream
+ *
+ * Copyright (c) 2017 Joël Charles
+ * Licensed under the MIT license.
+ */
+
+/** @module qtdatastream/socket */
+
+const events = require('events');
+const debuglib = require('debug');
+const transform = require('./transform');
+const logger = debuglib('qtdatastream:socket');
+let debug = Boolean(process.env.QTDSDEBUG) || debuglib.enabled('qtdatastream:*');
+
+if (debug && !debuglib.enabled('qtdatastream:*')) {
+  debuglib.enable('qtdatastream:*');
+}
+
+/**
+ * Qt compliant Socket overload.
+ * `data` event is triggered only when full buffer is parsed.
+ * `error`, `close` and `end` event are not altered.
+ * @extends events.EventEmitter
+ * @static
+ * @param {*} socket Underlying socket
+ * @example
+ * const { Socket } = require('qtdatastream').socket;
+ *
+ * // socket can be a net.Socket or a websocket
+ * const qtsocket = new Socket(socket);
+ * qtsocket.on('read', (data) => {
+ *   console.log(data);
+ * });
+ * qtsocket.write('Hello');
+ */
+class Socket extends events.EventEmitter {
+
+  constructor(socket) {
+    super();
+    this.socket = socket;
+    this.data_state = null;
+    this.write_stream = new transform.WriteTransform();
+    this.read_stream = new transform.ReadTransform();
+    this.read_stream.on('data', (data) => {
+      process.nextTick(() => this.emit('data', data));
+    });
+
+    if (socket) this.setSocket(socket);
+  }
+
+  /**
+   * Transforms and write data to underlying socket
+   * @function module:qtdatastream/socket.Socket#write
+   * @param {*} data
+   */
+  write(data) {
+    this.write_stream.write(data);
+  }
+
+  /**
+   * Detach underlying socket
+   * @function module:qtdatastream/socket.Socket#detachSocket
+   * @returns {stream.Duplex} underlying socket that has been detached
+   */
+  detachSocket() {
+    if (debug) {
+      logger('removing socket');
+    }
+    const { socket } = this;
+    this.write_stream.unpipe(socket);
+    socket.unpipe(this.read_stream);
+    socket.removeAllListeners();
+    this.socket = null;
+    return socket;
+  }
+
+  /**
+   * Update the socket (for example to promote it to SSL stream)
+   * @function module:qtdatastream/socket.Socket#setSocket
+   * @param {stream.Duplex} socket
+   */
+  setSocket(socket) {
+    if (this.socket !== null) {
+      this.detachSocket();
+    }
+
+    if (debug) {
+      logger('updating socket');
+    }
+
+    this.socket = socket;
+    this.write_stream.pipe(this.socket).pipe(this.read_stream);
+
+    this.socket.on('error', (e) => {
+      if (debug) {
+        logger('ERROR', e);
+      }
+      this.emit('error', e);
+    });
+
+    this.socket.on('close', () => {
+      if (debug) {
+        logger('Connection closed');
+      }
+      this.emit('close');
+    });
+
+    this.socket.on('end', () => {
+      if (debug) {
+        logger('END');
+      }
+      this.emit('end');
+    });
+  }
+  
+  /**
+   * @see {@link module:qtdatastream/socket.Socket#setSocket}
+   * @deprecated
+   */
+  updateSocket(socket) {
+    return this.setSocket(socket);
+  }
+}
+
+module.exports = {
+  Socket
+};
+}).call(this,require('_process'))
+},{"./transform":123,"_process":88,"debug":"debug","events":68}],123:[function(require,module,exports){
+(function (Buffer){
+/*
+ * node-qtdatastream
+ * https://github.com/magne4000/node-qtdatastream
+ *
+ * Copyright (c) 2017 Joël Charles
+ * Licensed under the MIT license.
+ */
+
+/** @module qtdatastream/transform */
+
+const { Transform } = require('stream');
+const debuglib = require('debug');
+
+const { ReadBuffer } = require('./buffer');
+const types = require('./types');
+
+const loggerr = debuglib('qtdatastream:transform');
+const debug = debuglib.enabled('qtdatastream:*');
+
+/**
+ * ReadTransform data event.
+ *
+ * @event ReadTransform#data
+ * @property {*} data JS object or type
+ */
+/**
+ * WriteTransform data event.
+ *
+ * @event WriteTransform#data
+ * @property {Buffer} buffer Qt Buffer
+ */
+
+/**
+ * Transform Qt buffers into JS objects
+ * @static
+ * @extends stream.Transform
+ * @fires ReadTransform#data
+ * @example
+ * const { ReadTransform } = require('qtdatastream').transform;
+ *
+ * const reader = new ReadTransform();
+ *
+ * reader.on('data', (data) => {
+ *   // data === 1
+ * });
+ *
+ * // Write a QDataStream
+ * reader.write(Buffer.from([ 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01 ]));
+ */
+class ReadTransform extends Transform {
+  constructor() {
+    super(Object.assign({ readableObjectMode: true, writableObjectMode: false }));
+    this.packet_no = 0;
+    this.data_state = { size: Infinity, data: [], recvd: 0 };
+  }
+
+  static getsize(bufferlist) {
+    // get 4 bytes
+    let final_buffer;
+    if (bufferlist[0] && bufferlist[0].length >= 4) {
+      [ final_buffer ] = bufferlist;
+    } else {
+      let totallength = 0, i = 0;
+      while (totallength < 4 && i < bufferlist.length) {
+        totallength += bufferlist[i++].length;
+      }
+      if (totallength < 4) return Infinity;
+      final_buffer = Buffer.concat(bufferlist.slice(0, i), totallength);
+    }
+    return final_buffer.readUInt32BE(0);
+  }
+
+  chunkify() {
+    const out = [];
+    while (true) {
+      const ds = this.data_state;
+      if (ds.size === Infinity && ds.recvd >= 4) {
+        ds.size = ReadTransform.getsize(ds.data);
+      }
+      if (ds.size < Infinity && ds.size > 67108864) { // 64MB
+        loggerr('Packets should not exceed 64MB (received %d bytes)', ds.size);
+        throw new Error('oversized packet detected');
+      }
+      this.emit('progress', ds.recvd, ds.size);
+      if (ds.size + 4 > ds.recvd) {
+        if (debug) {
+          loggerr('(%d/%d) Waiting for end of buffer', ds.recvd, ds.size + 4);
+        }
+        return out;
+      }
+      const buffer = new ReadBuffer(Buffer.concat(ds.data, ds.recvd));
+      let size;
+      if (debug) {
+        loggerr('(%d/%d) Received full buffer', ds.recvd, ds.size + 4);
+      }
+      try {
+        size = types.QUInt.read(buffer);
+      } catch (e) {
+        throw new Error('Error while fetching buffer size');
+      }
+      if (debug) {
+        loggerr('buffer size : %d', size);
+      }
+      const parsed = types.QVariant.read(buffer);
+      if (debug) {
+        loggerr('Received result: %O', parsed);
+      }
+      out.push(parsed);
+      const remaining = buffer.remaining();
+      if (remaining !== null) {
+        this.data_state = {
+          data: [ remaining ],
+          recvd: remaining.length,
+          size: Infinity
+        };
+      } else {
+        this.data_state = { size: Infinity, data: [], recvd: 0 };
+        return out;
+      }
+    }
+  }
+
+  _transform(data, encoding, callback) {
+    if (data !== null) {
+      this.data_state.data.push(data);
+      this.data_state.recvd += data.length;
+    }
+    let out;
+    try {
+      out = this.chunkify();
+    } catch (e) {
+      callback(e);
+      return;
+    }
+    for (let i = 0; i < out.length; i++) {
+      this.push(out[i]);
+    }
+    callback();
+  }
+
+  _flush(callback) {
+    if (this.data_state && this.data_state.recvd > 0) {
+      callback('stream ended in the middle of a packet');
+    }
+  }
+}
+
+/**
+ * Transform JS types/objects into Qt buffers
+ * @static
+ * @extends stream.Transform
+ * @fires WriteTransform#data
+ * @example
+ * const { ReadTransform } = require('qtdatastream').transform;
+ *
+ * const writer = new WriteTransform();
+ *
+ * writer.on('data', (data) => {
+ *   // data === Buffer <00 00 00 09 00 00 00 03 00 00 00 00 01>
+ * });
+ *
+ * // Write an int
+ * writer.write(1);
+ */
+class WriteTransform extends Transform {
+  constructor() {
+    super(Object.assign({ readableObjectMode: false, writableObjectMode: true }));
+  }
+
+  /**
+   * Get the buffer representation of the object.
+   * It is prefixed by the packet size as defined in Qt framework.
+   * @static
+   * @returns {Buffer} A Qt styled buffer ready to be sent through a socket
+   */
+  static getBuffer(data){
+    const buffer = types.QVariant.from(data).toBuffer();
+        // Calculate size
+    const totalSizeBuffer = types.QUInt.from(buffer.length).toBuffer();
+    return Buffer.concat([ totalSizeBuffer, buffer ]);
+  }
+
+  _transform(data, encoding, callback) {
+    const buffer = WriteTransform.getBuffer(data);
+    callback(null, buffer);
+  }
+}
+
+module.exports = {
+  ReadTransform,
+  WriteTransform
+};
+
+}).call(this,require("buffer").Buffer)
+},{"./buffer":121,"./types":124,"buffer":69,"debug":"debug","stream":104}],124:[function(require,module,exports){
+(function (Buffer){
+/*
+ * node-qtdatastream
+ * https://github.com/magne4000/node-qtdatastream
+ *
+ * Copyright (c) 2017 Joël Charles
+ * Licensed under the MIT license.
+ */
+
+/** @module qtdatastream/types */
+
+const { Int64BE, Uint64BE } = require('int64-buffer');
+const { dateToJulianDay, julianDayToDate, str: bstr } = require('./util');
+
+/**
+ * Abstract class that all Qt types must implement.
+ * Subclasses are used to dictate how a value is represented
+ * as a Buffer, and vice-versa.
+ * @abstract
+ * @static
+ * @param {*} obj underlying data that will be used by toBuffer() method
+ */
+class QClass {
+  constructor(obj) {
+    this.obj = obj;
+  }
+
+  /**
+   * @function from
+   * @memberof module:qtdatastream/types.QClass
+   * @abstract
+   * @static
+   * @param {*} subject
+   * @returns {QClass}
+   */
+  static from(subject) {
+    if (subject instanceof this) {
+      return subject;
+    }
+    return new this(subject);
+  }
+}
+
+/**
+ * Decorator that affect QDatastream ID to classes.
+ * Used for serialization and deserialization.
+ * @example
+ * // ES7
+ * \@qtype(Types.QUInt)
+ * class QUInt extends QClass {}
+ * // ES6
+ * class QUInt extends QClass {}
+ * qtype(Types.QUInt)(QUInt);
+ */
+function qtype(qvarianttype) {
+  return function(target) {
+    if (!QClass.types) {
+      QClass.types = new Map;
+    }
+    if (qvarianttype !== undefined) {
+      QClass.types.set(qvarianttype, target);
+    }
+    target.qtype = qvarianttype;
+  };
+}
+
+/**
+ * Qt types contants
+ * @readonly
+ * @static
+ * @enum {number}
+ * @name Types
+ * @see {@link http://doc.qt.io/qt-4.8/qvariant.html#Type-enum|enum QVariant::Type}
+ * @see {@link http://doc.qt.io/qt-4.8/datastreamformat.html|Serializing Qt Data Types}
+ */
+const Types = {
+  INVALID: 0,
+  BOOL: 1,
+  INT: 2,
+  UINT: 3,
+  INT64: 4,
+  UINT64: 5,
+  DOUBLE: 6,
+  CHAR: 7,
+  MAP: 8,
+  LIST: 9,
+  STRING: 10,
+  STRINGLIST: 11,
+  BYTEARRAY: 12,
+  TIME: 15,
+  DATETIME: 16,
+  USERTYPE: 127,
+  SHORT: 133
+};
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QInvalid extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QInvalid
+   * @static
+   * @param {?Buffer} buffer
+   * @returns {undefined} Always return `undefined`
+   */
+  static read(_buffer) {
+    return undefined;
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QInvalid
+   * @inner
+   * @returns {Buffer} Empty Buffer
+   */
+  toBuffer() {
+    return Buffer.alloc(0);
+  }
+
+  /**
+   * Wraps subject into `QInvalid` object
+   * @function from
+   * @memberof module:qtdatastream/types.QInvalid
+   * @static
+   * @param {*} subject
+   * @returns {QInvalid}
+   */
+}
+qtype(Types.INVALID)(QInvalid);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QBool extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QBool
+   * @static
+   * @param {Buffer} buffer
+   * @returns {boolean} Buffer coerced to boolean
+   */
+  static read(buffer) {
+    return Boolean(buffer.readInt8());
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QBool
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    const buf = Buffer.alloc(1);
+    buf.writeInt8(this.obj, 0);
+    return buf;
+  }
+
+  /**
+   * Wraps subject into `QBool` object
+   * @function from
+   * @memberof module:qtdatastream/types.QBool
+   * @static
+   * @param {*} subject
+   * @returns {QBool}
+   */
+}
+qtype(Types.BOOL)(QBool);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QShort extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QShort
+   * @static
+   * @param {Buffer} buffer
+   * @returns {number} Buffer coerced to number
+   */
+  static read(buffer) {
+    return buffer.readInt16BE();
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QShort
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    const buf = Buffer.alloc(2);
+    buf.writeUInt16BE(this.obj, 0, true);
+    return buf;
+  }
+
+  /**
+   * Wraps subject into `QShort` object
+   * @function from
+   * @memberof module:qtdatastream/types.QShort
+   * @static
+   * @param {*} subject
+   * @returns {QShort}
+   */
+}
+qtype(Types.SHORT)(QShort);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QInt extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QInt
+   * @static
+   * @param {Buffer} buffer
+   * @returns {number} Buffer coerced to number
+   */
+  static read(buffer) {
+    return buffer.readInt32BE();
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QInt
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    const buf = Buffer.alloc(4);
+    buf.writeInt32BE(this.obj, 0, true);
+    return buf;
+  }
+
+  /**
+   * Wraps subject into `QInt` object
+   * @function from
+   * @memberof module:qtdatastream/types.QInt
+   * @static
+   * @param {*} subject
+   * @returns {QInt}
+   */
+}
+qtype(Types.INT)(QInt);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QUInt extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QUInt
+   * @static
+   * @param {Buffer} buffer
+   * @returns {number} Buffer coerced to number
+   */
+  static read(buffer) {
+    return buffer.readUInt32BE();
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QUInt
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    const buf = Buffer.alloc(4);
+    buf.writeUInt32BE(this.obj, 0, true);
+    return buf;
+  }
+
+  /**
+   * Wraps subject into `QUInt` object
+   * @function from
+   * @memberof module:qtdatastream/types.QUInt
+   * @static
+   * @param {*} subject
+   * @returns {QUInt}
+   */
+}
+qtype(Types.UINT)(QUInt);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QInt64 extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QInt64
+   * @static
+   * @param {Buffer} buffer
+   * @returns {number} Buffer coerced to number
+   */
+  static read(buffer) {
+    return buffer.readInt64BE();
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QInt64
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    return (new Int64BE(this.obj)).toBuffer();
+  }
+
+  /**
+   * Wraps subject into `QInt64` object
+   * @function from
+   * @memberof module:qtdatastream/types.QInt64
+   * @static
+   * @param {*} subject
+   * @returns {QInt64}
+   */
+}
+qtype(Types.INT64)(QInt64);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QUInt64 extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QUInt64
+   * @static
+   * @param {Buffer} buffer
+   * @returns {number} Buffer coerced to number
+   */
+  static read(buffer) {
+    return buffer.readUInt64BE();
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QUInt64
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    return (new Uint64BE(this.obj)).toBuffer();
+  }
+
+  /**
+   * Wraps subject into `QUInt64` object
+   * @function from
+   * @memberof module:qtdatastream/types.QUInt64
+   * @static
+   * @param {*} subject
+   * @returns {QUInt64}
+   */
+}
+qtype(Types.UINT64)(QUInt64);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QDouble extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QDouble
+   * @static
+   * @param {Buffer} buffer
+   * @returns {number} Buffer coerced to number
+   */
+  static read(buffer) {
+    return buffer.readDoubleBE();
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QDouble
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    const buf = Buffer.alloc(8);
+    buf.writeDoubleBE(this.obj, 0, true);
+    return buf;
+  }
+
+  /**
+   * Wraps subject into `QDouble` object
+   * @function from
+   * @memberof module:qtdatastream/types.QDouble
+   * @static
+   * @param {*} subject
+   * @returns {QDouble}
+   */
+}
+qtype(Types.DOUBLE)(QDouble);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QChar extends QClass {
+  constructor(obj){
+    if (typeof obj !== 'string') throw new Error(`${obj} is not a string`);
+    if (obj.length !== 1) throw new Error(`${obj} length must equal 1`);
+    super(obj);
+  }
+
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QChar
+   * @static
+   * @param {Buffer} buffer
+   * @returns {string} Buffer coerced to string
+   */
+  static read(buffer) {
+    const stringBuffer = buffer.slice(2);
+    return stringBuffer.swap16().toString('ucs2');
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QChar
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    return Buffer.from(this.obj, 'ucs2').swap16();
+  }
+
+  /**
+   * Wraps subject into `QChar` object
+   * @function from
+   * @memberof module:qtdatastream/types.QChar
+   * @static
+   * @param {*} subject
+   * @returns {QChar}
+   */
+}
+qtype(Types.CHAR)(QChar);
+
+/**
+ * @extends module:qtdatastream/types.QUInt
+ * @static
+ * @param {*} obj
+ * @see {@link module:qtdatastream/types.QUInt}
+ */
+class QTime extends QUInt {}
+qtype(Types.TIME)(QTime);
+
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QByteArray extends QClass {
+  /**
+   * Use {@link module:qtdatastream/util.str} to convert the returned Buffer
+   * to a string.
+   * @function read
+   * @memberof module:qtdatastream/types.QByteArray
+   * @static
+   * @param {Buffer} buffer
+   * @returns {Buffer}
+   */
+  static read(buffer) {
+    const arraySize = QUInt.read(buffer);
+    if (arraySize === 0 || arraySize === 0xffffffff) return null;
+
+    return buffer.slice(arraySize);
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QByteArray
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    if (this.obj === null) {
+      return QUInt.from(0xffffffff).toBuffer();
+    }
+    const buf = Buffer.from(this.obj);
+    const buflength = QUInt.from(buf.length).toBuffer();
+    return Buffer.concat([ buflength, buf ]);
+  }
+
+  /**
+   * Wraps subject into `QByteArray` object
+   * @function from
+   * @memberof module:qtdatastream/types.QByteArray
+   * @static
+   * @param {*} subject
+   * @returns {QByteArray}
+   */
+}
+qtype(Types.BYTEARRAY)(QByteArray);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QString extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QString
+   * @static
+   * @param {Buffer} buffer
+   * @returns {string} Buffer coerced to string
+   */
+  static read(buffer) {
+    const stringSize = QUInt.read(buffer);
+    if (stringSize === 0 || stringSize === 0xffffffff) return '';
+
+    const stringBuffer = buffer.slice(stringSize);
+    return stringBuffer.swap16().toString('ucs2');
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QString
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    if (this.obj === null) {
+      return QUInt.from(0xffffffff).toBuffer();
+    }
+    const bufstring = Buffer.from(this.obj, 'ucs2');
+    bufstring.swap16();
+    const buflength = QUInt.from(bufstring.length).toBuffer();
+    return Buffer.concat([ buflength, bufstring ]);
+  }
+
+  /**
+   * Wraps subject into `QString` object
+   * @function from
+   * @memberof module:qtdatastream/types.QString
+   * @static
+   * @param {*} subject
+   * @returns {QString}
+   */
+}
+qtype(Types.STRING)(QString);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QList extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QList
+   * @static
+   * @param {Buffer} buffer
+   * @returns {Array} Buffer coerced to an array
+   */
+  static read(buffer) {
+    const listSize = QUInt.read(buffer), l = Array(listSize);
+    for (let i=0; i<listSize; i++) {
+      l[i] = QVariant.read(buffer);
+    }
+    return l;
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QList
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    const bufs = [];
+    // nb of elements in the list
+    bufs.push(QUInt.from(this.obj.length).toBuffer());
+    for (let el of this.obj) {
+      // Values are QVariant
+      bufs.push(QVariant.from(el).toBuffer());
+    }
+    return Buffer.concat(bufs);
+  }
+
+  /**
+   * Wraps subject into `QList` object
+   * @function from
+   * @memberof module:qtdatastream/types.QList
+   * @static
+   * @param {*} subject
+   * @returns {QList}
+   */
+}
+qtype(Types.LIST)(QList);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QStringList extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QStringList
+   * @static
+   * @param {Buffer} buffer
+   * @returns {Array.<string>} Buffer coerced to an array of strings
+   */
+  static read(buffer) {
+    const listSize = QUInt.read(buffer), l = Array(listSize);
+    for (let i=0; i<listSize; i++) {
+      l[i] = QString.read(buffer);
+    }
+    return l;
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QStringList
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    const bufs = [];
+        // nb of elements in the list
+    bufs.push(QUInt.from(this.obj.length).toBuffer());
+    for (let el of this.obj) {
+            // Values are QString
+      bufs.push(QString.from(el).toBuffer());
+    }
+    return Buffer.concat(bufs);
+  }
+
+  /**
+   * Wraps subject into `QStringList` object
+   * @function from
+   * @memberof module:qtdatastream/types.QStringList
+   * @static
+   * @param {*} subject
+   * @returns {QStringList}
+   */
+}
+qtype(Types.STRINGLIST)(QStringList);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QDateTime extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QDateTime
+   * @static
+   * @param {Buffer} buffer
+   * @returns {Date} Buffer coerced to a Date
+   */
+  static read(buffer) {
+    const julianDay = QUInt.read(buffer);
+    const msecondsSinceMidnight = QUInt.read(buffer);
+    const _isUTC = QBool.read(buffer);
+    const dateAtMidnight = julianDayToDate(julianDay);
+    dateAtMidnight.setMilliseconds(msecondsSinceMidnight);
+    return dateAtMidnight;
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QDateTime
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    const bufs = [];
+    const milliseconds = (this.obj.getTime() - (this.obj.getTimezoneOffset() * 60000)) % 86400000;
+    const julianday = dateToJulianDay(this.obj);
+    bufs.push(QUInt.from(julianday).toBuffer());
+    bufs.push(QUInt.from(milliseconds).toBuffer());
+    bufs.push(QBool.from(this.obj.getTimezoneOffset() === 0).toBuffer());
+    return Buffer.concat(bufs);
+  }
+
+  /**
+   * Wraps subject into `QDateTime` object
+   * @function from
+   * @memberof module:qtdatastream/types.QDateTime
+   * @static
+   * @param {*} subject
+   * @returns {QDateTime}
+   */
+}
+qtype(Types.DATETIME)(QDateTime);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QMap extends QClass {
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QMap
+   * @static
+   * @param {Buffer} buffer
+   * @returns {Object} Buffer coerced to an Object
+   */
+  static read(buffer) {
+    const mapSize = QUInt.read(buffer);
+    let map = {}, key, value;
+    for (let i=0; i<mapSize; i++) {
+      key = QString.read(buffer);
+      value = QVariant.read(buffer);
+      map[key] = value;
+    }
+    return map;
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QMap
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    const bufs = [];
+    // keys are all QString
+    // values are all QVariant
+    if (this.obj instanceof Map) {
+      // Map number of elements
+      bufs.push(QUInt.from(this.obj.size).toBuffer());
+      for (let [ key, value ] of this.obj) {
+        // write key
+        bufs.push(QString.from(key).toBuffer());
+        // write value
+        bufs.push(QVariant.from(value).toBuffer());
+      }
+    } else {
+      const keys = Object.keys(this.obj);
+      // Map number of elements
+      bufs.push(QUInt.from(keys.length).toBuffer());
+      for (let key of keys) {
+        // write key
+        bufs.push(QString.from(key).toBuffer());
+        // write value
+        bufs.push(QVariant.from(this.obj[key]).toBuffer());
+      }
+    }
+    return Buffer.concat(bufs);
+  }
+
+  /**
+   * Wraps subject into `QMap` object
+   * @function from
+   * @memberof module:qtdatastream/types.QMap
+   * @static
+   * @param {*} subject
+   * @returns {QMap}
+   */
+}
+qtype(Types.MAP)(QMap);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QUserType extends QClass {
+  constructor(name, obj) {
+    if (!obj) {
+      obj = name;
+      name = undefined;
+    }
+    super(obj);
+    this.name = name;
+  }
+
+  static from(subject) {
+    if (subject instanceof QUserType) {
+      return subject;
+    }
+    return new this(subject);
+  }
+
+  /**
+   * @function createComplexUserType
+   * @memberof module:qtdatastream/types.QUserType
+   * @static
+   * @protected
+   * @param {*} value
+   * @returns {QUserType} a new class that extends QUserType
+   */
+  static createComplexUserType(value) {
+    const compiled = [];
+    let key, keys, type;
+    for (type of value) {
+      [ key ] = Object.keys(type);
+      keys = { key };
+      if (typeof type[key] === 'string') {
+        // It's a QUserType
+        keys.quserclassname = type[key];
+        keys.quserclass = QUserType.usertypes.get(type[key]);
+      } else {
+        keys.quserclass = QClass.types.get(type[key]);
+      }
+      if (!keys.quserclass) {
+        throw new Error(`Type ${type[key]} does not exists`);
+      }
+      compiled.push(keys);
+    }
+
+    return class extends QUserType {
+      static read(buffer) {
+        const obj = {};
+        for (let elt of compiled) {
+          Object.defineProperty(obj, elt.key, {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: elt.quserclass.read(buffer, keys.quserclassname)
+          });
+        }
+        return obj;
+      }
+
+      toBuffer() {
+        const bufs = [];
+        for (let elt of compiled) {
+          bufs.push(elt.quserclass.from(this.obj[elt.key]).toBuffer(true));
+        }
+        return Buffer.concat(bufs);
+      }
+    };
+  }
+
+  /**
+   * @function createUserType
+   * @memberof module:qtdatastream/types.QUserType
+   * @static
+   * @protected
+   * @param {*} value
+   * @returns {QUserType} a new class that extends QUserType
+   */
+  static createUserType(value) {
+    if (Array.isArray(value)) {
+      return QUserType.createComplexUserType(value);
+    }
+    const qclass = QClass.types.get(value);
+
+    return class extends QUserType {
+      static read(buffer) {
+        return qclass.read(buffer);
+      }
+
+      toBuffer() {
+        return qclass.from(this.obj).toBuffer();
+      }
+    };
+  }
+
+  /**
+   * Register a custom usertype
+   * @function register
+   * @memberof module:qtdatastream/types.QUserType
+   * @static
+   * @param {string} name
+   * @param {*} value
+   * @example
+   * const { QUserType } = require('qtdatastream').types;
+   * QUserType.register('NWI', types.Types.INT);
+   * QUserType.register('BufferInfo', [
+   *   { type: types.Types.SHORT },
+   *   { name: types.Types.BYTEARRAY },
+   *   { ni1: 'NWI' },
+   *   { ni2: 'NWI' }
+   * ]);
+   */
+  static register(name, value) {
+    if (!QUserType.usertypes) {
+      QUserType.usertypes = new Map;
+    }
+    QUserType.usertypes.set(name, QUserType.createUserType(value));
+  }
+
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QUserType
+   * @static
+   * @param {Buffer} buffer
+   * @param {string} name name with which the usertype has been registered
+   * @returns {*} Buffer coerced to whatever have been registered
+   */
+  static read(buffer, name) {
+    if (!name) {
+      const bname = QByteArray.read(buffer);
+      name = bstr(bname);
+    }
+    const usertype = QUserType.usertypes.get(name);
+    if (!usertype) {
+      throw new Error(`Unregistered usertype ${name}`);
+    }
+    return usertype.read(buffer);
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QUserType
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer(skipname = false) {
+    if (!this.name) {
+      throw new Error('Abstract QUserType cannot be converted to a buffer');
+    }
+    const bufs = [];
+    if (!skipname) {
+      bufs.push(QByteArray.from(this.name).toBuffer());
+    }
+    bufs.push(QUserType.usertypes.get(this.name).from(this.obj).toBuffer());
+    return Buffer.concat(bufs);
+  }
+
+  /**
+   * Wraps subject into `QUserType` object
+   * @function from
+   * @memberof module:qtdatastream/types.QUserType
+   * @static
+   * @param {*} subject
+   * @returns {QUserType}
+   */
+}
+qtype(Types.USERTYPE)(QUserType);
+
+/**
+ * @extends module:qtdatastream/types.QClass
+ * @static
+ * @param {*} obj
+ */
+class QVariant extends QClass {
+  /**
+   * By default, numbers are coerced to QUInt (unsigned 32bit ints).
+   * This method allows to change this default behavior to coerce numbers
+   * to any other QClass by default
+   * @function coerceNumbersTo
+   * @memberof module:qtdatastream/types.QVariant
+   * @static
+   * @param {Types} type
+   * @example
+   * const { QVariant, Types } = require('qtdatastream').types;
+   * QVariant.coerceNumbersTo(Types.DOUBLE);
+   */
+  static coerceNumbersTo(type) {
+    const qclass = QClass.types.get(type);
+    if (qclass === undefined) {
+      throw new Error(`undefined type ${type}`);
+    }
+    QVariant.coerceNumbersClass = qclass;
+  }
+
+  /**
+   * @function read
+   * @memberof module:qtdatastream/types.QVariant
+   * @static
+   * @param {Buffer} buffer
+   * @returns {*} Buffer coerced to underlying QVariant type
+   */
+  static read(buffer){
+    const type = QUInt.read(buffer);
+    const _isNull = QBool.read(buffer);
+    return QClass.types.get(type).read(buffer);
+  }
+
+  /**
+   * @function toBuffer
+   * @memberof module:qtdatastream/types.QVariant
+   * @inner
+   * @returns {Buffer}
+   */
+  toBuffer() {
+    const isNull = (this.obj === undefined || this.obj === null);
+    const typeofobj = typeof this.obj;
+    let qclass;
+    if (this.obj === undefined) {
+      qclass = QInvalid;
+    } else if (this.obj instanceof QUserType) {
+      qclass = QUserType;
+    } else if (this.obj instanceof QVariant) {
+      throw new Error(`Can't nest QVariant`);
+    } else if (this.obj instanceof QClass) {
+      qclass = this.obj.constructor;
+    } else if (typeofobj === 'string') {
+      qclass = QString;
+    } else if (typeofobj === 'number') {
+      qclass = QVariant.coerceNumbersClass;
+    } else if (typeofobj === 'boolean') {
+      qclass = QBool;
+    } else if (this.obj instanceof Date) {
+      qclass = QDateTime;
+    } else if (this.obj instanceof Array) {
+      qclass = QList;
+    } else {
+      qclass = QMap;
+    }
+    if (!qclass) {
+      throw new Error(`Undefined class ${qclass} from QVariant`);
+    }
+    const bufqvarianttype = QUInt.from(qclass.qtype).toBuffer();
+    const bufqvariantisnull = QBool.from(isNull).toBuffer();
+    const bufs = [ bufqvarianttype, bufqvariantisnull ];
+    if (!isNull) {
+      bufs.push(qclass.from(this.obj).toBuffer());
+    }
+    return Buffer.concat(bufs);
+  }
+
+  /**
+   * Wraps subject into `QVariant` object
+   * @function from
+   * @memberof module:qtdatastream/types.QVariant
+   * @static
+   * @param {*} subject
+   * @returns {QVariant}
+   */
+}
+QVariant.coerceNumbersClass = QUInt;
+
+module.exports = {
+  qtype,
+  Types,
+  QClass,
+  QInvalid,
+  QBool,
+  QShort,
+  QInt,
+  QUInt,
+  QInt64,
+  QUInt64,
+  QDouble,
+  QChar,
+  QTime,
+  QByteArray,
+  QString,
+  QList,
+  QStringList,
+  QDateTime,
+  QMap,
+  QUserType,
+  QVariant
+};
+
+}).call(this,require("buffer").Buffer)
+},{"./util":125,"buffer":69,"int64-buffer":120}],125:[function(require,module,exports){
+/*
+ * node-qtdatastream
+ * https://github.com/magne4000/node-qtdatastream
+ *
+ * Copyright (c) 2017 Joël Charles
+ * Licensed under the MIT license.
+ */
+
+/** @module qtdatastream/util */
+
+/**
+ * Apply `toString()` method on Buffer and remove NUL end char
+ * @static
+ * @param {Buffer} obj
+ * @returns {string}
+ */
+function str(obj) {
+  const str = obj.toString();
+  return str.replace('\0', '');
+}
+
+/**
+ * Convert a Date object to a Julian day representation
+ * @static
+ * @param {Date} d
+ * @returns {number}
+ */
+function dateToJulianDay(d) {
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const a = Math.floor((14-month)/12);
+  const y = Math.floor(year+4800-a);
+  const m = month+12*a-3;
+  const jdn = day + Math.floor((153*m+2)/5)+(365*y)+Math.floor(y/4)-Math.floor(y/100)+Math.floor(y/400)-32045;
+  return jdn;
+}
+
+/**
+ * Convert a Julian day representation to a Date object
+ * @static
+ * @param {number} i
+ * @returns {Date}
+ */
+function julianDayToDate(i) {
+  const y = 4716;
+  const v = 3;
+  const j = 1401;
+  const u = 5;
+  const m = 2;
+  const s = 153;
+  const n = 12;
+  const w = 2;
+  const r = 4;
+  const B = 274277;
+  const p = 1461;
+  const C = -38;
+  const f = i + j + Math.floor((Math.floor((4 * i + B) / 146097) * 3) / 4) + C;
+  const e = r * f + v;
+  const g = Math.floor((e % p) / r);
+  const h = u * g + w;
+  const D = Math.floor((h % s) / u) + 1;
+  const M = ((Math.floor(h / s) + m) % n) + 1;
+  const Y = Math.floor(e / p) - y + Math.floor((n + m - M) / n);
+  return new Date(Y, M-1, D);
+}
+
+module.exports = {
+  str: str,
+  dateToJulianDay: dateToJulianDay,
+  julianDayToDate: julianDayToDate
+};
+
+},{}],"alias":[function(require,module,exports){
 /** @module alias */
 
 /**
@@ -20592,7 +20588,7 @@ exports.IRCBuffer = IRCBuffer;
 exports.IRCBufferCollection = IRCBufferCollection;
 
 }).call(this,require("buffer").Buffer)
-},{"./glouton":2,"./message":"message","buffer":69,"debug":"debug","qtdatastream":120}],"message":[function(require,module,exports){
+},{"./glouton":2,"./message":"message","buffer":69,"debug":"debug","qtdatastream":119}],"message":[function(require,module,exports){
 /*
  * libquassel
  * https://github.com/magne4000/node-libquassel
@@ -20740,7 +20736,7 @@ exports.IRCMessage = IRCMessage;
 exports.Type = Type;
 exports.Flag = Flag;
 
-},{"qtdatastream":120}],"net":[function(require,module,exports){
+},{"qtdatastream":119}],"net":[function(require,module,exports){
 (function (process,Buffer){
 var stream = require('stream');
 var util = require('util');
@@ -21183,7 +21179,8 @@ var Glouton = require('./glouton'),
     IRCUser = require('./user'),
     IRCBufferCollection = require('./buffer').IRCBufferCollection,
     logger = require('debug')('libquassel:network'),
-    qtdatastream = require('qtdatastream');
+    qtdatastream = require('qtdatastream'),
+    qtypes = qtdatastream.types;
 
 /**
  * @class
@@ -21601,55 +21598,55 @@ Network.prototype.setCodecForServer = function(s) {
 Network.toQ = function(network) {
     var jServerList = [];
     for (var i = 0; i < network.ServerList.length; i++) {
-        jServerList.push(new qtdatastream.QUserType("Network::Server", {
-            Host: new qtdatastream.QString(network.ServerList[i].Host),
-            Port: new qtdatastream.QUInt(network.ServerList[i].Port),
-            Password: new qtdatastream.QString(network.ServerList[i].Password),
-            UseSSL: new qtdatastream.QBool(network.ServerList[i].UseSSL),
-            sslVersion: new qtdatastream.QInt(network.ServerList[i].sslVersion),
-            UseProxy: new qtdatastream.QBool(network.ServerList[i].UseProxy),
-            ProxyType: new qtdatastream.QInt(network.ServerList[i].ProxyType),
-            ProxyHost: new qtdatastream.QString(network.ServerList[i].ProxyHost),
-            ProxyPort: new qtdatastream.QUInt(network.ServerList[i].ProxyPort),
-            ProxyUser: new qtdatastream.QString(network.ServerList[i].ProxyUser),
-            ProxyPass: new qtdatastream.QString(network.ServerList[i].ProxyPass),
-            sslVerify: new qtdatastream.QBool(network.ServerList[i].sslVerify)
+        jServerList.push(new qtypes.QUserType("Network::Server", {
+            Host: qtypes.QString.from(network.ServerList[i].Host),
+            Port: qtypes.QUInt.from(network.ServerList[i].Port),
+            Password: qtypes.QString.from(network.ServerList[i].Password),
+            UseSSL: qtypes.QBool.from(network.ServerList[i].UseSSL),
+            sslVersion: qtypes.QInt.from(network.ServerList[i].sslVersion),
+            UseProxy: qtypes.QBool.from(network.ServerList[i].UseProxy),
+            ProxyType: qtypes.QInt.from(network.ServerList[i].ProxyType),
+            ProxyHost: qtypes.QString.from(network.ServerList[i].ProxyHost),
+            ProxyPort: qtypes.QUInt.from(network.ServerList[i].ProxyPort),
+            ProxyUser: qtypes.QString.from(network.ServerList[i].ProxyUser),
+            ProxyPass: qtypes.QString.from(network.ServerList[i].ProxyPass),
+            sslVerify: qtypes.QBool.from(network.ServerList[i].sslVerify)
         }));
     }
     var jNetwork = {
-        NetworkId: new qtdatastream.QUserType("NetworkId", network.networkId),
-        NetworkName: new qtdatastream.QString(network.networkName),
-        Identity: new qtdatastream.QUserType("IdentityId", network.identityId),
-        CodecForServer: new qtdatastream.QByteArray(network.codecForServer),
-        CodecForEncoding: new qtdatastream.QByteArray(network.codecForEncoding),
-        CodecForDecoding: new qtdatastream.QByteArray(network.codecForDecoding),
-        ServerList: new qtdatastream.QList(jServerList),
-        UseRandomServer: new qtdatastream.QBool(network.useRandomServer),
-        Perform: new qtdatastream.QStringList(network.perform),
-        UseAutoIdentify: new qtdatastream.QBool(network.useAutoIdentify),
-        AutoIdentifyService: new qtdatastream.QString(network.autoIdentifyService),
-        AutoIdentifyPassword: new qtdatastream.QString(network.autoIdentifyPassword),
-        UseSasl: new qtdatastream.QBool(network.useSasl),
-        SaslAccount: new qtdatastream.QString(network.saslAccount),
-        SaslPassword: new qtdatastream.QString(network.saslPassword),
-        UseAutoReconnect: new qtdatastream.QBool(network.useAutoReconnect),
-        AutoReconnectInterval: new qtdatastream.QUInt(network.autoReconnectInterval),
-        AutoReconnectRetries: new qtdatastream.QUInt(network.autoReconnectRetries),
-        UnlimitedReconnectRetries: new qtdatastream.QBool(network.unlimitedReconnectRetries),
-        RejoinChannels: new qtdatastream.QBool(network.rejoinChannels),
-        UseCustomMessageRate: new qtdatastream.QBool(network.useCustomMessageRate),
-        UnlimitedMessageRate: new qtdatastream.QBool(network.unlimitedMessageRate),
-        MessageRateDelay: new qtdatastream.QUInt(network.msgRateMessageDelay),
-        MessageRateBurstSize: new qtdatastream.QUInt(network.msgRateBurstSize)
+        NetworkId: new qtypes.QUserType("NetworkId", network.networkId),
+        NetworkName: qtypes.QString.from(network.networkName),
+        Identity: new qtypes.QUserType("IdentityId", network.identityId),
+        CodecForServer: qtypes.QByteArray.from(network.codecForServer),
+        CodecForEncoding: qtypes.QByteArray.from(network.codecForEncoding),
+        CodecForDecoding: qtypes.QByteArray.from(network.codecForDecoding),
+        ServerList: qtypes.QList.from(jServerList),
+        UseRandomServer: qtypes.QBool.from(network.useRandomServer),
+        Perform: qtypes.QStringList.from(network.perform),
+        UseAutoIdentify: qtypes.QBool.from(network.useAutoIdentify),
+        AutoIdentifyService: qtypes.QString.from(network.autoIdentifyService),
+        AutoIdentifyPassword: qtypes.QString.from(network.autoIdentifyPassword),
+        UseSasl: qtypes.QBool.from(network.useSasl),
+        SaslAccount: qtypes.QString.from(network.saslAccount),
+        SaslPassword: qtypes.QString.from(network.saslPassword),
+        UseAutoReconnect: qtypes.QBool.from(network.useAutoReconnect),
+        AutoReconnectInterval: qtypes.QUInt.from(network.autoReconnectInterval),
+        AutoReconnectRetries: qtypes.QUInt.from(network.autoReconnectRetries),
+        UnlimitedReconnectRetries: qtypes.QBool.from(network.unlimitedReconnectRetries),
+        RejoinChannels: qtypes.QBool.from(network.rejoinChannels),
+        UseCustomMessageRate: qtypes.QBool.from(network.useCustomMessageRate),
+        UnlimitedMessageRate: qtypes.QBool.from(network.unlimitedMessageRate),
+        MessageRateDelay: qtypes.QUInt.from(network.msgRateMessageDelay),
+        MessageRateBurstSize: qtypes.QUInt.from(network.msgRateBurstSize)
     };
-    return new qtdatastream.QUserType("NetworkInfo", jNetwork);
+    return new qtypes.QUserType("NetworkInfo", jNetwork);
 };
 
 exports.Network = Network;
 exports.NetworkCollection = NetworkCollection;
 
 }).call(this,{"isBuffer":require("../node_modules/is-buffer/index.js")})
-},{"../node_modules/is-buffer/index.js":72,"./buffer":"ircbuffer","./glouton":2,"./user":"user","debug":"debug","qtdatastream":120}],"quassel":[function(require,module,exports){
+},{"../node_modules/is-buffer/index.js":72,"./buffer":"ircbuffer","./glouton":2,"./user":"user","debug":"debug","qtdatastream":119}],"quassel":[function(require,module,exports){
 (function (Buffer){
 /*
  * libquassel
@@ -21675,10 +21672,10 @@ var net = require('net'),
     MessageType = require('./message').Type,
     ignore = require('./ignore'),
     qtdatastream = require('qtdatastream'),
+    qtypes = qtdatastream.types,
     util = require('util'),
     EventEmitter2 = require('eventemitter2').EventEmitter2,
-    logger = require('debug')('libquassel:main'),
-    Writer = qtdatastream.Writer;
+    logger = require('debug')('libquassel:main');
 
 /**
  * This callback is used by Quassel at login phase
@@ -21716,7 +21713,7 @@ var Quassel = function(server, port, options, loginCallback) {
     var self = this;
     /** @member {?net.Socket} */
     this.client = null;
-    /** @member {?qtdatastream.Socket} */
+    /** @member {?qtdatastream.socket.Socket} */
     this.qtsocket = null;
     /** @member {String} */
     this.server = server;
@@ -22368,7 +22365,7 @@ Quassel.prototype.heartBeat = function(reply) {
     var secs = d.getSeconds() + (60 * d.getMinutes()) + (60 * 60 * d.getHours());
     var slist = [
         reply?RequestType.HeartBeat:RequestType.HeartBeatReply,
-        new qtdatastream.QTime(secs)
+        qtypes.QTime.from(secs)
     ];
     logger('Sending heartbeat');
     this.qtsocket.write(slist);
@@ -23045,10 +23042,10 @@ Quassel.prototype.handleStruct = function(obj) {
                 case "Network":
                     network = self.handleInitDataNetwork(obj);
                     var syncRequest = [
-                        new qtdatastream.QUInt(RequestType.Sync),
-                        new qtdatastream.QString("BufferSyncer"),
-                        new qtdatastream.QString(""),
-                        new qtdatastream.QString("requestPurgeBufferIds")
+                        qtypes.QUInt.from(RequestType.Sync),
+                        qtypes.QString.from("BufferSyncer"),
+                        qtypes.QString.from(""),
+                        qtypes.QString.from("requestPurgeBufferIds")
                     ];
                     self.qtsocket.write(syncRequest);
                     self.emit("network.init", network.networkId);
@@ -23207,9 +23204,9 @@ Quassel.prototype.requestBacklogs = function(limit){
  */
 Quassel.prototype.sendInitRequest = function(classname, objectname) {
     var initRequest = [
-        new qtdatastream.QUInt(RequestType.InitRequest),
-        new qtdatastream.QString(classname),
-        new qtdatastream.QString(objectname)
+        qtypes.QUInt.from(RequestType.InitRequest),
+        qtypes.QString.from(classname),
+        qtypes.QString.from(objectname)
     ];
     this.qtsocket.write(initRequest);
 };
@@ -23256,26 +23253,26 @@ Quassel.prototype.init = function() {
         }
         
         
-        if (self.useCompression) {
-            // Not working, don't know why yet
-            self.qtsocket = new qtdatastream.Socket(self.client, function(buffer, next) {
-                zlib.inflate(buffer, next);
-            }, function(buffer, next) {
-                var deflate = zlib.createDeflate({flush: zlib.Z_SYNC_FLUSH}), buffers = [];
-                deflate.on('data', function(chunk) {
-                    buffers.push(chunk);
-                });
+        // if (self.useCompression) {
+        //     // Not working, don't know why yet
+        //     self.qtsocket = new qtdatastream.socket.Socket(self.client, function(buffer, next) {
+        //         zlib.inflate(buffer, next);
+        //     }, function(buffer, next) {
+        //         var deflate = zlib.createDeflate({flush: zlib.Z_SYNC_FLUSH}), buffers = [];
+        //         deflate.on('data', function(chunk) {
+        //             buffers.push(chunk);
+        //         });
                 
-                deflate.on('end', function() {
-                    logger(buffers);
-                    next(null, Buffer.concat(buffers));
-                });
+        //         deflate.on('end', function() {
+        //             logger(buffers);
+        //             next(null, Buffer.concat(buffers));
+        //         });
                 
-                deflate.end(buffer);
-            });
-        } else {
-            self.qtsocket = new qtdatastream.Socket(self.client);
-        }
+        //         deflate.end(buffer);
+        //     });
+        // } else {
+        self.qtsocket = new qtdatastream.socket.Socket(self.client);
+        // }
         
         // bind events on qtsocket
         self.qtsocket.on('data', function(data) {
@@ -23394,11 +23391,12 @@ Quassel.prototype.connect = function() {
     }
     
     this.client.connect(this.port, this.server, function(){
-        var writer = new Writer();
-        writer.writeUInt(magic);
-        writer.writeUInt(0x01);
-        writer.writeUInt(0x01 << 31);
-        self.client.write(writer.getRawBuffer());
+        var bufs = [
+            qtypes.QUInt.from(magic).toBuffer(),
+            qtypes.QUInt.from(0x01).toBuffer(),
+            qtypes.QUInt.from(0x01 << 31).toBuffer()
+        ];
+        self.client.write(Buffer.concat(bufs));
         self.connected = true;
     });
 };
@@ -23438,10 +23436,10 @@ Quassel.prototype.disconnect = function() {
 Quassel.prototype.createIdentity = function(identityName, options) {
     options = options || {};
     var slit = [
-        new qtdatastream.QInt(RequestType.RpcCall),
+        qtypes.QInt.from(RequestType.RpcCall),
         "2createIdentity(Identity,QVariantMap)",
-        new qtdatastream.QUserType("Identity", {
-            identityId: new qtdatastream.QUserType("IdentityId", -1),
+        new qtypes.QUserType("Identity", {
+            identityId: new qtypes.QUserType("IdentityId", -1),
             identityName: identityName,
             realName: options.realName || identityName,
             nicks: [options.nick || identityName],
@@ -23473,9 +23471,9 @@ Quassel.prototype.createIdentity = function(identityName, options) {
  */
 Quassel.prototype.removeIdentity = function(identityId) {
     var slit = [
-        new qtdatastream.QInt(RequestType.RpcCall),
+        qtypes.QInt.from(RequestType.RpcCall),
         "2removeIdentity(IdentityId)",
-        new qtdatastream.QUserType("IdentityId", identityId)
+        new qtypes.QUserType("IdentityId", identityId)
     ];
     logger('Deleting identity');
     this.qtsocket.write(slit);
@@ -23557,22 +23555,22 @@ Quassel.prototype.createNetwork = function(networkName, identityId, initialServe
     var serverList = [];
     if (options.ServerList && options.ServerList.length > 0) {
         for (var i=0; i<options.ServerList.length; i++) {
-            serverList.push(new qtdatastream.QUserType("Network::Server", _serverListDefaults(options.ServerList[i])));
+            serverList.push(new qtypes.QUserType("Network::Server", _serverListDefaults(options.ServerList[i])));
         }
     } else {
-        serverList = [new qtdatastream.QUserType("Network::Server", _serverListDefaults(initialServer))];
+        serverList = [new qtypes.QUserType("Network::Server", _serverListDefaults(initialServer))];
     }
     var slit = [
-        new qtdatastream.QInt(RequestType.RpcCall),
+        qtypes.QInt.from(RequestType.RpcCall),
         "2createNetwork(NetworkInfo,QStringList)",
-        new qtdatastream.QUserType("NetworkInfo", {
-            NetworkId: new qtdatastream.QUserType("NetworkId", -1),
+        new qtypes.QUserType("NetworkInfo", {
+            NetworkId: new qtypes.QUserType("NetworkId", -1),
             NetworkName: networkName,
-            Identity: new qtdatastream.QUserType("IdentityId", identityId),
+            Identity: new qtypes.QUserType("IdentityId", identityId),
             // useCustomEncodings: false,
-            CodecForServer: new qtdatastream.QByteArray(options.codecForServer || ""),
-            CodecForEncoding: new qtdatastream.QByteArray(options.codecForEncoding || ""),
-            CodecForDecoding: new qtdatastream.QByteArray(options.codecForDecoding || ""),
+            CodecForServer: qtypes.QByteArray.from(options.codecForServer || ""),
+            CodecForEncoding: qtypes.QByteArray.from(options.codecForEncoding || ""),
+            CodecForDecoding: qtypes.QByteArray.from(options.codecForDecoding || ""),
             ServerList: serverList,
             UseRandomServer: options.useRandomServer || false,
             Perform: options.perform || [],
@@ -23592,7 +23590,7 @@ Quassel.prototype.createNetwork = function(networkName, identityId, initialServe
             MessageRateDelay: options.msgRateMessageDelay || 2200,
             MessageRateBurstSize: options.msgRateBurstSize || 5
         }),
-        new qtdatastream.QStringList([])
+        qtypes.QStringList.from([])
     ];
     logger('Creating network');
     this.qtsocket.write(slit);
@@ -23604,9 +23602,9 @@ Quassel.prototype.createNetwork = function(networkName, identityId, initialServe
  */
 Quassel.prototype.removeNetwork = function(networkId) {
     var slit = [
-        new qtdatastream.QInt(RequestType.RpcCall),
+        qtypes.QInt.from(RequestType.RpcCall),
         "2removeNetwork(NetworkId)",
-        new qtdatastream.QUserType("NetworkId", networkId)
+        new qtypes.QUserType("NetworkId", networkId)
     ];
     logger('Deleting nhetwork');
     this.qtsocket.write(slit);
@@ -23621,10 +23619,10 @@ Quassel.prototype.sendMessage = function(bufferId, message) {
     var buffer = this.networks.findBuffer(parseInt(bufferId, 10));
     if (buffer !== null) {
         var slit = [
-            new qtdatastream.QInt(RequestType.RpcCall),
+            qtypes.QInt.from(RequestType.RpcCall),
             "2sendInput(BufferInfo,QString)",
-            new qtdatastream.QUserType("BufferInfo", buffer.getBufferInfo()),
-            new qtdatastream.QString(message)
+            new qtypes.QUserType("BufferInfo", buffer.getBufferInfo()),
+            qtypes.QString.from(message)
         ];
         logger('Sending message');
         this.qtsocket.write(slit);
@@ -23645,15 +23643,15 @@ Quassel.prototype.requestBacklog = function(bufferId, firstMsgId, lastMsgId, max
     lastMsgId = lastMsgId || -1;
     maxAmount = maxAmount || this.options.backloglimit;
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "BacklogManager",
         "",
         "requestBacklog",
-        new qtdatastream.QUserType("BufferId", bufferId),
-        new qtdatastream.QUserType("MsgId", firstMsgId),
-        new qtdatastream.QUserType("MsgId", lastMsgId),
-        new qtdatastream.QInt(maxAmount),
-        new qtdatastream.QInt(0)
+        new qtypes.QUserType("BufferId", bufferId),
+        new qtypes.QUserType("MsgId", firstMsgId),
+        new qtypes.QUserType("MsgId", lastMsgId),
+        qtypes.QInt.from(maxAmount),
+        qtypes.QInt.from(0)
     ];
     logger('Sending backlog request');
     this.qtsocket.write(slist);
@@ -23665,10 +23663,10 @@ Quassel.prototype.requestBacklog = function(bufferId, firstMsgId, lastMsgId, max
  */
 Quassel.prototype.requestDisconnectNetwork = function(networkId) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "Network",
         ""+networkId,
-        new qtdatastream.QByteArray("requestDisconnect")
+        qtypes.QByteArray.from("requestDisconnect")
     ];
     logger('Sending disconnection request');
     this.qtsocket.write(slist);
@@ -23680,10 +23678,10 @@ Quassel.prototype.requestDisconnectNetwork = function(networkId) {
  */
 Quassel.prototype.requestConnectNetwork = function(networkId) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "Network",
         ""+networkId,
-        new qtdatastream.QByteArray("requestConnect")
+        qtypes.QByteArray.from("requestConnect")
     ];
     logger('Sending connection request');
     this.qtsocket.write(slist);
@@ -23695,11 +23693,11 @@ Quassel.prototype.requestConnectNetwork = function(networkId) {
  */
 Quassel.prototype.requestMarkBufferAsRead = function(bufferId) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "BufferSyncer",
         "",
-        new qtdatastream.QByteArray("requestMarkBufferAsRead"),
-        new qtdatastream.QUserType("BufferId", bufferId)
+        qtypes.QByteArray.from("requestMarkBufferAsRead"),
+        new qtypes.QUserType("BufferId", bufferId)
     ];
     logger('Sending mark buffer as read request');
     this.qtsocket.write(slist);
@@ -23712,12 +23710,12 @@ Quassel.prototype.requestMarkBufferAsRead = function(bufferId) {
  */
 Quassel.prototype.requestSetLastMsgRead = function(bufferId, messageId) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "BufferSyncer",
         "",
-        new qtdatastream.QByteArray("requestSetLastSeenMsg"),
-        new qtdatastream.QUserType("BufferId", bufferId),
-        new qtdatastream.QUserType("MsgId", messageId)
+        qtypes.QByteArray.from("requestSetLastSeenMsg"),
+        new qtypes.QUserType("BufferId", bufferId),
+        new qtypes.QUserType("MsgId", messageId)
     ];
     logger('Sending last message read request');
     this.qtsocket.write(slist);
@@ -23730,12 +23728,12 @@ Quassel.prototype.requestSetLastMsgRead = function(bufferId, messageId) {
  */
 Quassel.prototype.requestSetMarkerLine = function(bufferId, messageId) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "BufferSyncer",
         "",
-        new qtdatastream.QByteArray("requestSetMarkerLine"),
-        new qtdatastream.QUserType("BufferId", bufferId),
-        new qtdatastream.QUserType("MsgId", messageId)
+        qtypes.QByteArray.from("requestSetMarkerLine"),
+        new qtypes.QUserType("BufferId", bufferId),
+        new qtypes.QUserType("MsgId", messageId)
     ];
     logger('Sending mark line request');
     this.qtsocket.write(slist);
@@ -23747,11 +23745,11 @@ Quassel.prototype.requestSetMarkerLine = function(bufferId, messageId) {
  */
 Quassel.prototype.requestRemoveBuffer = function(bufferId) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "BufferSyncer",
         "",
-        new qtdatastream.QByteArray("requestRemoveBuffer"),
-        new qtdatastream.QUserType("BufferId", bufferId)
+        qtypes.QByteArray.from("requestRemoveBuffer"),
+        new qtypes.QUserType("BufferId", bufferId)
     ];
     logger('Sending perm hide request');
     this.qtsocket.write(slist);
@@ -23764,12 +23762,12 @@ Quassel.prototype.requestRemoveBuffer = function(bufferId) {
  */
 Quassel.prototype.requestMergeBuffersPermanently = function(bufferId1, bufferId2) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "BufferSyncer",
         "",
-        new qtdatastream.QByteArray("requestMergeBuffersPermanently"),
-        new qtdatastream.QUserType("BufferId", bufferId1),
-        new qtdatastream.QUserType("BufferId", bufferId2)
+        qtypes.QByteArray.from("requestMergeBuffersPermanently"),
+        new qtypes.QUserType("BufferId", bufferId1),
+        new qtypes.QUserType("BufferId", bufferId2)
     ];
     logger('Sending merge request');
     this.qtsocket.write(slist);
@@ -23782,11 +23780,11 @@ Quassel.prototype.requestMergeBuffersPermanently = function(bufferId1, bufferId2
  */
 Quassel.prototype.requestHideBufferTemporarily = function(bufferViewId, bufferId) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "BufferViewConfig",
         ""+bufferViewId,
         "requestRemoveBuffer",
-        new qtdatastream.QUserType("BufferId", bufferId)
+        new qtypes.QUserType("BufferId", bufferId)
     ];
     logger('Sending temp hide request');
     this.qtsocket.write(slist);
@@ -23800,11 +23798,11 @@ Quassel.prototype.requestHideBufferTemporarily = function(bufferViewId, bufferId
 Quassel.prototype.requestHideBufferPermanently = function(bufferViewId, bufferId) {
     if (typeof bufferViewId === "undefined") bufferViewId = this.bufferViewId;
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "BufferViewConfig",
         ""+bufferViewId,
         "requestRemoveBufferPermanently",
-        new qtdatastream.QUserType("BufferId", bufferId)
+        new qtypes.QUserType("BufferId", bufferId)
     ];
     logger('Sending perm hide request');
     this.qtsocket.write(slist);
@@ -23821,12 +23819,12 @@ Quassel.prototype.requestUnhideBuffer = function(bufferViewId, bufferId) {
     var bufferCount = this.getNetworks().get(buffer.network).getBufferMap().size;
     if (typeof bufferViewId === "undefined") bufferViewId = this.bufferViewId;
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "BufferViewConfig",
         ""+bufferViewId,
         "requestAddBuffer",
-        new qtdatastream.QUserType("BufferId", bufferId),
-        new qtdatastream.QInt(bufferCount)
+        new qtypes.QUserType("BufferId", bufferId),
+        qtypes.QInt.from(bufferCount)
     ];
     logger('Sending unhide request');
     this.qtsocket.write(slist);
@@ -23840,11 +23838,11 @@ Quassel.prototype.requestUnhideBuffer = function(bufferViewId, bufferId) {
 Quassel.prototype.requestRenameBuffer = function(bufferId, newName) {
     bufferId = parseInt(bufferId, 10);
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "BufferSyncer",
         "",
         "requestRenameBuffer",
-        new qtdatastream.QUserType("BufferId", bufferId),
+        new qtypes.QUserType("BufferId", bufferId),
         newName
     ];
     logger('Sending rename buffer request');
@@ -23857,7 +23855,7 @@ Quassel.prototype.requestRenameBuffer = function(bufferId, newName) {
  */
 Quassel.prototype.requestUpdateIgnoreListManager = function(ignoreList) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
+        qtypes.QInt.from(RequestType.Sync),
         "IgnoreListManager",
         "",
         "requestUpdate",
@@ -23874,10 +23872,10 @@ Quassel.prototype.requestUpdateIgnoreListManager = function(ignoreList) {
  */
 Quassel.prototype.requestUpdateIdentity = function(identityId, identity) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
-        new qtdatastream.QByteArray("Identity"),
+        qtypes.QInt.from(RequestType.Sync),
+        qtypes.QByteArray.from("Identity"),
         ""+identityId,
-        new qtdatastream.QByteArray("requestUpdate"),
+        qtypes.QByteArray.from("requestUpdate"),
         identity
     ];
     logger('Sending update request (Identity)');
@@ -23890,10 +23888,10 @@ Quassel.prototype.requestUpdateIdentity = function(identityId, identity) {
  */
 Quassel.prototype.requestUpdateAliasManager = function(data) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
-        new qtdatastream.QByteArray("AliasManager"),
+        qtypes.QInt.from(RequestType.Sync),
+        qtypes.QByteArray.from("AliasManager"),
         "",
-        new qtdatastream.QByteArray("requestUpdate"),
+        qtypes.QByteArray.from("requestUpdate"),
         data
     ];
     logger('Sending update request (AliasManager)');
@@ -23907,10 +23905,10 @@ Quassel.prototype.requestUpdateAliasManager = function(data) {
  */
 Quassel.prototype.requestSetNetworkInfo = function(networkId, network) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
-        new qtdatastream.QByteArray("Network"),
+        qtypes.QInt.from(RequestType.Sync),
+        qtypes.QByteArray.from("Network"),
         ""+networkId,
-        new qtdatastream.QByteArray("requestSetNetworkInfo"),
+        qtypes.QByteArray.from("requestSetNetworkInfo"),
         Network.toQ(network)
     ];
     logger('Sending update request (Network)');
@@ -23939,8 +23937,8 @@ Quassel.prototype.requestSetNetworkInfo = function(networkId, network) {
  */
 Quassel.prototype.requestCreateBufferView = function(data) {
     var slist = [
-        new qtdatastream.QInt(RequestType.Sync),
-        new qtdatastream.QByteArray("BufferViewManager"),
+        qtypes.QInt.from(RequestType.Sync),
+        qtypes.QByteArray.from("BufferViewManager"),
         "",
         "requestCreateBufferView",
         data
@@ -23952,70 +23950,55 @@ Quassel.prototype.requestCreateBufferView = function(data) {
 /**
  * Qt UserType
  * @typedef UserType
- * @see https://github.com/magne4000/node-qtdatastream/blob/master/README.md#qusertype-special-treatment
- * @example
- * new qtdatastream.Writer({
- *   "NetworkId": new QUserType("NetworkId", 1)
- * });
- * @example
- * new qtdatastream.Writer({
- *   "BufferInfo": new QUserType("BufferInfo", {
- *     id: 2,
- *     network: 4,
- *     type: 5,
- *     group: 1,
- *     name: "something"
- *   })
- * });
  */
 
 /**
  * @typedef {UserType} UserType&lt;NetworkId&gt;
  * @property {INT} this
  */
-qtdatastream.registerUserType("NetworkId", qtdatastream.Types.INT);
+qtypes.QUserType.register("NetworkId", qtypes.Types.INT);
 
 /**
  * @typedef {UserType} UserType&lt;IdentityId&gt;
  * @property {INT} this
  */
-qtdatastream.registerUserType("IdentityId", qtdatastream.Types.INT);
+qtypes.QUserType.register("IdentityId", qtypes.Types.INT);
 
 /**
  * @typedef {UserType} UserType&lt;BufferId&gt;
  * @property {INT} this
  */
-qtdatastream.registerUserType("BufferId", qtdatastream.Types.INT);
+qtypes.QUserType.register("BufferId", qtypes.Types.INT);
 
 /**
  * @typedef {UserType} UserType&lt;MsgId&gt;
  * @property {INT} this
  */
-qtdatastream.registerUserType("MsgId", qtdatastream.Types.INT);
+qtypes.QUserType.register("MsgId", qtypes.Types.INT);
 
 /**
  * @typedef {UserType} UserType&lt;Identity&gt;
  * @property {MAP} this
  */
-qtdatastream.registerUserType("Identity", qtdatastream.Types.MAP);
+qtypes.QUserType.register("Identity", qtypes.Types.MAP);
 
 /**
  * @typedef {UserType} UserType&lt;NetworkInfo&gt;
  * @property {MAP} this
  */
-qtdatastream.registerUserType("NetworkInfo", qtdatastream.Types.MAP);
+qtypes.QUserType.register("NetworkInfo", qtypes.Types.MAP);
 
 /**
  * @typedef {UserType} UserType&lt;Network::Server&gt;
  * @property {MAP} this
  */
-qtdatastream.registerUserType("Network::Server", qtdatastream.Types.MAP);
+qtypes.QUserType.register("Network::Server", qtypes.Types.MAP);
 
 /**
  * @typedef {UserType} UserType&lt;NetworkId&gt;
  * @property {INT} this
  */
-qtdatastream.registerUserType("NetworkId", qtdatastream.Types.INT);
+qtypes.QUserType.register("NetworkId", qtypes.Types.INT);
 
 /**
  * @typedef {UserType} UserType&lt;BufferInfo&gt;
@@ -24025,12 +24008,12 @@ qtdatastream.registerUserType("NetworkId", qtdatastream.Types.INT);
  * @property {UINT} group
  * @property {BYTEARRAY} name
  */
-qtdatastream.registerUserType("BufferInfo", [
-    {id: qtdatastream.Types.INT},
-    {network: qtdatastream.Types.INT},
-    {type: qtdatastream.Types.SHORT},
-    {group: qtdatastream.Types.UINT},
-    {name: qtdatastream.Types.BYTEARRAY}
+qtypes.QUserType.register("BufferInfo", [
+    {id: qtypes.Types.INT},
+    {network: qtypes.Types.INT},
+    {type: qtypes.Types.SHORT},
+    {group: qtypes.Types.UINT},
+    {name: qtypes.Types.BYTEARRAY}
 ]);
 
 /**
@@ -24043,14 +24026,14 @@ qtdatastream.registerUserType("BufferInfo", [
  * @property {BYTEARRAY} sender
  * @property {BYTEARRAY} content
  */
-qtdatastream.registerUserType("Message", [
-    {id: qtdatastream.Types.INT},
-    {timestamp: qtdatastream.Types.UINT},
-    {type: qtdatastream.Types.UINT},
-    {flags: qtdatastream.Types.BOOL},
+qtypes.QUserType.register("Message", [
+    {id: qtypes.Types.INT},
+    {timestamp: qtypes.Types.UINT},
+    {type: qtypes.Types.UINT},
+    {flags: qtypes.Types.BOOL},
     {bufferInfo: "BufferInfo"},
-    {sender: qtdatastream.Types.BYTEARRAY},
-    {content: qtdatastream.Types.BYTEARRAY}
+    {sender: qtypes.Types.BYTEARRAY},
+    {content: qtypes.Types.BYTEARRAY}
 ]);
 
 function splitOnce(str, character) {
@@ -24061,7 +24044,7 @@ function splitOnce(str, character) {
 module.exports = Quassel;
 
 }).call(this,require("buffer").Buffer)
-},{"./alias":"alias","./buffer":"ircbuffer","./bufferview":"bufferview","./identity":"identity","./ignore":"ignore","./message":"message","./network":"network","./requesttype":3,"./user":"user","buffer":69,"debug":"debug","eventemitter2":67,"net":"net","qtdatastream":120,"tls":"tls","util":117,"zlib":8}],"tls":[function(require,module,exports){
+},{"./alias":"alias","./buffer":"ircbuffer","./bufferview":"bufferview","./identity":"identity","./ignore":"ignore","./message":"message","./network":"network","./requesttype":3,"./user":"user","buffer":69,"debug":"debug","eventemitter2":67,"net":"net","qtdatastream":119,"tls":"tls","util":117,"zlib":8}],"tls":[function(require,module,exports){
 (function (process,Buffer){
 var net = require('net');
 var util = require('util');
