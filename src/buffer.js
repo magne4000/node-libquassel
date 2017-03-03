@@ -83,7 +83,6 @@ class IRCBuffer {
   constructor(data) {
     this._name = null;
     this.isChannel = false;
-    this.update(data);
     /** @member {number} id */
     /** @member {boolean} isChannel */
     /**
@@ -99,6 +98,9 @@ class IRCBuffer {
      * @member {Map.<number, IRCMessage>}
      */
     this.messages = new Map();
+
+    this.update(data);
+
     /** @member {boolean} */
     this.isActive = false;
     /**

@@ -15,6 +15,8 @@ const logger = require('debug')('libquassel:network');
 const { util, types: qtypes } = require('qtdatastream');
 const { Exportable, exportas, usertype } = qtypes;
 
+import { traits } from 'traits-decorator';
+
 /**
  * @alias module:network.Network.ConnectionState
  * @readonly
@@ -83,87 +85,119 @@ class Server extends Exportable {
  * @augments EventEmitter
  * @param {number} id
  */
+@traits(Exportable)
+@usertype("NetworkInfo")
 class Network extends EventEmitter {
-  
+
   @exportas(qtypes.QUserType.get("NetworkId"), "NetworkId")
-  networkId;
-  
+  get networkId() {
+    return this.id;
+  }
+
+  set networkId(value) {
+    this.id = value;
+  }
+
   @exportas(qtypes.QString, "NetworkName")
-  networkName;
-  
+  get networkName() {
+    return this.name;
+  }
+
+  set networkName(value) {
+    this.name = value;
+  }
+
   @exportas(qtypes.QUserType.get("IdentityId"), "Identity")
   identityId;
-  
+
   @exportas(qtypes.QByteArray, "CodecForServer")
-  codecForServer;
-  
+  get codecForServer() {
+    return this._codecForServer;
+  }
+
+  set codecForServer(s) {
+    this._codecForServer = Buffer.isBuffer(s) ? util.str(s) : s;
+  }
+
   @exportas(qtypes.QByteArray, "CodecForEncoding")
-  codecForEncoding;
-  
+  get codecForEncoding() {
+    return this._codecForEncoding;
+  }
+
+  set codecForEncoding(s) {
+    this._codecForEncoding = Buffer.isBuffer(s) ? util.str(s) : s;
+  }
+
   @exportas(qtypes.QByteArray, "CodecForDecoding")
-  codecForDecoding;
-  
+  get codecForDecoding() {
+    return this._codecForDecoding;
+  }
+
+  set codecForDecoding(s) {
+    this._codecForDecoding = Buffer.isBuffer(s) ? util.str(s) : s;
+  }
+
   @exportas(qtypes.QList, "ServerList")
-  // TODO
-  
+  ServerList = [];
+
   @exportas(qtypes.QBool, "UseRandomServer")
-  useRandomServer;
-  
+  useRandomServer = false;
+
   @exportas(qtypes.QStringList, "Perform")
-  perform;
-  
+  perform = [];
+
   @exportas(qtypes.QBool, "UseAutoIdentify")
-  useAutoIdentify;
-  
+  useAutoIdentify = false;
+
   @exportas(qtypes.QString, "AutoIdentifyService")
-  autoIdentifyService;
-  
+  autoIdentifyService = "NickServ";
+
   @exportas(qtypes.QString, "AutoIdentifyPassword")
-  autoIdentifyPassword;
-  
+  autoIdentifyPassword = "";
+
   @exportas(qtypes.QBool, "UseSasl")
-  useSasl;
-  
+  useSasl = false;
+
   @exportas(qtypes.QString, "SaslAccount")
-  saslAccount;
-  
+  saslAccount = "";
+
   @exportas(qtypes.QString, "SaslPassword")
-  saslPassword;
-  
+  saslPassword = "";
+
   @exportas(qtypes.QBool, "UseAutoReconnect")
-  useAutoReconnect;
-  
+  useAutoReconnect = true;
+
   @exportas(qtypes.QUInt, "AutoReconnectInterval")
-  autoReconnectInterval;
-  
+  autoReconnectInterval = 60;
+
   @exportas(qtypes.QUInt, "AutoReconnectRetries")
-  autoReconnectRetries;
-  
+  autoReconnectRetries = 20;
+
   @exportas(qtypes.QBool, "UnlimitedReconnectRetries")
-  unlimitedReconnectRetries;
-  
+  unlimitedReconnectRetries = false;
+
   @exportas(qtypes.QBool, "RejoinChannels")
-  rejoinChannels;
-  
+  rejoinChannels = true;
+
   @exportas(qtypes.QBool, "UseCustomMessageRate")
-  useCustomMessageRate;
-  
+  useCustomMessageRate = false;
+
   @exportas(qtypes.QBool, "UnlimitedMessageRate")
-  unlimitedMessageRate;
-  
+  unlimitedMessageRate = false;
+
   @exportas(qtypes.QUInt, "MessageRateDelay")
-  msgRateMessageDelay;
-  
+  msgRateMessageDelay = 2200;
+
   @exportas(qtypes.QUInt, "MessageRateBurstSize")
-  msgRateBurstSize;
-  
-  constructor(id) {
+  msgRateBurstSize = 5;
+
+  constructor(id, name = null) {
     /** @member {number} id */
-    this.id = id;
+    this.id = typeof id === "number" ? id : -1;
     /** @member {module:buffer.IRCBufferCollection} buffers */
     this.buffers = new IRCBufferCollection();
     /** @member {Map.<String, module:user>} users */
-    this.users = new Map;
+    this.users = new Map; // TODO weakmap
     /** @member {boolean} open */
     this.open = false;
     /** @member {module:network.Network.ConnectionStates} connectionState */
@@ -175,11 +209,10 @@ class Network extends EventEmitter {
     /** @member {?module:buffer.IRCBuffer} statusBuffer */
     this.statusBuffer = null;
     /** @member {?string} networkName */
-    this.name = null;
+    this.name = name;
     /** @member {?string} nick */
     this.nick = null;
-    /** @member {Object[]} ServerList */
-    // TODO create class for ServerList element
+    /** @member {Server[]} ServerList */
     /** @member {?string} autoIdentifyPassword */
     /** @member {?string} autoIdentifyService */
     /** @member {number} autoReconnectInterval */
@@ -205,14 +238,6 @@ class Network extends EventEmitter {
     /** @member {boolean} unlimitedMessageRate */
     /** @member {number} messageRateDelay */
     /** @member {number} messageRateBurstSize */
-  }
-
-  set networkName(value) {
-    this.name = value;
-  }
-
-  get networkName() {
-    return this.name;
   }
 
   set myNick(value) {
@@ -326,27 +351,11 @@ class Network extends EventEmitter {
   }
 
   /**
-   * Set current codec for decoding messages
-   * @param {(Buffer|string)} s
+   * Returns `true` if a buffer exists with corresponding ID or name
+   * @param {(number|string)} bufferId
    */
-  set codecForDecoding(s) {
-    this._codecForDecoding = Buffer.isBuffer(s) ? util.str(s) : s;
-  }
-
-  /**
-   * Set current codec for encoding messages
-   * @param {(Buffer|string)} s
-   */
-  set codecForEncoding(s) {
-    this._codecForEncoding = Buffer.isBuffer(s) ? util.str(s) : s;
-  }
-
-  /**
-   * Set current codec used by the server
-   * @param {(Buffer|string)} s
-   */
-  set codecForServer(s) {
-    this._codecForServer = Buffer.isBuffer(s) ? util.str(s) : s;
+  hasBuffer(bufferId) {
+    return this.buffers.has(bufferId);
   }
 
   /**
@@ -387,59 +396,6 @@ class Network extends EventEmitter {
     }
   }
 }
-
-/**
- * Transform a given network object to an Object representation prepared for QDataStream injection
- * @param {Network} network
- * @returns {object}
- */
-// TODO Change that
-Network.toQ = function(network) {
-  var jServerList = [];
-  for (var i = 0; i < network.ServerList.length; i++) {
-    jServerList.push(new qtypes.QUserType("Network::Server", {
-      Host: qtypes.QString.from(network.ServerList[i].Host),
-      Port: qtypes.QUInt.from(network.ServerList[i].Port),
-      Password: qtypes.QString.from(network.ServerList[i].Password),
-      UseSSL: qtypes.QBool.from(network.ServerList[i].UseSSL),
-      sslVersion: qtypes.QInt.from(network.ServerList[i].sslVersion),
-      UseProxy: qtypes.QBool.from(network.ServerList[i].UseProxy),
-      ProxyType: qtypes.QInt.from(network.ServerList[i].ProxyType),
-      ProxyHost: qtypes.QString.from(network.ServerList[i].ProxyHost),
-      ProxyPort: qtypes.QUInt.from(network.ServerList[i].ProxyPort),
-      ProxyUser: qtypes.QString.from(network.ServerList[i].ProxyUser),
-      ProxyPass: qtypes.QString.from(network.ServerList[i].ProxyPass),
-      sslVerify: qtypes.QBool.from(network.ServerList[i].sslVerify)
-    }));
-  }
-  var jNetwork = {
-    NetworkId: new qtypes.QUserType("NetworkId", network.networkId),
-    NetworkName: qtypes.QString.from(network.networkName),
-    Identity: new qtypes.QUserType("IdentityId", network.identityId),
-    CodecForServer: qtypes.QByteArray.from(network.codecForServer),
-    CodecForEncoding: qtypes.QByteArray.from(network.codecForEncoding),
-    CodecForDecoding: qtypes.QByteArray.from(network.codecForDecoding),
-    ServerList: qtypes.QList.from(jServerList),
-    UseRandomServer: qtypes.QBool.from(network.useRandomServer),
-    Perform: qtypes.QStringList.from(network.perform),
-    UseAutoIdentify: qtypes.QBool.from(network.useAutoIdentify),
-    AutoIdentifyService: qtypes.QString.from(network.autoIdentifyService),
-    AutoIdentifyPassword: qtypes.QString.from(network.autoIdentifyPassword),
-    UseSasl: qtypes.QBool.from(network.useSasl),
-    SaslAccount: qtypes.QString.from(network.saslAccount),
-    SaslPassword: qtypes.QString.from(network.saslPassword),
-    UseAutoReconnect: qtypes.QBool.from(network.useAutoReconnect),
-    AutoReconnectInterval: qtypes.QUInt.from(network.autoReconnectInterval),
-    AutoReconnectRetries: qtypes.QUInt.from(network.autoReconnectRetries),
-    UnlimitedReconnectRetries: qtypes.QBool.from(network.unlimitedReconnectRetries),
-    RejoinChannels: qtypes.QBool.from(network.rejoinChannels),
-    UseCustomMessageRate: qtypes.QBool.from(network.useCustomMessageRate),
-    UnlimitedMessageRate: qtypes.QBool.from(network.unlimitedMessageRate),
-    MessageRateDelay: qtypes.QUInt.from(network.msgRateMessageDelay),
-    MessageRateBurstSize: qtypes.QUInt.from(network.msgRateBurstSize)
-  };
-  return new qtypes.QUserType("NetworkInfo", jNetwork);
-};
 
 /**
  * @class

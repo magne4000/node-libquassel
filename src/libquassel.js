@@ -8,20 +8,18 @@
 
 /** @module libquassel */
 
-// const zlib = require('zlib');
-const tls = require('tls');
+require('./usertypes'); // register usertypes first
 const { EventEmitter } = require('events');
 const { Types: RequestTypes } = require('./request');
-const { Network, NetworkCollection } = require('./network');
+const { NetworkCollection } = require('./network');
 const { IRCBuffer } = require('./buffer');
 const IRCUser = require('./user');
 const Identity = require('./identity');
+const { Core } = require('./request');
 const BufferView = require('./bufferview');
 const alias = require('./alias');
 const { Types: MessageTypes, HighlightModes } = require('./message');
 const ignore = require('./ignore');
-const qtdatastream = require('qtdatastream');
-const qtypes = qtdatastream.types;
 const logger = require('debug')('libquassel:main');
 
 /**
@@ -74,10 +72,8 @@ const Features = {
  */
 class Client extends EventEmitter {
   contructor(server, port, loginCallback, options) {
-    /** @member {?net.Socket} */
+    /** @member {?net.Duplex} */
     this.client = null;
-    /** @member {?qtdatastream.socket.Socket} */
-    this.qtsocket = null;
     /** @member {String} */
     this.server = server;
     /** @member {number} */
@@ -87,6 +83,8 @@ class Client extends EventEmitter {
     this.options.backloglimit = parseInt(options.backloglimit || 100, 10);
     this.options.initialbackloglimit = parseInt(options.initialbackloglimit || this.options.backloglimit, 10);
     this.options.highlightmode = (typeof options.highlightmode === 'number') ? options.highlightmode : HighlightModes.CurrentNick;
+    /** @member {?module:request.Request} */
+    this.core = new Core(this.options);
     /** @member {module:network.NetworkCollection} */
     this.networks = new NetworkCollection();
     /** @member {Map.<number, module:identity>} */
@@ -116,7 +114,7 @@ class Client extends EventEmitter {
       throw new Error("loginCallback parameter is mandatory and must be a function");
     }
 
-    this.init();
+    this.core.on('data', data => this.dispatch(data));
   }
 
   /**
@@ -179,14 +177,15 @@ class Client extends EventEmitter {
     for (let networkId of obj.SessionState.NetworkIds) {
       // Save network list
       this.networks.add(networkId);
-      this.sendInitRequest("Network", String(networkId));
+      this.core.sendInitRequest("Network", String(networkId));
     }
     // Attach buffers to network
     for (let bufferInfo of obj.SessionState.BufferInfos) {
       const ircbuffer = new IRCBuffer(bufferInfo);
       this.networks.get(ircbuffer.network).getBufferCollection().addBuffer(ircbuffer);
       if (ircbuffer.isChannel) {
-        this.sendInitRequest("IrcChannel", `${ircbuffer.network}/${ircbuffer.name}`);
+        // FIXME
+        this.core.sendInitRequest("IrcChannel", `${ircbuffer.network}/${ircbuffer.name}`);
       }
       this.emit("network.addbuffer", ircbuffer.network, bufferInfo.id);
     }
@@ -196,10 +195,11 @@ class Client extends EventEmitter {
     }
     this.emit('init', obj);
     this.emit('identities.init', this.identities);
-    this.sendInitRequest("BufferSyncer", "");
-    this.sendInitRequest("BufferViewManager", "");
-    this.sendInitRequest("IgnoreListManager", "");
-    this.sendInitRequest("AliasManager", "");
+    // FIXME
+    this.core.sendInitRequest("BufferSyncer", "");
+    this.core.sendInitRequest("BufferViewManager", "");
+    this.core.sendInitRequest("IgnoreListManager", "");
+    this.core.sendInitRequest("AliasManager", "");
     if (this.options.initialbackloglimit > 0) {
       // TODO trigger this on some event instead
       setTimeout(function(){
@@ -220,44 +220,6 @@ class Client extends EventEmitter {
    */
   supports(feature) {
     return (this.coreInfo.CoreFeatures & feature) > 0;
-  }
-
-  /**
-   * Handles heartbeat
-   * @param {boolean} reply - is this a heartbeat reply
-   * @protected
-   */
-  heartBeat(reply) {
-    const d = new Date();
-    const secs = d.getSeconds() + (60 * d.getMinutes()) + (60 * 60 * d.getHours());
-    const slist = [
-      reply ? RequestType.HEARTBEAT : RequestType.HEARTBEATREPLY,
-      qtypes.QTime.from(secs)
-    ];
-    logger('Sending heartbeat');
-    this.qtsocket.write(slist);
-  }
-
-  /**
-   * Create a {@link module:buffer.IRCBuffer} with given name on specified network
-   * @param {number} networkId
-   * @param {String} name
-   * @param {number} [bufferId]
-   * @fires module:libquassel~Quassel#event:"network.addbuffer"
-   * @returns {number}
-   */
-  createBuffer(networkId, name, bufferId = -1) {
-    let buffer;
-    bufferId = bufferId || -1;
-    networkId = parseInt(networkId, 10);
-    if (name === null) {
-      // Assuming that only StatusBuffer have null name
-      buffer = new IRCBuffer(bufferId, {type : IRCBuffer.Types.StatusBuffer, network: networkId});
-    } else {
-      buffer = new IRCBuffer(bufferId, {name: name, network: networkId, type: IRCBuffer.Types.ChannelBuffer});
-    }
-    this.networks.get(networkId).buffers.add(buffer);
-    this.emit("network.addbuffer", networkId, bufferId);
   }
 
   /**
@@ -470,7 +432,7 @@ class Client extends EventEmitter {
       case "2networkCreated(NetworkId)":
         // data[0] is networkId
         this.networks.add(data[0]);
-        this.sendInitRequest("Network", String(data[0]));
+        this.core.sendInitRequest("Network", String(data[0]));
         this.emit("network.new", data[0]);
         break;
       case "2networkRemoved(NetworkId)":
@@ -494,111 +456,105 @@ class Client extends EventEmitter {
     }
   }
 
-  handleStructInitData(className, id, data) {
-    // TODO
+  handleStructInitData(className, id, [ data ]) {
     switch(className) {
       case "Network":
-          network = self.handleInitDataNetwork(obj);
-          var syncRequest = [
-              qtypes.QUInt.from(RequestType.Sync),
-              qtypes.QString.from("BufferSyncer"),
-              qtypes.QString.from(""),
-              qtypes.QString.from("requestPurgeBufferIds")
-          ];
-          self.qtsocket.write(syncRequest);
-          self.emit("network.init", network.networkId);
-          break;
+        const network = this.handleInitDataNetwork(data);
+        this.emit("network.init", network.networkId);
+        break;
       case "BufferSyncer":
-          var markerLinesData = obj[3]["MarkerLines"];
-          var lastSeenData = obj[3]["LastSeenMsg"];
-          if (lastSeenData !== null) {
-              for (i=0; i<lastSeenData.length; i+=2) {
-                  bufferId = lastSeenData[i];
-                  messageId = lastSeenData[i+1];
-                  buffer = self.networks.findBuffer(bufferId);
-                  if (buffer !== null) {
-                      self.emit('buffer.lastseen', bufferId, messageId);
-                  } else {
-                      logger("Buffer #%d does not exists", bufferId);
-                  }
-              }
-          } else {
-              logger("Received null LastSeenMsg");
-          }
-          if (markerLinesData !== null) {
-              for (i=0; i<markerLinesData.length; i+=2) {
-                  bufferId = markerLinesData[i];
-                  messageId = markerLinesData[i+1];
-                  buffer = self.networks.findBuffer(bufferId);
-                  if (buffer !== null) {
-                      self.emit('buffer.markerline', bufferId, messageId);
-                  } else {
-                      logger("Buffer #%d does not exists", bufferId);
-                  }
-              }
-          } else {
-              logger("Received null markerLines");
-          }
-          break;
+        this.handleStructInitDataBufferSyncer(data);
+        break;
       case "IrcUser":
-          tmp = splitOnce(obj[2], "/");
-          data = obj[3];
-          networkId = parseInt(tmp[0], 10);
-          user = self.networks.get(networkId).getUserByNick(tmp[1]);
-          if (user !== null) {
-              user.devour(data);
-              self.emit('network.adduser', networkId, tmp[1]);
-          }
-          break;
+        this.handleStructInitDataIrcUser(id, data);
+        break;
       case "IrcChannel":
-          tmp = splitOnce(obj[2], "/");
-          data = obj[3];
-          bufferNetworkId = parseInt(tmp[0], 10);
-          bufferName = tmp[1];
-          buffer = self.networks.get(bufferNetworkId).getBufferCollection().getBuffer(bufferName);
-          buffer.topic = data.topic;
-          buffer.setActive(true);
-          self.emit('channel.topic', bufferNetworkId, bufferName, data.topic);
-          self.emit('buffer.activate', buffer.id);
-          break;
+        this.handleStructInitDataIrcChannel(id, data);
+        break;
       case "BufferViewManager":
-          data = obj[3]["BufferViewIds"];
-          for (ind in data) {
-              self.sendInitRequest("BufferViewConfig", ""+data[ind]);
-          }
-          self.emit('bufferview.ids', data);
-          break;
+        const { BufferViewIds: bufferViewIds } = data;
+        for (let bufferViewId of bufferViewIds) {
+          this.core.sendInitRequest("BufferViewConfig", bufferViewId);
+        }
+        this.emit('bufferview.ids', bufferViewIds);
+        break;
       case "BufferViewConfig":
-          bufferViewId = parseInt(obj[2], 10);
-          data = obj[3];
-          this.bufferViews.set(bufferViewId, new BufferView(bufferViewId, data));
-          for (ind in data.TemporarilyRemovedBuffers) {
-              self.emit('bufferview.bufferhidden', bufferViewId, data.TemporarilyRemovedBuffers[ind], "temp");
-          }
-          for (ind in data.RemovedBuffers) {
-              self.emit('bufferview.bufferhidden', bufferViewId, data.RemovedBuffers[ind], "perm");
-          }
-          self.emit('bufferview.orderchanged', bufferViewId);
-          self.emit('bufferview.init', bufferViewId);
-          break;
+        this.handleStructInitDataBufferViewConfig(id, data);
+        break;
       case "IgnoreListManager":
-          data = obj[3];
-          self.ignoreList.import(data);
-          self.emit('ignorelist', self.ignoreList);
-          break;
+        this.ignoreList.import(data);
+        this.emit('ignorelist', this.ignoreList);
+        break;
       case "AliasManager":
-          data = obj[3];
-          self.aliases = alias.toArray(data);
-          self.emit('aliases', self.aliases);
-          break;
+        this.aliases = alias.toArray(data);
+        this.emit('aliases', this.aliases);
+        break;
       case "CoreInfo":
-          data = obj[3];
-          self.coreData = data;
-          self.emit('coreinfo', data);
-          break;
+        this.coreData = data;
+        this.emit('coreinfo', data);
+        break;
       default:
-          logger('Unhandled InitData %s', className);
+        logger('Unhandled InitData %s', className);
     }
+  }
+
+  handleStructInitDataBufferSyncer(data) {
+    const { MarkerLines: markerLinesData, LastSeenMsg: lastSeenData } = data;
+    if (lastSeenData) {
+      for (let i=0; i<lastSeenData.length; i+=2) {
+        let bufferId = lastSeenData[i];
+        let messageId = lastSeenData[i+1];
+        if (this.networks.hasBuffer(bufferId)) {
+          this.emit('buffer.lastseen', bufferId, messageId);
+        } else {
+          logger("Buffer #%d does not exists", bufferId);
+        }
+      }
+    }
+    if (markerLinesData) {
+      for (let i=0; i<markerLinesData.length; i+=2) {
+        let bufferId = markerLinesData[i];
+        let messageId = markerLinesData[i+1];
+        if (this.networks.hasBuffer(bufferId)) {
+          this.emit('buffer.markerline', bufferId, messageId);
+        } else {
+          logger("Buffer #%d does not exists", bufferId);
+        }
+      }
+    }
+  }
+
+  handleStructInitDataIrcChannel(id, data) {
+    const [ networkId, bufferName ] = splitOnce(id, "/");
+    networkId = parseInt(networkId, 10);
+    const buffer = this.networks.get(networkId).buffers.get(bufferName);
+    buffer.topic = data.topic;
+    buffer.isActive = true;
+    this.emit('channel.topic', networkId, bufferName, data.topic);
+    this.emit('buffer.activate', buffer.id);
+  }
+
+  handleStructInitDataIrcUser(id, data) {
+    const [ networkId, nick ] = splitOnce(id, "/");
+    networkId = parseInt(networkId, 10);
+    const user = this.networks.get(networkId).getUser(nick);
+    if (user) {
+      user.update(data);
+      this.emit('network.adduser', networkId, nick);
+    }
+  }
+
+  handleStructInitDataBufferViewConfig(id, data) {
+    id = parseInt(id, 10);
+    this.bufferViews.set(id, new BufferView(id, data));
+    for (let temporarilyRemovedBuffer in data.TemporarilyRemovedBuffers) {
+      this.emit('bufferview.bufferhidden', id, temporarilyRemovedBuffer, "temp");
+    }
+    for (let removedBuffer in data.RemovedBuffers) {
+      this.emit('bufferview.bufferhidden', id, removedBuffer, "perm");
+    }
+    this.emit('bufferview.orderchanged', id);
+    this.emit('bufferview.init', id);
   }
 
   handleStructSyncNetwork(id, functionName, [ data ]) {
@@ -611,13 +567,13 @@ class Client extends EventEmitter {
       case "addIrcUser":
         network.addUser(new IRCUser(data));
         const [ nick ] = data.split("!");
-        this.sendInitRequest("IrcUser",  `${id}/${nick}`);
+        this.core.sendInitRequest("IrcUser",  `${id}/${nick}`);
         break;
       case "addIrcChannel":
         if (network.buffers.has(data)) {
           this.emit('network.addbuffer', id, network.buffers.get(data).id);
         }
-        this.sendInitRequest("IrcChannel", `${id}/${data}`);
+        this.core.sendInitRequest("IrcChannel", `${id}/${data}`);
         break;
       case "setConnectionState":
         network.connectionState = data;
@@ -770,7 +726,7 @@ class Client extends EventEmitter {
     switch(functionName) {
       case "addBufferViewConfig":
         // data is a bufferViewId
-        this.sendInitRequest("BufferViewConfig", String(data));
+        this.core.sendInitRequest("BufferViewConfig", String(data));
         break;
       default:
         logger('Unhandled Sync.BufferViewManager %s', functionName);
@@ -1011,8 +967,54 @@ class Client extends EventEmitter {
         logger('Unhandled Sync.AliasManager %s', functionName);
     }
   }
-}
 
+  /**
+   * Sends a request to quasselcore to fetch initial backlogs for all buffers
+   * @param {number} limit
+   */
+  backlogs(limit){
+    for (let network of this.networks) {
+      for (let buffer of network.buffers) {
+        this.core.backlog(buffer.id, -1, -1, limit);
+      }
+    }
+  }
+
+  /**
+   * Setup core
+   * @param {String} backend
+   * @param {String} adminuser
+   * @param {String} adminpassword
+   * @param {Object} [properties]
+   */
+  setupCore(backend, adminuser, adminpassword, properties = {}) {
+    this.core.setupCore(backend, adminuser, adminpassword, this.useSSL, properties);
+  }
+
+  /**
+   * Login to core
+   */
+  login() {
+    this.loginCallback((user, password) => this.core.login(user, password));
+  }
+
+  /**
+   * Connect to the core
+   * @param {net.Duplex} duplex
+   */
+  connect(duplex) {
+    this.core.init(duplex);
+    this.core.connect();
+  }
+
+  /**
+   * Disconnect the client from the core
+   */
+  disconnect() {
+    clearInterval(this.heartbeatInterval);
+    this.core.disconnect();
+  }
+}
 
 /**
  * This event is fired when quasselcore information are received
@@ -1496,411 +1498,12 @@ class Client extends EventEmitter {
  * @protected
  */
 
-
-/**
- * Sends a request to quasselcore to fetch initial backlogs for all buffers
- * @param {number} limit
- */
-Quassel.prototype.requestBacklogs = function(limit){
-    var self = this;
-    this.networks.hm.forEach(function(network){
-        var buffers = network.getBufferMap();
-        buffers.forEach(function(value) {
-            self.requestBacklog(value.id, -1, -1, limit);
-        });
-    });
-};
-
-/**
- * Sends an initialization request to quasselcore for specified `classname` and `objectname`
- * @param {String} classname
- * @param {String} objectname
- * @example
- * self.sendInitRequest("IrcUser", "1/randomuser");
- */
-Quassel.prototype.sendInitRequest = function(classname, objectname) {
-    var initRequest = [
-        qtypes.QUInt.from(RequestType.InitRequest),
-        qtypes.QString.from(classname),
-        qtypes.QString.from(objectname)
-    ];
-    this.qtsocket.write(initRequest);
-};
-
-/**
- * Sends client information to quasselcore
- * @param {boolean} useSSL
- * @param {boolean} useCompression - Not supported
- * @protected
- */
-Quassel.prototype.sendClientInfo = function(useSSL, useCompression){
-    var smap = {
-      // FIXME
-        "ClientDate": "Apr 14 2014 17:18:30",
-        "UseSsl": useSSL,
-      // FIXME
-        "ClientVersion": "JS libquassel v1.0",
-        "UseCompression": useCompression,
-        "MsgType": "ClientInit",
-        "ProtocolVersion": 10
-    };
-    logger('Sending client informations');
-    this.qtsocket.write(smap);
-};
-
-/**
- * Initialize connection settings
- * @fires module:libquassel~Quassel#event:"error"
- * @protected
- */
-Quassel.prototype.init = function() {
-    var self = this;
-    this.client = net.Socket();
-
-    // Handle magic number response
-    this.client.once('data', function(data) {
-        var ret = data.readUInt32BE(0);
-        if (((ret >> 24) & 0x01) > 0) {
-            self.useSSL = true;
-            logger('Using SSL');
-        }
-
-        if (((ret >> 24) & 0x02) > 0) {
-            self.useCompression = true;
-            logger('Using compression');
-        }
-
-
-        // if (self.useCompression) {
-        //     // Not working, don't know why yet
-        //     self.qtsocket = new qtdatastream.socket.Socket(self.client, function(buffer, next) {
-        //         zlib.inflate(buffer, next);
-        //     }, function(buffer, next) {
-        //         var deflate = zlib.createDeflate({flush: zlib.Z_SYNC_FLUSH}), buffers = [];
-        //         deflate.on('data', function(chunk) {
-        //             buffers.push(chunk);
-        //         });
-
-        //         deflate.on('end', function() {
-        //             logger(buffers);
-        //             next(null, Buffer.concat(buffers));
-        //         });
-
-        //         deflate.end(buffer);
-        //     });
-        // } else {
-        self.qtsocket = new qtdatastream.socket.Socket(self.client);
-        // }
-
-        // bind events on qtsocket
-        self.qtsocket.on('data', function(data) {
-            self.dispatch(data);
-        })
-        .on('close', function() {
-            logger('Connection closed');
-        })
-        .on('end', function() {
-            logger('END');
-        })
-        .on('error', function(e) {
-            console.log('ERROR', e);
-            self.emit('error', e);
-        });
-
-        self.sendClientInfo(self.useSSL, self.useCompression);
-    });
-
-    this.client.on('error', function(e) {
-        logger('ERROR', e);
-        self.emit('error', e);
-    });
-};
-
-/**
- * Setup core
- * @param {String} backend
- * @param {String} adminuser
- * @param {String} adminpassword
- * @param {Object} [properties]
- */
-Quassel.prototype.setupCore = function(backend, adminuser, adminpassword, properties) {
-    var self = this;
-
-    properties = properties || {};
-    var obj = {
-        SetupData: {
-            ConnectionProperties: properties,
-            Backend: backend,
-            AdminUser: adminuser,
-            AdminPasswd: adminpassword
-        },
-        MsgType: 'CoreSetupData'
-    };
-
-    if (self.useSSL) {
-        var secureContext = tls.createSecureContext({
-          secureProtocol: 'TLSv1_2_client_method'
-        });
-        var secureStream = tls.connect(null, {
-            socket: self.qtsocket.socket,
-            rejectUnauthorized: false,
-            secureContext: secureContext
-        });
-        self.qtsocket.updateSocket(secureStream);
-    }
-
-    this.qtsocket.write(obj);
-};
-
-/**
- * Login to quasselcore
- */
-Quassel.prototype.login = function() {
-    var self = this;
-    if (self.useSSL) {
-        var secureContext = tls.createSecureContext({
-          secureProtocol: 'TLSv1_2_client_method'
-        });
-        var secureStream = tls.connect(null, {
-            socket: self.qtsocket.socket,
-            rejectUnauthorized: false,
-            secureContext: secureContext
-        });
-        self.qtsocket.updateSocket(secureStream);
-    }
-
-    self.loginCallback(function(user, password) {
-        var obj = {
-            "MsgType": "ClientLogin",
-            "User": user,
-            "Password": password
-        };
-        self.qtsocket.write(obj);
-    });
-};
-
-/**
- * Initialize the connection
- * @example
- * var quassel = new Quassel(...);
- * quassel.connect();
- */
-Quassel.prototype.connect = function() {
-    var self = this;
-    var magic = 0x42b33f00;
-    // magic | 0x01 Encryption
-    // magic | 0x02 Compression
-    if (self.options.securecore) {
-        magic = magic | 0x01;
-    }
-
-    if (this.connected !== null) {
-        this.init();
-    }
-
-    this.client.connect(this.port, this.server, function(){
-        var bufs = [
-            qtypes.QUInt.from(magic).toBuffer(),
-            qtypes.QUInt.from(0x01).toBuffer(),
-            qtypes.QUInt.from(0x01 << 31).toBuffer()
-        ];
-        self.client.write(Buffer.concat(bufs));
-        self.connected = true;
-    });
-};
-
-/**
- * Disconnect the client from the core
- */
-Quassel.prototype.disconnect = function() {
-    clearInterval(this.heartbeatInterval);
-    this.client.end();
-    this.client.destroy();
-    this.connected = false;
-};
-
-/**
- * Core RPC request - Create a {@link module:network.Network}
- * @param {String} networkName
- * @param {number} identityId
- * @param {(String|Object)} initialServer - Server hostname or IP, or full Network::Server Object. Can also be undefined if options.ServerList is defined.
- * @param {String} [initialServer.Host=initialServer]
- * @param {String} [initialServer.Port="6667"]
- * @param {String} [initialServer.Password=""]
- * @param {boolean} [initialServer.UseSSL=true]
- * @param {number} [initialServer.sslVersion=0]
- * @param {boolean} [initialServer.UseProxy=false]
- * @param {number} [initialServer.ProxyType=0]
- * @param {String} [initialServer.ProxyHost=""]
- * @param {String} [initialServer.ProxyPort=""]
- * @param {String} [initialServer.ProxyUser=""]
- * @param {String} [initialServer.ProxyPass=""]
- * @param {Object} [options]
- * @param {String} [options.codecForServer=""]
- * @param {String} [options.codecForEncoding=""]
- * @param {String} [options.codecForDecoding=""]
- * @param {boolean} [options.useRandomServer=false]
- * @param {String[]} [options.perform=[]]
- * @param {Object[]} [options.ServerList=[]]
- * @param {boolean} [options.useAutoIdentify=false]
- * @param {String} [options.autoIdentifyService="NickServ"]
- * @param {String} [options.autoIdentifyPassword=""]
- * @param {boolean} [options.useSasl=false]
- * @param {String} [options.saslAccount=""]
- * @param {String} [options.saslPassword=""]
- * @param {boolean} [options.useAutoReconnect=true]
- * @param {number} [options.autoReconnectInterval=60]
- * @param {number} [options.autoReconnectRetries=20]
- * @param {boolean} [options.unlimitedReconnectRetries=false]
- * @param {boolean} [options.rejoinChannels=true]
- * @param {boolean} [options.useCustomMessageRate=false]
- * @param {boolean} [options.unlimitedMessageRate=false]
- * @param {number} [options.msgRateMessageDelay=2200]
- * @param {number} [options.msgRateBurstSize=5]
- */
-Quassel.prototype.createNetwork = function(networkName, identityId, initialServer, options) {
-    options = options || {};
-    if (typeof initialServer === "string") {
-        initialServer = {
-            host: initialServer
-        };
-    }
-    var serverList = [];
-    if (options.ServerList && options.ServerList.length > 0) {
-        for (var i=0; i<options.ServerList.length; i++) {
-            serverList.push(new qtypes.QUserType("Network::Server", _serverListDefaults(options.ServerList[i])));
-        }
-    } else {
-        serverList = [new qtypes.QUserType("Network::Server", _serverListDefaults(initialServer))];
-    }
-    var slit = [
-        qtypes.QInt.from(RequestType.RpcCall),
-        "2createNetwork(NetworkInfo,QStringList)",
-        new qtypes.QUserType("NetworkInfo", {
-            NetworkId: new qtypes.QUserType("NetworkId", -1),
-            NetworkName: networkName,
-            Identity: new qtypes.QUserType("IdentityId", identityId),
-            // useCustomEncodings: false,
-            CodecForServer: qtypes.QByteArray.from(options.codecForServer || ""),
-            CodecForEncoding: qtypes.QByteArray.from(options.codecForEncoding || ""),
-            CodecForDecoding: qtypes.QByteArray.from(options.codecForDecoding || ""),
-            ServerList: serverList,
-            UseRandomServer: options.useRandomServer || false,
-            Perform: options.perform || [],
-            UseAutoIdentify: options.useAutoIdentify || false,
-            AutoIdentifyService: options.autoIdentifyService || "NickServ",
-            AutoIdentifyPassword: options.autoIdentifyPassword || "",
-            UseSasl: options.useSasl || false,
-            SaslAccount: options.saslAccount || "",
-            SaslPassword: options.saslPassword || "",
-            UseAutoReconnect: options.useAutoReconnect || true,
-            AutoReconnectInterval: options.autoReconnectInterval || 60,
-            AutoReconnectRetries: options.autoReconnectRetries || 20,
-            UnlimitedReconnectRetries: options.unlimitedReconnectRetries || false,
-            RejoinChannels: options.rejoinChannels || true,
-            UseCustomMessageRate: options.useCustomMessageRate || false,
-            UnlimitedMessageRate: options.unlimitedMessageRate || false,
-            MessageRateDelay: options.msgRateMessageDelay || 2200,
-            MessageRateBurstSize: options.msgRateBurstSize || 5
-        }),
-        qtypes.QStringList.from([])
-    ];
-    logger('Creating network');
-    this.qtsocket.write(slit);
-};
-
-/**
- * Qt UserType
- * @typedef UserType
- */
-
-/**
- * @typedef {UserType} UserType&lt;NetworkId&gt;
- * @property {INT} this
- */
-qtypes.QUserType.register("NetworkId", qtypes.Types.INT);
-
-/**
- * @typedef {UserType} UserType&lt;IdentityId&gt;
- * @property {INT} this
- */
-qtypes.QUserType.register("IdentityId", qtypes.Types.INT);
-
-/**
- * @typedef {UserType} UserType&lt;BufferId&gt;
- * @property {INT} this
- */
-qtypes.QUserType.register("BufferId", qtypes.Types.INT);
-
-/**
- * @typedef {UserType} UserType&lt;MsgId&gt;
- * @property {INT} this
- */
-qtypes.QUserType.register("MsgId", qtypes.Types.INT);
-
-/**
- * @typedef {UserType} UserType&lt;Identity&gt;
- * @property {MAP} this
- */
-qtypes.QUserType.register("Identity", qtypes.Types.MAP);
-
-/**
- * @typedef {UserType} UserType&lt;NetworkInfo&gt;
- * @property {MAP} this
- */
-qtypes.QUserType.register("NetworkInfo", qtypes.Types.MAP);
-
-/**
- * @typedef {UserType} UserType&lt;Network::Server&gt;
- * @property {MAP} this
- */
-qtypes.QUserType.register("Network::Server", qtypes.Types.MAP);
-
-/**
- * @typedef {UserType} UserType&lt;NetworkId&gt;
- * @property {INT} this
- */
-qtypes.QUserType.register("NetworkId", qtypes.Types.INT);
-
-/**
- * @typedef {UserType} UserType&lt;BufferInfo&gt;
- * @property {INT} id
- * @property {INT} network
- * @property {SHORT} type
- * @property {UINT} group
- * @property {BYTEARRAY} name
- */
-qtypes.QUserType.register("BufferInfo", [
-    {id: qtypes.Types.INT},
-    {network: qtypes.Types.INT},
-    {type: qtypes.Types.SHORT},
-    {group: qtypes.Types.UINT},
-    {name: qtypes.Types.BYTEARRAY}
-]);
-
-/**
- * @typedef {UserType} UserType&lt;Message&gt;
- * @property {INT} id
- * @property {UINT} timestamp
- * @property {UINT} type
- * @property {BOOL} flags
- * @property {UserType<BufferInfo>} bufferInfo
- * @property {BYTEARRAY} sender
- * @property {BYTEARRAY} content
- */
-qtypes.QUserType.register("Message", [
-    {id: qtypes.Types.INT},
-    {timestamp: qtypes.Types.UINT},
-    {type: qtypes.Types.UINT},
-    {flags: qtypes.Types.BOOL},
-    {bufferInfo: "BufferInfo"},
-    {sender: qtypes.Types.BYTEARRAY},
-    {content: qtypes.Types.BYTEARRAY}
-]);
-
 function splitOnce(str, character) {
-    var i = str.indexOf(character);
-    return [str.slice(0,i), str.slice(i+1)];
+  const i = str.indexOf(character);
+  return [ str.slice(0,i), str.slice(i+1) ];
 }
 
-module.exports = Quassel;
+module.exports = {
+  Features,
+  Client
+};

@@ -15,11 +15,12 @@
  * @param {Object} data
  */
 class BufferView {
-  contructor (data) {
+  contructor (id, data) {
+    /** @member {number} id */
+    this.id = id;
     if (data) {
       this.update(data);
     }
-    /** @member {number} id */
     /** @member {boolean} sortAlphabetically */
     /** @member {number} showSearch */
     /** @member {number} networkId */

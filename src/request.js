@@ -8,7 +8,10 @@
 
 /** @module request */
 
-const { types: qtypes } = require('qtdatastream');
+const { EventEmitter } = require('events');
+const { types: qtypes, socket } = require('qtdatastream');
+const { Network, Server } = require('./network');
+const logger = require('debug')('libquassel:request');
 
 /**
  * @readonly
@@ -25,54 +28,125 @@ const Types = {
   HEARTBEATREPLY: 0x06
 };
 
-buildSyncRequest(className, functionName, ...datatypes) {
+function sync(className, functionName, ...datatypes) {
   const qsync = qtypes.QInt.from(Types.SYNC);
   const qclassName = qtypes.QByteArray.from(className);
   const qfunctionName = qtypes.QByteArray.from(functionName);
-  return (id, ...data) => {
-    return [
-      qsync,
-      qclassName,
-      qtypes.QByteArray.from(id),
-      qfunctionName,
-      ...data.map((value, index) => datatypes[index].from(value))
-    ];
-  }
+  return function(target, key, descriptor) {
+    return {
+      enumerable: false,
+      configurable: false,
+      writable: false,
+      value: function([ id, ...data ]) {
+        target.qtsocket.write([
+          qsync,
+          qclassName,
+          qtypes.QByteArray.from(id),
+          qfunctionName,
+          ...data.map((value, index) => datatypes[index].from(value))
+        ]);
+      }
+    };
+  };
 }
 
-buildRpcRequest(functionName, ...datatypes) {
+function rpc(functionName, ...datatypes) {
   const qrpc = qtypes.QInt.from(Types.RPCCALL);
   const qfunctionName = qtypes.QByteArray.from(`2${functionName}`);
-  return (...data) => {
-    return [
-      qrpc,
-      qfunctionName,
-      ...data.map((value, index) => datatypes[index].from(value))
-    ];
-  }
+  return function(target, key, descriptor) {
+    return {
+      enumerable: false,
+      configurable: false,
+      writable: false,
+      value: function(...args) {
+        target.qtsocket.write([
+          qrpc,
+          qfunctionName,
+          ...args.map((value, index) => datatypes[index].from(value))
+        ]);
+      }
+    };
+  };
 }
 
-class Request {
+class Core extends EventEmitter {
   constructor(options) {
     this.options = options;
-    // this.requests = {
-    //   backlog: syncRequestBuilder(
-    //     "BacklogManager",
-    //     "requestBacklog",
-    //     qtypes.QUserType.get("BufferId"),
-    //     qtypes.QUserType.get("MsgId"),
-    //     qtypes.QUserType.get("MsgId"),
-    //     qtypes.QInt,
-    //     qtypes.QInt
-    //   ),
-    //   connectNetwork: buildSyncRequest("Network", "requestConnect"),
-    //   disconnectNetwork: buildSyncRequest("Network", "requestDisconnect"),
-    //   markBufferAsRead: buildSyncRequest("BufferSyncer", "requestMarkBufferAsRead", qtypes.QUserType.get("BufferId")),
-    //   setLastMsgRead: buildSyncRequest("BufferSyncer", "requestSetLastSeenMsg", qtypes.QUserType.get("BufferId"), qtypes.QUserType.get("MsgId")),
-    //   setMarkerLine: buildSyncRequest("BufferSyncer", "requestSetMarkerLine", qtypes.QUserType.get("BufferId"), qtypes.QUserType.get("MsgId")),
-    //   removeBuffer: buildSyncRequest("BufferSyncer", "requestRemoveBuffer", qtypes.QUserType.get("BufferId")),
+    this.useSSL = false;
+    this.useCompression = false;
+    this.qtsocket = null;
+    this.duplex = null;
+  }
 
-    // }
+  // Handle magic number response
+  init(duplex) {
+    this.duplex = duplex;
+    this.duplex.once('data', data => {
+      const ret = data.readUInt32BE(0);
+      if (((ret >> 24) & 0x01) > 0) {
+        this.useSSL = true;
+        logger('Using SSL');
+      }
+
+      if (((ret >> 24) & 0x02) > 0) {
+        this.useCompression = true;
+        logger('Using compression');
+      }
+
+
+      // if (self.useCompression) {
+      //   const zlib = require('zlib');
+      //     // Not working, don't know why yet
+      //     self.qtsocket = new qtdatastream.socket.Socket(self.client, function(buffer, next) {
+      //         zlib.inflate(buffer, next);
+      //     }, function(buffer, next) {
+      //         var deflate = zlib.createDeflate({flush: zlib.Z_SYNC_FLUSH}), buffers = [];
+      //         deflate.on('data', function(chunk) {
+      //             buffers.push(chunk);
+      //         });
+
+      //         deflate.on('end', function() {
+      //             logger(buffers);
+      //             next(null, Buffer.concat(buffers));
+      //         });
+
+      //         deflate.end(buffer);
+      //     });
+      // } else {
+      this.qtsocket = new socket.Socket(duplex);
+      // }
+
+      this.qtsocket.on('data', data => this.emit(data))
+      .on('close', () => logger('Connection closed'))
+      .on('end', () => logger('END'))
+      .on('error', (e) => {
+        console.log('ERROR', e);
+        this.emit('error', e);
+      });
+
+      this.sendClientInfo(this.useSSL, this.useCompression);
+    });
+
+    this.duplex.on('error', (e) => {
+      logger('ERROR', e);
+      this.emit('error', e);
+    });
+  }
+
+  /**
+   * Handles heartbeat
+   * @param {boolean} reply - is this a heartbeat reply
+   * @protected
+   */
+  heartBeat(reply) {
+    const d = new Date();
+    const secs = d.getSeconds() + (60 * d.getMinutes()) + (60 * 60 * d.getHours());
+    const slist = [
+      reply ? Types.HEARTBEAT : Types.HEARTBEATREPLY,
+      qtypes.QTime.from(secs)
+    ];
+    logger('Sending heartbeat');
+    this.qtsocket.write(slist);
   }
 
   /**
@@ -91,11 +165,10 @@ class Request {
     qtypes.QInt,
     qtypes.QInt
   )
-  backlog(build, bufferId, firstMsgId = -1, lastMsgId = -1, maxAmount = undefined) {
+  backlog(bufferId, firstMsgId = -1, lastMsgId = -1, maxAmount = undefined) {
     maxAmount = maxAmount || this.options.backloglimit;
-    const slist = build("", bufferId, firstMsgId, lastMsgId, maxAmount, 0);
     logger('Sending backlog request');
-    this.qtsocket.write(slist);
+    return [ "", bufferId, firstMsgId, lastMsgId, maxAmount, 0 ];
   }
 
   /**
@@ -103,10 +176,9 @@ class Request {
    * @param {number} networkId
    */
   @sync("Network", "requestConnect")
-  connectNetwork(build, networkId) {
-    const slist = build(networkId);
+  connectNetwork(networkId) {
     logger('Sending connection request');
-    this.qtsocket.write(slist);
+    return [ networkId ];
   }
 
   /**
@@ -114,10 +186,9 @@ class Request {
    * @param {number} networkId
    */
   @sync("Network", "requestDisconnect")
-  disconnectNetwork(build, networkId) {
-    const slist = build(networkId);
+  disconnectNetwork(networkId) {
     logger('Sending disconnection request');
-    this.qtsocket.write(slist);
+    return [ networkId ];
   }
 
   /**
@@ -126,11 +197,9 @@ class Request {
    * @param {object} network
    */
   @sync("Network", "requestSetNetworkInfo", qtypes.QMap)
-  setNetworkInfo(build, networkId, network) {
-    // FIXME
-    const slist = build(networkId, Network.toQ(network));
+  setNetworkInfo(networkId, network) {
     logger('Sending update request (Network)');
-    this.qtsocket.write(slist);
+    return [ networkId, network ];
   }
 
   /**
@@ -138,10 +207,9 @@ class Request {
    * @param {number} bufferId
    */
   @sync("BufferSyncer", "requestMarkBufferAsRead", qtypes.QUserType.get("BufferId"))
-  markBufferAsRead(build, bufferId) {
-    const slist = build("", bufferId);
+  markBufferAsRead(bufferId) {
     logger('Sending mark buffer as read request');
-    this.qtsocket.write(slist);
+    return [ "", bufferId ];
   }
 
   /**
@@ -150,10 +218,9 @@ class Request {
    * @param {number} messageId
    */
   @sync("BufferSyncer", "requestSetLastSeenMsg", qtypes.QUserType.get("BufferId"), qtypes.QUserType.get("MsgId"))
-  setLastMsgRead(build, bufferId, messageId) {
-    const slist = build("", bufferId, messageId);
+  setLastMsgRead(bufferId, messageId) {
     logger('Sending last message read request');
-    this.qtsocket.write(slist);
+    return [ "", bufferId, messageId ];
   }
 
   /**
@@ -162,10 +229,9 @@ class Request {
    * @param {number} messageId
    */
   @sync("BufferSyncer", "requestSetMarkerLine", qtypes.QUserType.get("BufferId"), qtypes.QUserType.get("MsgId"))
-  setMarkerLine(build, bufferId, messageId) {
-    const slist = build("", bufferId, messageId);
+  setMarkerLine(bufferId, messageId) {
     logger('Sending mark line request');
-    this.qtsocket.write(slist);
+    return [ "", bufferId, messageId ];
   }
 
   /**
@@ -173,10 +239,9 @@ class Request {
    * @param {number} bufferId
    */
   @sync("BufferSyncer", "requestRemoveBuffer", qtypes.QUserType.get("BufferId"))
-  removeBuffer(build, bufferId) {
-    const slist = build("", bufferId);
+  removeBuffer(bufferId) {
     logger('Sending perm hide request');
-    this.qtsocket.write(slist);
+    return [ "", bufferId ];
   }
 
   /**
@@ -185,10 +250,9 @@ class Request {
    * @param {number} bufferId2
    */
   @sync("BufferSyncer", "requestMergeBuffersPermanently", qtypes.QUserType.get("BufferId"), qtypes.QUserType.get("BufferId"))
-  mergeBuffersPermanently(build, bufferId1, bufferId2) {
-    const slist = build("", bufferId1, bufferId2)
+  mergeBuffersPermanently( bufferId1, bufferId2) {
     logger('Sending merge request');
-    this.qtsocket.write(slist);
+    return [ "", bufferId1, bufferId2 ];
   }
 
   /**
@@ -198,9 +262,8 @@ class Request {
    */
    @sync("BufferSyncer", "requestMergeBuffersPermanently", qtypes.QUserType.get("BufferId"), qtypes.QString)
   renameBuffer(bufferId, newName) {
-    const slist = build("", bufferId, newName);
     logger('Sending rename buffer request');
-    this.qtsocket.write(slist);
+    return [ "", bufferId, newName ];
   }
 
   /**
@@ -209,10 +272,9 @@ class Request {
    * @param {number} bufferId
    */
   @sync("BufferViewConfig", "requestRemoveBuffer", qtypes.QUserType.get("BufferId"))
-  hideBufferTemporarily(build, bufferViewId, bufferId) {
-    const slist = build(bufferViewId, bufferId);
+  hideBufferTemporarily(bufferViewId, bufferId) {
     logger('Sending temp hide request');
-    this.qtsocket.write(slist);
+    return [ bufferViewId, bufferId ];
   }
 
   /**
@@ -221,31 +283,21 @@ class Request {
    * @param {number} bufferId
    */
   @sync("BufferViewConfig", "requestRemoveBufferPermanently", qtypes.QUserType.get("BufferId"))
-  hideBufferPermanently(build, bufferViewId, bufferId) {
-    // FIXME
-    if (bufferViewId === undefined) bufferViewId = this.bufferViewId;
-    const slist = build(bufferViewId, bufferId);
+  hideBufferPermanently(bufferViewId, bufferId) {
     logger('Sending perm hide request');
-    this.qtsocket.write(slist);
+    return [ bufferViewId, bufferId ];
   }
 
   /**
    * Core Sync request - Unhide a buffer
    * @param {number} bufferViewId
    * @param {number} bufferId
+   * @param {number} pos
    */
   @sync("BufferViewConfig", "requestAddBuffer", qtypes.QUserType.get("BufferId"), qtypes.QInt)
-  unhideBuffer(build, bufferViewId, bufferId) {
-    bufferId = parseInt(bufferId, 10);
-    // FIXME
-    if (typeof bufferViewId === "undefined") bufferViewId = this.bufferViewId;
-    // FIXME
-    const buffer = this.getNetworks().findBuffer(bufferId);
-    // FIXME
-    const bufferCount = this.getNetworks().get(buffer.network).getBufferMap().size;
-    const slist = build(bufferViewId, bufferId, bufferCount);
+  unhideBuffer(bufferViewId, bufferId, pos) {
     logger('Sending unhide request');
-    this.qtsocket.write(slist);
+    return [ bufferViewId, bufferId, pos ];
   }
 
   /**
@@ -270,10 +322,9 @@ class Request {
    * });
    */
   @sync("BufferViewManager", "requestCreateBufferView", qtypes.QMap)
-  createBufferView(build, data) {
-    const slist = build("", data);
+  createBufferView(data) {
     logger('Sending create buffer view request');
-    this.qtsocket.write(slist);
+    return [ "", data ];
   }
 
   /**
@@ -281,10 +332,9 @@ class Request {
    * @param {object} ignoreList
    */
   @sync("IgnoreListManager", "requestUpdate", qtypes.QList)
-  updateIgnoreListManager(build, ignoreList) {
-    const slist = build("", ignoreList);
+  updateIgnoreListManager(ignoreList) {
     logger('Sending update request (IgnoreListManager)');
-    this.qtsocket.write(slist);
+    return [ "", ignoreList ];
   }
 
   /**
@@ -293,10 +343,9 @@ class Request {
    * @param {object} identity
    */
   @sync("IgnoreListManager", "requestUpdate", qtypes.QMap)
-  updateIdentity(build, identityId, identity) {
-    const slist = build(identityId, identity);
+  updateIdentity(identityId, identity) {
     logger('Sending update request (Identity)');
-    this.qtsocket.write(slist);
+    return [ identityId, identity ];
   }
 
   /**
@@ -304,10 +353,15 @@ class Request {
    * @param {object} data @see {@link module:alias.toCoreObject}
    */
   @sync("AliasManager", "requestUpdate", qtypes.QMap)
-  updateAliasManager(build, data) {
-    const slist = build("", data);
+  updateAliasManager(data) {
     logger('Sending update request (AliasManager)');
-    this.qtsocket.write(slist);
+    return [ "", data ];
+  }
+
+  @sync("BufferSyncer", "requestPurgeBufferIds")
+  purgeBufferIds() {
+    logger('Sending purge buffer ids request');
+    return [];
   }
 
   /**
@@ -316,9 +370,8 @@ class Request {
    */
   @rpc("removeIdentity(IdentityId)", qtypes.QUserType.get("IdentityId"))
   removeIdentity(build, identityId) {
-    const slist = build(identityId);
     logger('Deleting identity');
-    this.qtsocket.write(slit);
+    return [ identityId ];
   }
 
   /**
@@ -327,41 +380,201 @@ class Request {
    */
   @rpc("removeNetwork(NetworkId)", qtypes.QUserType.get("NetworkId"))
   removeNetwork (build, networkId) {
-    const slist = build(networkId);
     logger('Deleting nhetwork');
-    this.qtsocket.write(slit);
-  };
+    return [ networkId ];
+  }
 
   /**
    * Core RPC request - Send a user input to a specified buffer
-   * @param {number} bufferId
+   * @param {bufferInfo} bufferInfo
    * @param {String} message
    */
   @rpc("sendInput(BufferInfo,QString)", qtypes.QUserType.get("BufferInfo"), qtypes.QString)
-  sendMessage(build, ufferId, message) {
-    // FIXME
-    const buffer = this.networks.findBuffer(parseInt(bufferId, 10));
-    if (buffer !== null) {
-      const slist = build(buffer.getBufferInfo(), message);
-      logger('Sending message');
-      this.qtsocket.write(slit);
-    } else {
-      logger("Could not send message to buffer %d. Buffer not found.", bufferId);
-    }
+  sendMessage(build, bufferInfo, message) {
+    logger('Sending message');
+    return [ bufferInfo, message ];
   }
-  
+
   /**
    * Core RPC request - Create a new {@link module:identity}
    * @param {module:identity} identity
    */
   @rpc("createIdentity(Identity,QVariantMap)", qtypes.QUserType.get("Identity"), qtypes.QMap)
-  Quassel.prototype.createIdentity = function(build, identity) {
-    const slist = build(identity, {});
+  createIdentity(build, identity) {
     logger('Creating identity');
-    this.qtsocket.write(slit);
-  };
+    return [ identity, {} ];
+  }
+
+  /**
+   * Core RPC request - Create a new {@link module:network.Network}
+   * @param {String} networkName
+   * @param {number} identityId
+   * @param {(String|Object)} initialServer - Server hostname or IP, or full Network::Server Object. Can also be undefined if options.ServerList is defined.
+   * @param {String} [initialServer.Host=initialServer]
+   * @param {String} [initialServer.Port="6667"]
+   * @param {String} [initialServer.Password=""]
+   * @param {boolean} [initialServer.UseSSL=true]
+   * @param {number} [initialServer.sslVersion=0]
+   * @param {boolean} [initialServer.UseProxy=false]
+   * @param {number} [initialServer.ProxyType=0]
+   * @param {String} [initialServer.ProxyHost=""]
+   * @param {String} [initialServer.ProxyPort=""]
+   * @param {String} [initialServer.ProxyUser=""]
+   * @param {String} [initialServer.ProxyPass=""]
+   * @param {Object} [options]
+   * @param {String} [options.codecForServer=""]
+   * @param {String} [options.codecForEncoding=""]
+   * @param {String} [options.codecForDecoding=""]
+   * @param {boolean} [options.useRandomServer=false]
+   * @param {String[]} [options.perform=[]]
+   * @param {Object[]} [options.ServerList=[]]
+   * @param {boolean} [options.useAutoIdentify=false]
+   * @param {String} [options.autoIdentifyService="NickServ"]
+   * @param {String} [options.autoIdentifyPassword=""]
+   * @param {boolean} [options.useSasl=false]
+   * @param {String} [options.saslAccount=""]
+   * @param {String} [options.saslPassword=""]
+   * @param {boolean} [options.useAutoReconnect=true]
+   * @param {number} [options.autoReconnectInterval=60]
+   * @param {number} [options.autoReconnectRetries=20]
+   * @param {boolean} [options.unlimitedReconnectRetries=false]
+   * @param {boolean} [options.rejoinChannels=true]
+   * @param {boolean} [options.useCustomMessageRate=false]
+   * @param {boolean} [options.unlimitedMessageRate=false]
+   * @param {number} [options.msgRateMessageDelay=2200]
+   * @param {number} [options.msgRateBurstSize=5]
+   */
+  @rpc("createNetwork(NetworkInfo,QStringList)", qtypes.QUserType.get("NetworkInfo"), qtypes.QStringList)
+  createNetwork(build, networkName, identityId, initialServer, options = {}) {
+    const network = new Network(-1, networkName);
+    network.update(options);
+    if (typeof initialServer === "string") {
+      initialServer = {
+        host: initialServer
+      };
+    }
+    network.ServerList.push(new Server(initialServer));
+    logger('Creating network');
+    return [ identityId, network, [] ];
+  }
+
+  /**
+   * Sends an initialization request to quasselcore for specified `classname` and `objectname`
+   * @param {String} classname
+   * @param {String} objectname
+   * @example
+   * quassel.sendInitRequest("IrcUser", "1/randomuser");
+   */
+  sendInitRequest(classname, objectname) {
+    var initRequest = [
+      qtypes.QUInt.from(Types.InitRequest),
+      qtypes.QString.from(classname),
+      qtypes.QString.from(objectname)
+    ];
+    this.qtsocket.write(initRequest);
+  }
+
+  /**
+   * Sends client information to the core
+   * @param {boolean} useSSL
+   * @param {boolean} useCompression - Not supported
+   * @protected
+   */
+  sendClientInfo(useSSL, useCompression){
+    var smap = {
+      // FIXME
+      "ClientDate": "Apr 14 2014 17:18:30",
+      "UseSsl": useSSL,
+      // FIXME
+      "ClientVersion": "libquassel",
+      "UseCompression": useCompression,
+      "MsgType": "ClientInit",
+      "ProtocolVersion": 10
+    };
+    logger('Sending client informations');
+    this.qtsocket.write(smap);
+  }
+
+  /**
+   * Setup core
+   * @param {String} backend
+   * @param {String} adminuser
+   * @param {String} adminpassword
+   * @param {Object} [properties]
+   */
+  setupCore(backend, adminuser, adminpassword, useSSL = false, properties = {}) {
+    const obj = {
+      SetupData: {
+        ConnectionProperties: properties,
+        Backend: backend,
+        AdminUser: adminuser,
+        AdminPasswd: adminpassword
+      },
+      MsgType: 'CoreSetupData'
+    };
+
+    if (useSSL) {
+      const tls = require('tls');
+      const secureContext = tls.createSecureContext({
+        secureProtocol: 'TLSv1_2_client_method'
+      });
+      const secureStream = tls.connect(null, {
+        socket: this.duplex,
+        rejectUnauthorized: false,
+        secureContext: secureContext
+      });
+      this.qtsocket.setSocket(secureStream);
+    }
+    this.qtsocket.write(obj);
+  }
+
+  /**
+   * Send login request to the core
+   * @param {String} user
+   * @param {String} password
+   */
+  login(user, password) {
+    const obj = {
+      "MsgType": "ClientLogin",
+      "User": user,
+      "Password": password
+    };
+    this.qtsocket.write(obj);
+  }
+
+  /**
+   * Initialize the connection
+   * @example
+   * const quassel = new Client(...);
+   * quassel.connect();
+   */
+  connect() {
+    let magic = 0x42b33f00;
+    // magic | 0x01 Encryption
+    // magic | 0x02 Compression
+    if (this.options.securecore) {
+      magic |= 0x01;
+    }
+
+    // At this point `duplex` should already be connected
+    const bufs = [
+      qtypes.QUInt.from(magic).toBuffer(),
+      qtypes.QUInt.from(0x01).toBuffer(),
+      qtypes.QUInt.from(0x01 << 31).toBuffer()
+    ];
+    this.duplex.write(Buffer.concat(bufs));
+  }
+
+  /**
+   * Disconnect the client from the core
+   */
+  disconnect() {
+    this.duplex.end();
+    this.duplex.destroy();
+  }
 }
 
 module.exports = {
-  Types
+  Types,
+  Core
 };
