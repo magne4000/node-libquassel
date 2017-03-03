@@ -97,33 +97,32 @@ class IRCMessage {
    */
   _updateFlags(network, identity, mode) {
     // TODO move part of this into network
-    var nickRegex = null, nicks = [];
+    let nickRegex = null, nicks = [];
     switch (mode) {
-      case HighlightModes.NONE:
+    case HighlightModes.NONE:
         // None, do nothing
-        return;
-      case HighlightModes.CURRENTNICK:
-        if (this.type != Types.PLAIN && this.type != Types.ACTION) return;
-        if (!network.nick) return;
-        nickRegex = network.nick.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1");
-        break;
-      case HighlightModes.ALLIDENTITYNICKS:
-        if (this.type != Types.PLAIN && this.type != Types.ACTION) return;
-        if (identity.nicks.length === 0) return;
-        for (var i=0; i<identity.nicks.length; i++) {
-          nicks.push(identity.nicks[i].replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1"));
-        }
-        if (network.nick && identity.nicks.indexOf(network.nick) === -1) {
-          nicks.push(network.nick.replace(/([.?*+^$[\]\\(){}|-])/g, "\\$1"));
-        }
-        nickRegex = `(${nicks.join('|')})`;
-        break;
-      default:
-        // Invalid, do nothing
-        console.log('Invalid _updateFlags mode', mode);
-        return;
+      return;
+    case HighlightModes.CURRENTNICK:
+      if (this.type !== Types.PLAIN && this.type !== Types.ACTION) return;
+      if (!network.nick) return;
+      nickRegex = network.nick.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1');
+      break;
+    case HighlightModes.ALLIDENTITYNICKS:
+      if (this.type !== Types.PLAIN && this.type !== Types.ACTION) return;
+      if (identity.nicks.length === 0) return;
+      for (let i=0; i<identity.nicks.length; i++) {
+        nicks.push(identity.nicks[i].replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1'));
+      }
+      if (network.nick && identity.nicks.indexOf(network.nick) === -1) {
+        nicks.push(network.nick.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1'));
+      }
+      nickRegex = `(${nicks.join('|')})`;
+      break;
+    default:
+      // Invalid, do nothing
+      return;
     }
-    var regex = new RegExp(`([\\W]|^)${nickRegex}([\\W]|$)`, 'i');
+    let regex = new RegExp(`([\\W]|^)${nickRegex}([\\W]|$)`, 'i');
     if (regex.test(this.content)) {
       this.flags = this.flags | Flags.HIGHLIGHT;
     }
@@ -141,7 +140,7 @@ class IRCMessage {
 
   set sender(value) {
     this._sender = value;
-    [ this.nick, this.hostmask ] = value.split("!");
+    [ this.nick, this.hostmask ] = value.split('!');
   }
 
   get sender() {

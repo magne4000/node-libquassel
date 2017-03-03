@@ -29,7 +29,7 @@ function toArray(data) {
  * @returns {object}
  */
 function toCoreObject(aliasitems) {
-  const ret = {Aliases: {names: [], expansions: []}};
+  const ret = { Aliases: { names: [], expansions: [] } };
   for (let item of aliasitems) {
     ret.Aliases.names.push(item.name);
     ret.Aliases.expansions.push(item.expansion);

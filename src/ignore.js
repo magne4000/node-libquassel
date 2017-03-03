@@ -6,7 +6,8 @@
  * Licensed under the MIT license.
  */
 
-var { Types } = require('./message');
+let { Types } = require('./message');
+const logger = require('debug')('libquassel:ignore');
 
 /** @module ignore */
 
@@ -76,7 +77,7 @@ class IgnoreItem {
    * @returns {boolean}
    */
   matchScope(subject) {
-    if (typeof subject !== "string") return false;
+    if (typeof subject !== 'string') return false;
     let ret = false;
     for (let regexScope of this.regexScope) {
       ret = subject.match(regexScope) !== null;
@@ -91,7 +92,7 @@ class IgnoreItem {
    * @returns {boolean}
    */
   matchIgnore(subject) {
-    if (typeof subject !== "string") return false;
+    if (typeof subject !== 'string') return false;
     return subject.match(this.regexIgnore) !== null;
   }
 
@@ -99,7 +100,7 @@ class IgnoreItem {
    * Compile internal regexes from `scopeRules` and `ignoreRule` attributes
    */
   compile() {
-    const scopeRules = this.scopeRule.split(";");
+    const scopeRules = this.scopeRule.split(';');
     this.regexScope = new Array();
     for (let scopeRule of scopeRules) {
       this.regexScope.push(wildcardToRegex(scopeRule));
@@ -107,14 +108,14 @@ class IgnoreItem {
     try {
       this.regexIgnore = this.isRegEx ? new RegExp(this.ignoreRule, 'i') : wildcardToRegex(this.ignoreRule);
     } catch (e) {
-      console.log("Invalid RexExp", e);
+      logger('Invalid RexExp', e);
       this.isActive = false;
     }
   }
 }
 
 function wildcardToRegex(subject) {
-  const input = subject.trim().replace(/([.+^$\\(){}|-])/g, "\\$1").replace(/\*/g, ".*").replace(/\?/g, ".");
+  const input = subject.trim().replace(/([.+^$\\(){}|-])/g, '\\$1').replace(/\*/g, '.*').replace(/\?/g, '.');
   return new RegExp(`^${input}$`, 'i');
 }
 

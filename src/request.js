@@ -32,7 +32,7 @@ function sync(className, functionName, ...datatypes) {
   const qsync = qtypes.QInt.from(Types.SYNC);
   const qclassName = qtypes.QByteArray.from(className);
   const qfunctionName = qtypes.QByteArray.from(functionName);
-  return function(target, key, descriptor) {
+  return function(target, _key, _descriptor) {
     return {
       enumerable: false,
       configurable: false,
@@ -53,7 +53,7 @@ function sync(className, functionName, ...datatypes) {
 function rpc(functionName, ...datatypes) {
   const qrpc = qtypes.QInt.from(Types.RPCCALL);
   const qfunctionName = qtypes.QByteArray.from(`2${functionName}`);
-  return function(target, key, descriptor) {
+  return function(target, _key, _descriptor) {
     return {
       enumerable: false,
       configurable: false,
@@ -71,6 +71,7 @@ function rpc(functionName, ...datatypes) {
 
 class Core extends EventEmitter {
   constructor(options) {
+    super();
     this.options = options;
     this.useSSL = false;
     this.useCompression = false;
@@ -116,20 +117,13 @@ class Core extends EventEmitter {
       this.qtsocket = new socket.Socket(duplex);
       // }
 
-      this.qtsocket.on('data', data => this.emit(data))
-      .on('close', () => logger('Connection closed'))
-      .on('end', () => logger('END'))
-      .on('error', (e) => {
-        console.log('ERROR', e);
-        this.emit('error', e);
-      });
+      this.qtsocket
+      .on('data', data => this.emit(data))
+      .on('close', () => this.emit('close'))
+      .on('end', () => this.emit('end'))
+      .on('error', e => this.emit('error', e));
 
       this.sendClientInfo(this.useSSL, this.useCompression);
-    });
-
-    this.duplex.on('error', (e) => {
-      logger('ERROR', e);
-      this.emit('error', e);
     });
   }
 
@@ -157,25 +151,25 @@ class Core extends EventEmitter {
    * @param {number} [maxAmount=backloglimit]
    */
   @sync(
-    "BacklogManager",
-    "requestBacklog",
-    qtypes.QUserType.get("BufferId"),
-    qtypes.QUserType.get("MsgId"),
-    qtypes.QUserType.get("MsgId"),
+    'BacklogManager',
+    'requestBacklog',
+    qtypes.QUserType.get('BufferId'),
+    qtypes.QUserType.get('MsgId'),
+    qtypes.QUserType.get('MsgId'),
     qtypes.QInt,
     qtypes.QInt
   )
   backlog(bufferId, firstMsgId = -1, lastMsgId = -1, maxAmount = undefined) {
     maxAmount = maxAmount || this.options.backloglimit;
     logger('Sending backlog request');
-    return [ "", bufferId, firstMsgId, lastMsgId, maxAmount, 0 ];
+    return [ '', bufferId, firstMsgId, lastMsgId, maxAmount, 0 ];
   }
 
   /**
    * Core Sync request - Connect the specified network
    * @param {number} networkId
    */
-  @sync("Network", "requestConnect")
+  @sync('Network', 'requestConnect')
   connectNetwork(networkId) {
     logger('Sending connection request');
     return [ networkId ];
@@ -185,7 +179,7 @@ class Core extends EventEmitter {
    * Core Sync request - Disconnect the specified network
    * @param {number} networkId
    */
-  @sync("Network", "requestDisconnect")
+  @sync('Network', 'requestDisconnect')
   disconnectNetwork(networkId) {
     logger('Sending disconnection request');
     return [ networkId ];
@@ -196,7 +190,7 @@ class Core extends EventEmitter {
    * @param {Number} networkId
    * @param {object} network
    */
-  @sync("Network", "requestSetNetworkInfo", qtypes.QMap)
+  @sync('Network', 'requestSetNetworkInfo', qtypes.QMap)
   setNetworkInfo(networkId, network) {
     logger('Sending update request (Network)');
     return [ networkId, network ];
@@ -206,10 +200,10 @@ class Core extends EventEmitter {
    * Core Sync request - Mark buffer as read
    * @param {number} bufferId
    */
-  @sync("BufferSyncer", "requestMarkBufferAsRead", qtypes.QUserType.get("BufferId"))
+  @sync('BufferSyncer', 'requestMarkBufferAsRead', qtypes.QUserType.get('BufferId'))
   markBufferAsRead(bufferId) {
     logger('Sending mark buffer as read request');
-    return [ "", bufferId ];
+    return [ '', bufferId ];
   }
 
   /**
@@ -217,10 +211,10 @@ class Core extends EventEmitter {
    * @param {number} bufferId
    * @param {number} messageId
    */
-  @sync("BufferSyncer", "requestSetLastSeenMsg", qtypes.QUserType.get("BufferId"), qtypes.QUserType.get("MsgId"))
+  @sync('BufferSyncer', 'requestSetLastSeenMsg', qtypes.QUserType.get('BufferId'), qtypes.QUserType.get('MsgId'))
   setLastMsgRead(bufferId, messageId) {
     logger('Sending last message read request');
-    return [ "", bufferId, messageId ];
+    return [ '', bufferId, messageId ];
   }
 
   /**
@@ -228,20 +222,20 @@ class Core extends EventEmitter {
    * @param {number} bufferId
    * @param {number} messageId
    */
-  @sync("BufferSyncer", "requestSetMarkerLine", qtypes.QUserType.get("BufferId"), qtypes.QUserType.get("MsgId"))
+  @sync('BufferSyncer', 'requestSetMarkerLine', qtypes.QUserType.get('BufferId'), qtypes.QUserType.get('MsgId'))
   setMarkerLine(bufferId, messageId) {
     logger('Sending mark line request');
-    return [ "", bufferId, messageId ];
+    return [ '', bufferId, messageId ];
   }
 
   /**
    * Core Sync request - Remove a buffer
    * @param {number} bufferId
    */
-  @sync("BufferSyncer", "requestRemoveBuffer", qtypes.QUserType.get("BufferId"))
+  @sync('BufferSyncer', 'requestRemoveBuffer', qtypes.QUserType.get('BufferId'))
   removeBuffer(bufferId) {
     logger('Sending perm hide request');
-    return [ "", bufferId ];
+    return [ '', bufferId ];
   }
 
   /**
@@ -249,10 +243,10 @@ class Core extends EventEmitter {
    * @param {number} bufferId1
    * @param {number} bufferId2
    */
-  @sync("BufferSyncer", "requestMergeBuffersPermanently", qtypes.QUserType.get("BufferId"), qtypes.QUserType.get("BufferId"))
+  @sync('BufferSyncer', 'requestMergeBuffersPermanently', qtypes.QUserType.get('BufferId'), qtypes.QUserType.get('BufferId'))
   mergeBuffersPermanently( bufferId1, bufferId2) {
     logger('Sending merge request');
-    return [ "", bufferId1, bufferId2 ];
+    return [ '', bufferId1, bufferId2 ];
   }
 
   /**
@@ -260,10 +254,10 @@ class Core extends EventEmitter {
    * @param {number} bufferId
    * @param {string} newName
    */
-   @sync("BufferSyncer", "requestMergeBuffersPermanently", qtypes.QUserType.get("BufferId"), qtypes.QString)
+   @sync('BufferSyncer', 'requestMergeBuffersPermanently', qtypes.QUserType.get('BufferId'), qtypes.QString)
   renameBuffer(bufferId, newName) {
     logger('Sending rename buffer request');
-    return [ "", bufferId, newName ];
+    return [ '', bufferId, newName ];
   }
 
   /**
@@ -271,7 +265,7 @@ class Core extends EventEmitter {
    * @param {number} bufferViewId
    * @param {number} bufferId
    */
-  @sync("BufferViewConfig", "requestRemoveBuffer", qtypes.QUserType.get("BufferId"))
+  @sync('BufferViewConfig', 'requestRemoveBuffer', qtypes.QUserType.get('BufferId'))
   hideBufferTemporarily(bufferViewId, bufferId) {
     logger('Sending temp hide request');
     return [ bufferViewId, bufferId ];
@@ -282,7 +276,7 @@ class Core extends EventEmitter {
    * @param {number} bufferViewId
    * @param {number} bufferId
    */
-  @sync("BufferViewConfig", "requestRemoveBufferPermanently", qtypes.QUserType.get("BufferId"))
+  @sync('BufferViewConfig', 'requestRemoveBufferPermanently', qtypes.QUserType.get('BufferId'))
   hideBufferPermanently(bufferViewId, bufferId) {
     logger('Sending perm hide request');
     return [ bufferViewId, bufferId ];
@@ -294,7 +288,7 @@ class Core extends EventEmitter {
    * @param {number} bufferId
    * @param {number} pos
    */
-  @sync("BufferViewConfig", "requestAddBuffer", qtypes.QUserType.get("BufferId"), qtypes.QInt)
+  @sync('BufferViewConfig', 'requestAddBuffer', qtypes.QUserType.get('BufferId'), qtypes.QInt)
   unhideBuffer(bufferViewId, bufferId, pos) {
     logger('Sending unhide request');
     return [ bufferViewId, bufferId, pos ];
@@ -321,20 +315,20 @@ class Core extends EventEmitter {
    *     BufferList: []
    * });
    */
-  @sync("BufferViewManager", "requestCreateBufferView", qtypes.QMap)
+  @sync('BufferViewManager', 'requestCreateBufferView', qtypes.QMap)
   createBufferView(data) {
     logger('Sending create buffer view request');
-    return [ "", data ];
+    return [ '', data ];
   }
 
   /**
    * Core Sync request - Update ignoreList
    * @param {object} ignoreList
    */
-  @sync("IgnoreListManager", "requestUpdate", qtypes.QList)
+  @sync('IgnoreListManager', 'requestUpdate', qtypes.QList)
   updateIgnoreListManager(ignoreList) {
     logger('Sending update request (IgnoreListManager)');
-    return [ "", ignoreList ];
+    return [ '', ignoreList ];
   }
 
   /**
@@ -342,7 +336,7 @@ class Core extends EventEmitter {
    * @param {Number} identityId
    * @param {object} identity
    */
-  @sync("IgnoreListManager", "requestUpdate", qtypes.QMap)
+  @sync('IgnoreListManager', 'requestUpdate', qtypes.QMap)
   updateIdentity(identityId, identity) {
     logger('Sending update request (Identity)');
     return [ identityId, identity ];
@@ -352,13 +346,13 @@ class Core extends EventEmitter {
    * Core Sync request - Update aliases
    * @param {object} data @see {@link module:alias.toCoreObject}
    */
-  @sync("AliasManager", "requestUpdate", qtypes.QMap)
+  @sync('AliasManager', 'requestUpdate', qtypes.QMap)
   updateAliasManager(data) {
     logger('Sending update request (AliasManager)');
-    return [ "", data ];
+    return [ '', data ];
   }
 
-  @sync("BufferSyncer", "requestPurgeBufferIds")
+  @sync('BufferSyncer', 'requestPurgeBufferIds')
   purgeBufferIds() {
     logger('Sending purge buffer ids request');
     return [];
@@ -368,7 +362,7 @@ class Core extends EventEmitter {
    * Core RPC request - Remove an {@link module:identity}
    * @param {number} identityId
    */
-  @rpc("removeIdentity(IdentityId)", qtypes.QUserType.get("IdentityId"))
+  @rpc('removeIdentity(IdentityId)', qtypes.QUserType.get('IdentityId'))
   removeIdentity(build, identityId) {
     logger('Deleting identity');
     return [ identityId ];
@@ -378,7 +372,7 @@ class Core extends EventEmitter {
    * Core RPC request - Remove a {@link module:network.Network}
    * @param {number} networkId
    */
-  @rpc("removeNetwork(NetworkId)", qtypes.QUserType.get("NetworkId"))
+  @rpc('removeNetwork(NetworkId)', qtypes.QUserType.get('NetworkId'))
   removeNetwork (build, networkId) {
     logger('Deleting nhetwork');
     return [ networkId ];
@@ -389,7 +383,7 @@ class Core extends EventEmitter {
    * @param {bufferInfo} bufferInfo
    * @param {String} message
    */
-  @rpc("sendInput(BufferInfo,QString)", qtypes.QUserType.get("BufferInfo"), qtypes.QString)
+  @rpc('sendInput(BufferInfo,QString)', qtypes.QUserType.get('BufferInfo'), qtypes.QString)
   sendMessage(build, bufferInfo, message) {
     logger('Sending message');
     return [ bufferInfo, message ];
@@ -399,10 +393,10 @@ class Core extends EventEmitter {
    * Core RPC request - Create a new {@link module:identity}
    * @param {module:identity} identity
    */
-  @rpc("createIdentity(Identity,QVariantMap)", qtypes.QUserType.get("Identity"), qtypes.QMap)
+  @rpc('createIdentity(Identity,QVariantMap)', qtypes.QUserType.get('Identity'), qtypes.QMap)
   createIdentity(build, identity) {
     logger('Creating identity');
-    return [ identity, {} ];
+    return [ identity, {}];
   }
 
   /**
@@ -444,18 +438,18 @@ class Core extends EventEmitter {
    * @param {number} [options.msgRateMessageDelay=2200]
    * @param {number} [options.msgRateBurstSize=5]
    */
-  @rpc("createNetwork(NetworkInfo,QStringList)", qtypes.QUserType.get("NetworkInfo"), qtypes.QStringList)
+  @rpc('createNetwork(NetworkInfo,QStringList)', qtypes.QUserType.get('NetworkInfo'), qtypes.QStringList)
   createNetwork(build, networkName, identityId, initialServer, options = {}) {
     const network = new Network(-1, networkName);
     network.update(options);
-    if (typeof initialServer === "string") {
+    if (typeof initialServer === 'string') {
       initialServer = {
         host: initialServer
       };
     }
     network.ServerList.push(new Server(initialServer));
     logger('Creating network');
-    return [ identityId, network, [] ];
+    return [ identityId, network, []];
   }
 
   /**
@@ -466,7 +460,7 @@ class Core extends EventEmitter {
    * quassel.sendInitRequest("IrcUser", "1/randomuser");
    */
   sendInitRequest(classname, objectname) {
-    var initRequest = [
+    let initRequest = [
       qtypes.QUInt.from(Types.InitRequest),
       qtypes.QString.from(classname),
       qtypes.QString.from(objectname)
@@ -481,15 +475,15 @@ class Core extends EventEmitter {
    * @protected
    */
   sendClientInfo(useSSL, useCompression){
-    var smap = {
+    let smap = {
       // FIXME
-      "ClientDate": "Apr 14 2014 17:18:30",
-      "UseSsl": useSSL,
+      'ClientDate': 'Apr 14 2014 17:18:30',
+      'UseSsl': useSSL,
       // FIXME
-      "ClientVersion": "libquassel",
-      "UseCompression": useCompression,
-      "MsgType": "ClientInit",
-      "ProtocolVersion": 10
+      'ClientVersion': 'libquassel',
+      'UseCompression': useCompression,
+      'MsgType': 'ClientInit',
+      'ProtocolVersion': 10
     };
     logger('Sending client informations');
     this.qtsocket.write(smap);
@@ -535,9 +529,9 @@ class Core extends EventEmitter {
    */
   login(user, password) {
     const obj = {
-      "MsgType": "ClientLogin",
-      "User": user,
-      "Password": password
+      'MsgType': 'ClientLogin',
+      'User': user,
+      'Password': password
     };
     this.qtsocket.write(obj);
   }

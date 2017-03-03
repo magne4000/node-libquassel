@@ -36,45 +36,46 @@ const ConnectionStates = {
  * @class
  * @alias module:network.Server
  */
-@usertype("Network::Server")
+@usertype('Network::Server')
 class Server extends Exportable {
-  @exportas(qtypes.QString, "Host")
+  @exportas(qtypes.QString, 'Host')
   host;
 
-  @exportas(qtypes.QUInt, "Port")
+  @exportas(qtypes.QUInt, 'Port')
   port = 6667;
 
-  @exportas(qtypes.QString, "Password")
-  password = "";
+  @exportas(qtypes.QString, 'Password')
+  password = '';
 
-  @exportas(qtypes.QBool, "UseSSL")
+  @exportas(qtypes.QBool, 'UseSSL')
   useSSL = false;
 
-  @exportas(qtypes.QInt, "sslVersion")
+  @exportas(qtypes.QInt, 'sslVersion')
   sslVersion = 0;
 
-  @exportas(qtypes.QBool, "UseProxy")
+  @exportas(qtypes.QBool, 'UseProxy')
   useProxy = false;
 
-  @exportas(qtypes.QInt, "ProxyType")
+  @exportas(qtypes.QInt, 'ProxyType')
   proxyType = 0;
 
-  @exportas(qtypes.QString, "ProxyHost")
-  proxyHost = "";
+  @exportas(qtypes.QString, 'ProxyHost')
+  proxyHost = '';
 
-  @exportas(qtypes.QUInt, "ProxyPort")
+  @exportas(qtypes.QUInt, 'ProxyPort')
   proxyPort = 8080;
 
-  @exportas(qtypes.QString, "ProxyUser")
-  proxyUser = "";
+  @exportas(qtypes.QString, 'ProxyUser')
+  proxyUser = '';
 
-  @exportas(qtypes.QString, "ProxyPass")
-  proxyPass = "";
+  @exportas(qtypes.QString, 'ProxyPass')
+  proxyPass = '';
 
-  @exportas(qtypes.QBool, "sslVerify")
+  @exportas(qtypes.QBool, 'sslVerify')
   sslVerify = false;
 
   constructor(...args) {
+    super();
     Object.assign(this, args);
   }
 }
@@ -86,10 +87,10 @@ class Server extends Exportable {
  * @param {number} id
  */
 @traits(Exportable)
-@usertype("NetworkInfo")
+@usertype('NetworkInfo')
 class Network extends EventEmitter {
 
-  @exportas(qtypes.QUserType.get("NetworkId"), "NetworkId")
+  @exportas(qtypes.QUserType.get('NetworkId'), 'NetworkId')
   get networkId() {
     return this.id;
   }
@@ -98,7 +99,7 @@ class Network extends EventEmitter {
     this.id = value;
   }
 
-  @exportas(qtypes.QString, "NetworkName")
+  @exportas(qtypes.QString, 'NetworkName')
   get networkName() {
     return this.name;
   }
@@ -107,10 +108,10 @@ class Network extends EventEmitter {
     this.name = value;
   }
 
-  @exportas(qtypes.QUserType.get("IdentityId"), "Identity")
+  @exportas(qtypes.QUserType.get('IdentityId'), 'Identity')
   identityId;
 
-  @exportas(qtypes.QByteArray, "CodecForServer")
+  @exportas(qtypes.QByteArray, 'CodecForServer')
   get codecForServer() {
     return this._codecForServer;
   }
@@ -119,7 +120,7 @@ class Network extends EventEmitter {
     this._codecForServer = Buffer.isBuffer(s) ? util.str(s) : s;
   }
 
-  @exportas(qtypes.QByteArray, "CodecForEncoding")
+  @exportas(qtypes.QByteArray, 'CodecForEncoding')
   get codecForEncoding() {
     return this._codecForEncoding;
   }
@@ -128,7 +129,7 @@ class Network extends EventEmitter {
     this._codecForEncoding = Buffer.isBuffer(s) ? util.str(s) : s;
   }
 
-  @exportas(qtypes.QByteArray, "CodecForDecoding")
+  @exportas(qtypes.QByteArray, 'CodecForDecoding')
   get codecForDecoding() {
     return this._codecForDecoding;
   }
@@ -137,63 +138,64 @@ class Network extends EventEmitter {
     this._codecForDecoding = Buffer.isBuffer(s) ? util.str(s) : s;
   }
 
-  @exportas(qtypes.QList, "ServerList")
+  @exportas(qtypes.QList, 'ServerList')
   ServerList = [];
 
-  @exportas(qtypes.QBool, "UseRandomServer")
+  @exportas(qtypes.QBool, 'UseRandomServer')
   useRandomServer = false;
 
-  @exportas(qtypes.QStringList, "Perform")
+  @exportas(qtypes.QStringList, 'Perform')
   perform = [];
 
-  @exportas(qtypes.QBool, "UseAutoIdentify")
+  @exportas(qtypes.QBool, 'UseAutoIdentify')
   useAutoIdentify = false;
 
-  @exportas(qtypes.QString, "AutoIdentifyService")
-  autoIdentifyService = "NickServ";
+  @exportas(qtypes.QString, 'AutoIdentifyService')
+  autoIdentifyService = 'NickServ';
 
-  @exportas(qtypes.QString, "AutoIdentifyPassword")
-  autoIdentifyPassword = "";
+  @exportas(qtypes.QString, 'AutoIdentifyPassword')
+  autoIdentifyPassword = '';
 
-  @exportas(qtypes.QBool, "UseSasl")
+  @exportas(qtypes.QBool, 'UseSasl')
   useSasl = false;
 
-  @exportas(qtypes.QString, "SaslAccount")
-  saslAccount = "";
+  @exportas(qtypes.QString, 'SaslAccount')
+  saslAccount = '';
 
-  @exportas(qtypes.QString, "SaslPassword")
-  saslPassword = "";
+  @exportas(qtypes.QString, 'SaslPassword')
+  saslPassword = '';
 
-  @exportas(qtypes.QBool, "UseAutoReconnect")
+  @exportas(qtypes.QBool, 'UseAutoReconnect')
   useAutoReconnect = true;
 
-  @exportas(qtypes.QUInt, "AutoReconnectInterval")
+  @exportas(qtypes.QUInt, 'AutoReconnectInterval')
   autoReconnectInterval = 60;
 
-  @exportas(qtypes.QUInt, "AutoReconnectRetries")
+  @exportas(qtypes.QUInt, 'AutoReconnectRetries')
   autoReconnectRetries = 20;
 
-  @exportas(qtypes.QBool, "UnlimitedReconnectRetries")
+  @exportas(qtypes.QBool, 'UnlimitedReconnectRetries')
   unlimitedReconnectRetries = false;
 
-  @exportas(qtypes.QBool, "RejoinChannels")
+  @exportas(qtypes.QBool, 'RejoinChannels')
   rejoinChannels = true;
 
-  @exportas(qtypes.QBool, "UseCustomMessageRate")
+  @exportas(qtypes.QBool, 'UseCustomMessageRate')
   useCustomMessageRate = false;
 
-  @exportas(qtypes.QBool, "UnlimitedMessageRate")
+  @exportas(qtypes.QBool, 'UnlimitedMessageRate')
   unlimitedMessageRate = false;
 
-  @exportas(qtypes.QUInt, "MessageRateDelay")
+  @exportas(qtypes.QUInt, 'MessageRateDelay')
   msgRateMessageDelay = 2200;
 
-  @exportas(qtypes.QUInt, "MessageRateBurstSize")
+  @exportas(qtypes.QUInt, 'MessageRateBurstSize')
   msgRateBurstSize = 5;
 
   constructor(id, name = null) {
+    super();
     /** @member {number} id */
-    this.id = typeof id === "number" ? id : -1;
+    this.id = typeof id === 'number' ? id : -1;
     /** @member {module:buffer.IRCBufferCollection} buffers */
     this.buffers = new IRCBufferCollection();
     /** @member {Map.<String, module:user>} users */
@@ -282,10 +284,7 @@ class Network extends EventEmitter {
    * @returns {boolean}
    */
   hasUser(nick) {
-    if (typeof nick.nick === 'string') {
-      nick = nick.nick;
-    }
-    return this.users.has(nick);
+    return this.users.has(typeof nick.nick === 'string' ? nick.nick : nick);
   }
 
   /**
@@ -383,7 +382,7 @@ class Network extends EventEmitter {
         if (user) {
           channel.addUser(user, uac.channels[key].UserModes[nick]);
         } else {
-          logger("User %s have not been found on server", nick);
+          logger('User %s have not been found on server', nick);
         }
       }
     }
@@ -420,7 +419,7 @@ class NetworkCollection extends Map {
    * @returns {?module:buffer.IRCBuffer}
    */
   getBuffer(bufferId) {
-    if (typeof bufferId !== "number") return undefined;
+    if (typeof bufferId !== 'number') return undefined;
     const networks = this.values();
     let buffer;
     for (let network of networks) {

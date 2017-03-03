@@ -69,7 +69,7 @@ class IRCBufferUser {
    * @returns {boolean}
    */
   hasMode(mode) {
-    if (typeof this._modes === "string") {
+    if (typeof this._modes === 'string') {
       return this._modes.indexOf(mode) !== -1;
     }
     return false;
@@ -116,7 +116,7 @@ class IRCBuffer {
    * @param {string} modes
    */
   addUser(user, modes) {
-    if (user && typeof user.nick === "string") {
+    if (user && typeof user.nick === 'string') {
       this.users.set(user.nick, new IRCBufferUser(user, modes));
     }
   }
@@ -127,8 +127,8 @@ class IRCBuffer {
    * @param {string} mode
    */
   addUserMode(user, mode) {
-    if (user && typeof user.nick === "string") {
-      var userAndModes = this.users.get(user.nick);
+    if (user && typeof user.nick === 'string') {
+      let userAndModes = this.users.get(user.nick);
       if (userAndModes) userAndModes.modes += mode;
     }
   }
@@ -139,9 +139,9 @@ class IRCBuffer {
    * @param {string} mode
    */
   removeUserMode(user, mode) {
-    if (user && typeof user.nick === "string") {
-      var userAndModes = this.users.get(user.nick);
-      if (userAndModes) userAndModes.modes = userAndModes.modes.replace(mode, "");
+    if (user && typeof user.nick === 'string') {
+      let userAndModes = this.users.get(user.nick);
+      if (userAndModes) userAndModes.modes = userAndModes.modes.replace(mode, '');
     }
   }
 
@@ -151,14 +151,11 @@ class IRCBuffer {
    * @returns {?boolean}
    */
   hasUser(nick) {
-      if (typeof nick === 'undefined' || nick === null) {
-        logger("User should not be null or undefined");
-        return null;
-      }
-      if (typeof nick.nick === 'string') {
-        nick = nick.nick;
-      }
-      return this.users.has(nick);
+    if (typeof nick === 'undefined' || nick === null) {
+      logger('User should not be null or undefined');
+      return null;
+    }
+    return this.users.has(typeof nick.nick === 'string' ? nick.nick : nick);
   }
 
   /**
@@ -166,10 +163,7 @@ class IRCBuffer {
    * @param {(string|module:user)} nick
    */
   removeUser(nick) {
-    if (typeof nick.nick === 'string') {
-      nick = nick.nick;
-    }
-    this.users.delete(nick);
+    this.users.delete(typeof nick.nick === 'string' ? nick.nick : nick);
   }
 
   /**
@@ -177,7 +171,7 @@ class IRCBuffer {
    * @param {string} oldnick
    */
   updateUserMaps(oldnick) {
-    var userAndModes = this.users.get(oldnick);
+    let userAndModes = this.users.get(oldnick);
     if (oldnick !== userAndModes.user.nick) {
       this.users.set(userAndModes.user.nick, userAndModes);
       this.users.delete(oldnick);
@@ -198,7 +192,7 @@ class IRCBuffer {
     if (this._firstMessageId === null || this._firstMessageId > message.id) {
       this._firstMessageId = message.id;
     }
-    var ircmsg = new IRCMessage(message, this);
+    let ircmsg = new IRCMessage(message, this);
     this.messages.set(message.id, ircmsg);
     return ircmsg;
   }
@@ -246,7 +240,7 @@ class IRCBuffer {
     if (n <= 0) {
       this.clearMessages();
     } else if (n < this.messages.size) {
-      var idsToKeep = [], newMap = new Map, self = this;
+      let idsToKeep = [], newMap = new Map, self = this;
       this.messages.forEach(function(val, key) {
         idsToKeep.push(key);
       });
@@ -294,7 +288,7 @@ class IRCBuffer {
 
   set name(value) {
     this._name = value ? value.toString() : null;
-    this.isChannel = (this._name && "#&+!".indexOf(this._name[0]) !== -1);
+    this.isChannel = (this._name && '#&+!'.indexOf(this._name[0]) !== -1);
   }
 
   get name() {
@@ -316,7 +310,8 @@ class IRCBuffer {
  */
 class IRCBufferCollection extends Map {
 
-  constructor() {
+  constructor(...args) {
+    super(...args);
     // This weakmap references buffers by their names for quick lookup
     this._weakmap_buffer_names = new WeakMap();
   }
@@ -327,7 +322,7 @@ class IRCBufferCollection extends Map {
    */
   add(buffer) {
     if (this.has(buffer.id)) {
-      logger("Buffer already added (%s)", buffer.name);
+      logger('Buffer already added (%s)', buffer.name);
       return;
     }
     this.set(buffer.id, buffer);

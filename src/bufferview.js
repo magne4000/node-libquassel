@@ -68,8 +68,8 @@ class BufferView {
    * @param {number} bufferId
    */
   unhide(bufferId) {
-    if (typeof bufferId !== "number") return;
-    const index = this.TemporarilyRemovedBuffers.indexOf(bufferId);
+    if (typeof bufferId !== 'number') return;
+    let index = this.TemporarilyRemovedBuffers.indexOf(bufferId);
     if (index !== -1) {
       this.TemporarilyRemovedBuffers.splice(index, 1);
     } else {
@@ -85,7 +85,7 @@ class BufferView {
    * @param {number} bufferId
    */
   setTemporarilyRemoved(bufferId) {
-    if (typeof bufferId !== "number") return;
+    if (typeof bufferId !== 'number') return;
     this.unhide(bufferId);
     this.TemporarilyRemovedBuffers.push(bufferId);
   }
@@ -95,7 +95,7 @@ class BufferView {
    * @param {number} bufferId
    */
   setPermanentlyRemoved(bufferId) {
-    if (typeof bufferId !== "number") return;
+    if (typeof bufferId !== 'number') return;
     this.unhide(bufferId);
     this.RemovedBuffers.push(bufferId);
   }
@@ -106,7 +106,7 @@ class BufferView {
    * @param {number} position
    */
   addBuffer(bufferId, position) {
-    var index = this.BufferList.indexOf(bufferId);
+    let index = this.BufferList.indexOf(bufferId);
     if (index !== -1) {
       this.moveBuffer(bufferId, position);
     } else {

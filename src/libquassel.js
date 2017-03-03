@@ -71,18 +71,17 @@ const Features = {
  * quassel.connect();
  */
 class Client extends EventEmitter {
-  contructor(server, port, loginCallback, options) {
+  contructor(server, port, loginCallback, options = {}) {
     /** @member {?net.Duplex} */
     this.client = null;
     /** @member {String} */
     this.server = server;
     /** @member {number} */
     this.port = port;
-    /** @member {Object} */
-    this.options = options || {};
+    /** @member {Object} options */
     this.options.backloglimit = parseInt(options.backloglimit || 100, 10);
     this.options.initialbackloglimit = parseInt(options.initialbackloglimit || this.options.backloglimit, 10);
-    this.options.highlightmode = (typeof options.highlightmode === 'number') ? options.highlightmode : HighlightModes.CurrentNick;
+    this.options.highlightmode = (typeof options.highlightmode === 'number') ? options.highlightmode : HighlightModes.CURRENTNICK;
     /** @member {?module:request.Request} */
     this.core = new Core(this.options);
     /** @member {module:network.NetworkCollection} */
@@ -111,7 +110,7 @@ class Client extends EventEmitter {
     this.loginCallback = loginCallback;
 
     if (typeof loginCallback !== 'function') {
-      throw new Error("loginCallback parameter is mandatory and must be a function");
+      throw new Error('loginCallback parameter is mandatory and must be a function');
     }
 
     this.core.on('data', data => this.dispatch(data));
@@ -133,30 +132,30 @@ class Client extends EventEmitter {
    */
   handleMsgType(obj) {
     switch (obj.MsgType) {
-      case 'ClientInitAck':
-        this.handleClientInitAck(obj);
-        break;
-      case 'ClientLoginAck':
-        logger('Logged in');
-        this.emit('login');
-        break;
-      case 'ClientLoginReject':
-        logger('ClientLoginReject: %O', obj);
-        this.emit('loginfailed');
-        break;
-      case 'CoreSetupAck':
-        logger('Core setup successful');
-        this.emit('setupok');
-        break;
-      case 'CoreSetupReject':
-        logger('Core setup failed: %O', obj.Error);
-        this.emit('setupfailed', obj.Error);
-        break;
-      case 'SessionInit':
-        this.handleSessionInit(obj);
-        break;
-      default:
-        logger('Unhandled MsgType %s', obj.MsgType);
+    case 'ClientInitAck':
+      this.handleClientInitAck(obj);
+      break;
+    case 'ClientLoginAck':
+      logger('Logged in');
+      this.emit('login');
+      break;
+    case 'ClientLoginReject':
+      logger('ClientLoginReject: %O', obj);
+      this.emit('loginfailed');
+      break;
+    case 'CoreSetupAck':
+      logger('Core setup successful');
+      this.emit('setupok');
+      break;
+    case 'CoreSetupReject':
+      logger('Core setup failed: %O', obj.Error);
+      this.emit('setupfailed', obj.Error);
+      break;
+    case 'SessionInit':
+      this.handleSessionInit(obj);
+      break;
+    default:
+      logger('Unhandled MsgType %s', obj.MsgType);
     }
   }
 
@@ -168,7 +167,7 @@ class Client extends EventEmitter {
     } else if (obj.LoginEnabled) {
       this.login();
     } else {
-      this.emit('error', new Error("Your core is not supported"));
+      this.emit('error', new Error('Your core is not supported'));
     }
   }
 
@@ -177,7 +176,7 @@ class Client extends EventEmitter {
     for (let networkId of obj.SessionState.NetworkIds) {
       // Save network list
       this.networks.add(networkId);
-      this.core.sendInitRequest("Network", String(networkId));
+      this.core.sendInitRequest('Network', String(networkId));
     }
     // Attach buffers to network
     for (let bufferInfo of obj.SessionState.BufferInfos) {
@@ -185,9 +184,9 @@ class Client extends EventEmitter {
       this.networks.get(ircbuffer.network).getBufferCollection().addBuffer(ircbuffer);
       if (ircbuffer.isChannel) {
         // FIXME
-        this.core.sendInitRequest("IrcChannel", `${ircbuffer.network}/${ircbuffer.name}`);
+        this.core.sendInitRequest('IrcChannel', `${ircbuffer.network}/${ircbuffer.name}`);
       }
-      this.emit("network.addbuffer", ircbuffer.network, bufferInfo.id);
+      this.emit('network.addbuffer', ircbuffer.network, bufferInfo.id);
     }
     // Init Identities
     for (let identity of obj.SessionState.Identities) {
@@ -196,10 +195,10 @@ class Client extends EventEmitter {
     this.emit('init', obj);
     this.emit('identities.init', this.identities);
     // FIXME
-    this.core.sendInitRequest("BufferSyncer", "");
-    this.core.sendInitRequest("BufferViewManager", "");
-    this.core.sendInitRequest("IgnoreListManager", "");
-    this.core.sendInitRequest("AliasManager", "");
+    this.core.sendInitRequest('BufferSyncer', '');
+    this.core.sendInitRequest('BufferViewManager', '');
+    this.core.sendInitRequest('IgnoreListManager', '');
+    this.core.sendInitRequest('AliasManager', '');
     if (this.options.initialbackloglimit > 0) {
       // TODO trigger this on some event instead
       setTimeout(function(){
@@ -229,13 +228,13 @@ class Client extends EventEmitter {
    */
   dispatch(obj) {
     if (obj === null) {
-      logger("Received null object ... ?");
+      logger('Received null object ... ?');
     } else if (obj.MsgType !== undefined) {
       this.handleMsgType(obj);
     } else if (Buffer.isBuffer(obj[1])) {
       this.handleStruct(obj);
     } else {
-      logger("Unknown message: %O", obj);
+      logger('Unknown message: %O', obj);
     }
   }
 
@@ -331,170 +330,180 @@ class Client extends EventEmitter {
     const [ requesttype ] = obj;
     let className, id, functionName, data;
     switch (requesttype) {
-      case RequestTypes.SYNC:
-        [ , className, id, functionName, ...data ] = obj;
-        this.handleStructSync(className, id, functionName, data);
-        break;
-      case RequestTypes.RPCCALL:
-        [ , functionName, ...data ] = obj;
-        this.handleStructRpcCall(functionName.toString(), data);
-        break;
-      case RequestTypes.INITDATA:
-        [ , className, id, ...data ] = obj;
-        this.handleStructInitData(className, id, data);
-      case RequestTypes.HEARTBEAT:
-        logger('HeartBeat');
-        this.heartBeat(true);
-        break;
-      case RequestTypes.HEARTBEATREPLY:
-        logger('HeartBeatReply');
-        break;
-      default:
-        logger('Unhandled RequestType %s', obj[0]);
+    case RequestTypes.SYNC:
+      [ , className, id, functionName, ...data ] = obj;
+      this.handleStructSync(className, id, functionName, data);
+      break;
+    case RequestTypes.RPCCALL:
+      [ , functionName, ...data ] = obj;
+      this.handleStructRpcCall(functionName.toString(), data);
+      break;
+    case RequestTypes.INITDATA:
+      [ , className, id, ...data ] = obj;
+      this.handleStructInitData(className, id, data);
+      break;
+    case RequestTypes.HEARTBEAT:
+      logger('HeartBeat');
+      this.heartBeat(true);
+      break;
+    case RequestTypes.HEARTBEATREPLY:
+      logger('HeartBeatReply');
+      break;
+    default:
+      logger('Unhandled RequestType %s', obj[0]);
     }
   }
 
   handleStructSync(className, id, functionName, data) {
     let networkId, username, buffername;
     switch (className) {
-      case "Network":
-        return this.handleStructSyncNetwork(parseInt(id.toString(), 10), functionName, data);
-      case "BufferSyncer":
-        return this.handleStructSyncBufferSyncer(functionName, data);
-      case "BufferViewManager":
-        return this.handleStructSyncBufferViewManager(functionName, data);
-      case "BufferViewConfig":
-        return this.handleStructSyncBufferViewConfig(parseInt(id.toString(), 10), functionName, data);
-      case "IrcUser":
-        [ networkId, username ] = splitOnce(id, "/");
-        return this.handleStructSyncIrcUser(parseInt(networkId, 10), username, functionName, data);
-      case "IrcChannel":
-        [ networkId, buffername ] = splitOnce(id, "/");
-        return this.handleStructSyncIrcChannel(parseInt(networkId, 10), buffername, functionName, data);
-      case "BacklogManager":
-        return this.handleStructSyncBacklogManager(functionName, data);
-      case "IgnoreListManager":
-        return this.handleStructSyncIgnoreListManager(functionName, data);
-      case "Identity":
-        return this.handleStructSyncIdentity(parseInt(id, 10), functionName, data);
-      case "AliasManager":
-        return this.handleStructSyncAliasManager(functionName, data);
-      default:
-        logger('Unhandled Sync %s', className);
-        return () => {};
+    case 'Network':
+      return this.handleStructSyncNetwork(parseInt(id.toString(), 10), functionName, data);
+    case 'BufferSyncer':
+      return this.handleStructSyncBufferSyncer(functionName, data);
+    case 'BufferViewManager':
+      return this.handleStructSyncBufferViewManager(functionName, data);
+    case 'BufferViewConfig':
+      return this.handleStructSyncBufferViewConfig(parseInt(id.toString(), 10), functionName, data);
+    case 'IrcUser':
+      [ networkId, username ] = splitOnce(id, '/');
+      return this.handleStructSyncIrcUser(parseInt(networkId, 10), username, functionName, data);
+    case 'IrcChannel':
+      [ networkId, buffername ] = splitOnce(id, '/');
+      return this.handleStructSyncIrcChannel(parseInt(networkId, 10), buffername, functionName, data);
+    case 'BacklogManager':
+      return this.handleStructSyncBacklogManager(functionName, data);
+    case 'IgnoreListManager':
+      return this.handleStructSyncIgnoreListManager(functionName, data);
+    case 'Identity':
+      return this.handleStructSyncIdentity(parseInt(id, 10), functionName, data);
+    case 'AliasManager':
+      return this.handleStructSyncAliasManager(functionName, data);
+    default:
+      logger('Unhandled Sync %s', className);
+      return () => {};
     }
   }
 
   handleStructRpcCall(functionName, data) {
-    switch(functionName) {
-      case "2displayStatusMsg(QString,QString)":
+    switch (functionName) {
+    case '2displayStatusMsg(QString,QString)':
         // Even official client doesn't use this ...
-        break;
-      case "2displayMsg(Message)":
-        const [ message ] = data;
-        const network = this.networks.get(message.bufferInfo.network);
-        if (network) {
-          const identity = this.identities.get(network.identityId);
-          let buffer = network.buffers.get(message.bufferInfo.id);
-          if (!buffer) buffer = network.buffers.get(message.bufferInfo.name);
-          if (message.type === MessageTypes.NETSPLITJOIN) {
-            // TODO
-          } else if (message.type === MessageTypes.NETSPLITQUIT) {
-            // TODO
-          }
-
-          if (buffer) {
-            const simpleMessage = buffer.addMessage(message);
-            if (simpleMessage) {
-              simpleMessage._updateFlags(network, identity, this.options.highlightmode);
-              this.emit("buffer.message", message.bufferInfo.id, simpleMessage.id);
-            }
-          } else {
-            // TODO listen for buffer init event ~5 seconds
-          }
-        } else {
-          logger("Network %d does not exists", message.bufferInfo.network);
-        }
-        break;
-      case "__objectRenamed__":
-        const renamedSubject = data[0].toString();
-        switch(renamedSubject) {
-          case "IrcUser":
-            const [ networkId, newNick ] = splitOnce(data[1], "/"); // 1/Nick
-            const [ , oldNick ] = splitOnce(data[2], "/"); // 1/Nick_
-            this.networks.get(networkId).renameUser(oldNick, newNick);
-            this.emit("network.userrenamed", networkId, oldNick, newNick);
-            break;
-          default:
-            logger('Unhandled RpcCall.__objectRenamed__ %s', renamedSubject);
-        }
-        break;
-      case "2networkCreated(NetworkId)":
+      break;
+    case '2displayMsg(Message)':
+      this.handleStructRpcCallDisplayMsg(data);
+      break;
+    case '__objectRenamed__':
+      this.handleStructRpcCall__objectRenamed__(data);
+      break;
+    case '2networkCreated(NetworkId)':
         // data[0] is networkId
-        this.networks.add(data[0]);
-        this.core.sendInitRequest("Network", String(data[0]));
-        this.emit("network.new", data[0]);
-        break;
-      case "2networkRemoved(NetworkId)":
+      this.networks.add(data[0]);
+      this.core.sendInitRequest('Network', String(data[0]));
+      this.emit('network.new', data[0]);
+      break;
+    case '2networkRemoved(NetworkId)':
         // data[0] is networkId
-        this.networks.add(data[0]);
-        this.networks.delete(data[0]);
-        this.emit("network.remove", data[0]);
-        break;
-      case "2identityCreated(Identity)":
+      this.networks.add(data[0]);
+      this.networks.delete(data[0]);
+      this.emit('network.remove', data[0]);
+      break;
+    case '2identityCreated(Identity)':
         // data[0] is identity
-        this.identities.set(data[0].identityId, new Identity(data[0]));
-        this.emit("identity.new", data[0].identityId);
-        break;
-      case "2identityRemoved(IdentityId)":
+      this.identities.set(data[0].identityId, new Identity(data[0]));
+      this.emit('identity.new', data[0].identityId);
+      break;
+    case '2identityRemoved(IdentityId)':
         // data[0] is identityId
-        this.identities.delete(data[0]);
-        this.emit('identity.remove', data[0]);
-        break;
-      default:
-        logger('Unhandled RpcCall %s', functionName);
+      this.identities.delete(data[0]);
+      this.emit('identity.remove', data[0]);
+      break;
+    default:
+      logger('Unhandled RpcCall %s', functionName);
+    }
+  }
+
+  handleStructRpcCallDisplayMsg([ message ]) {
+    const network = this.networks.get(message.bufferInfo.network);
+    if (network) {
+      const identity = this.identities.get(network.identityId);
+      let buffer = network.buffers.get(message.bufferInfo.id);
+      if (!buffer) buffer = network.buffers.get(message.bufferInfo.name);
+      if (message.type === MessageTypes.NETSPLITJOIN) {
+          // TODO
+      } else if (message.type === MessageTypes.NETSPLITQUIT) {
+          // TODO
+      }
+
+      if (buffer) {
+        const simpleMessage = buffer.addMessage(message);
+        if (simpleMessage) {
+          simpleMessage._updateFlags(network, identity, this.options.highlightmode);
+          this.emit('buffer.message', message.bufferInfo.id, simpleMessage.id);
+        }
+      } else {
+        // TODO listen for buffer init event x seconds ?
+      }
+    } else {
+      logger('Network %d does not exists', message.bufferInfo.network);
+    }
+  }
+
+  handleStructRpcCall__objectRenamed__([ renamedSubject, oldSubject, newSubject ]) {
+    renamedSubject = renamedSubject.toString();
+    let networkId, newNick, oldNick;
+    switch (renamedSubject) {
+    case 'IrcUser':
+      [ networkId, newNick ] = splitOnce(oldSubject, '/'); // 1/Nick
+      [ , oldNick ] = splitOnce(newSubject, '/'); // 1/Nick_
+      this.networks.get(networkId).renameUser(oldNick, newNick);
+      this.emit('network.userrenamed', networkId, oldNick, newNick);
+      break;
+    default:
+      logger('Unhandled RpcCall.__objectRenamed__ %s', renamedSubject);
     }
   }
 
   handleStructInitData(className, id, [ data ]) {
-    switch(className) {
-      case "Network":
-        const network = this.handleInitDataNetwork(data);
-        this.emit("network.init", network.networkId);
-        break;
-      case "BufferSyncer":
-        this.handleStructInitDataBufferSyncer(data);
-        break;
-      case "IrcUser":
-        this.handleStructInitDataIrcUser(id, data);
-        break;
-      case "IrcChannel":
-        this.handleStructInitDataIrcChannel(id, data);
-        break;
-      case "BufferViewManager":
-        const { BufferViewIds: bufferViewIds } = data;
-        for (let bufferViewId of bufferViewIds) {
-          this.core.sendInitRequest("BufferViewConfig", bufferViewId);
-        }
-        this.emit('bufferview.ids', bufferViewIds);
-        break;
-      case "BufferViewConfig":
-        this.handleStructInitDataBufferViewConfig(id, data);
-        break;
-      case "IgnoreListManager":
-        this.ignoreList.import(data);
-        this.emit('ignorelist', this.ignoreList);
-        break;
-      case "AliasManager":
-        this.aliases = alias.toArray(data);
-        this.emit('aliases', this.aliases);
-        break;
-      case "CoreInfo":
-        this.coreData = data;
-        this.emit('coreinfo', data);
-        break;
-      default:
-        logger('Unhandled InitData %s', className);
+    let network, bufferViewIds;
+    switch (className) {
+    case 'Network':
+      network = this.handleInitDataNetwork(data);
+      this.emit('network.init', network.networkId);
+      break;
+    case 'BufferSyncer':
+      this.handleStructInitDataBufferSyncer(data);
+      break;
+    case 'IrcUser':
+      this.handleStructInitDataIrcUser(id, data);
+      break;
+    case 'IrcChannel':
+      this.handleStructInitDataIrcChannel(id, data);
+      break;
+    case 'BufferViewManager':
+      ({ BufferViewIds: bufferViewIds } = data);
+      for (let bufferViewId of bufferViewIds) {
+        this.core.sendInitRequest('BufferViewConfig', bufferViewId);
+      }
+      this.emit('bufferview.ids', bufferViewIds);
+      break;
+    case 'BufferViewConfig':
+      this.handleStructInitDataBufferViewConfig(id, data);
+      break;
+    case 'IgnoreListManager':
+      this.ignoreList.import(data);
+      this.emit('ignorelist', this.ignoreList);
+      break;
+    case 'AliasManager':
+      this.aliases = alias.toArray(data);
+      this.emit('aliases', this.aliases);
+      break;
+    case 'CoreInfo':
+      this.coreData = data;
+      this.emit('coreinfo', data);
+      break;
+    default:
+      logger('Unhandled InitData %s', className);
     }
   }
 
@@ -507,7 +516,7 @@ class Client extends EventEmitter {
         if (this.networks.hasBuffer(bufferId)) {
           this.emit('buffer.lastseen', bufferId, messageId);
         } else {
-          logger("Buffer #%d does not exists", bufferId);
+          logger('Buffer #%d does not exists', bufferId);
         }
       }
     }
@@ -518,14 +527,14 @@ class Client extends EventEmitter {
         if (this.networks.hasBuffer(bufferId)) {
           this.emit('buffer.markerline', bufferId, messageId);
         } else {
-          logger("Buffer #%d does not exists", bufferId);
+          logger('Buffer #%d does not exists', bufferId);
         }
       }
     }
   }
 
   handleStructInitDataIrcChannel(id, data) {
-    const [ networkId, bufferName ] = splitOnce(id, "/");
+    let [ networkId, bufferName ] = splitOnce(id, '/');
     networkId = parseInt(networkId, 10);
     const buffer = this.networks.get(networkId).buffers.get(bufferName);
     buffer.topic = data.topic;
@@ -535,7 +544,7 @@ class Client extends EventEmitter {
   }
 
   handleStructInitDataIrcUser(id, data) {
-    const [ networkId, nick ] = splitOnce(id, "/");
+    let [ networkId, nick ] = splitOnce(id, '/');
     networkId = parseInt(networkId, 10);
     const user = this.networks.get(networkId).getUser(nick);
     if (user) {
@@ -548,10 +557,10 @@ class Client extends EventEmitter {
     id = parseInt(id, 10);
     this.bufferViews.set(id, new BufferView(id, data));
     for (let temporarilyRemovedBuffer in data.TemporarilyRemovedBuffers) {
-      this.emit('bufferview.bufferhidden', id, temporarilyRemovedBuffer, "temp");
+      this.emit('bufferview.bufferhidden', id, temporarilyRemovedBuffer, 'temp');
     }
     for (let removedBuffer in data.RemovedBuffers) {
-      this.emit('bufferview.bufferhidden', id, removedBuffer, "perm");
+      this.emit('bufferview.bufferhidden', id, removedBuffer, 'perm');
     }
     this.emit('bufferview.orderchanged', id);
     this.emit('bufferview.init', id);
@@ -559,177 +568,179 @@ class Client extends EventEmitter {
 
   handleStructSyncNetwork(id, functionName, [ data ]) {
     const network = this.networks.get(id);
+    let nick, oldNick;
     if (!network) {
       logger('Uninitialized network %d. Ignoring %s', id, functionName);
       return;
     }
-    switch(functionName) {
-      case "addIrcUser":
-        network.addUser(new IRCUser(data));
-        const [ nick ] = data.split("!");
-        this.core.sendInitRequest("IrcUser",  `${id}/${nick}`);
-        break;
-      case "addIrcChannel":
-        if (network.buffers.has(data)) {
-          this.emit('network.addbuffer', id, network.buffers.get(data).id);
-        }
-        this.core.sendInitRequest("IrcChannel", `${id}/${data}`);
-        break;
-      case "setConnectionState":
-        network.connectionState = data;
-        this.emit('network.connectionstate', id, data);
-        break;
-      case "setLatency":
-        network.latency = data;
-        this.emit('network.latency', id, data);
-        break;
-      case "setConnected":
-        network.isConnected = data;
-        this.emit(data ? 'network.connected' : 'network.disconnected', id);
-        break;
-      case "setMyNick":
-        const oldNick = network.nick;
-        network.nick = data;
-        network.renameUser(oldNick, data);
-        this.emit("network.userrenamed", id, oldNick, data);
-        this.emit('network.mynick', id, data);
-        break;
-      case "setNetworkName":
-        network.networkName = data;
-        this.emit('network.networkname', id, data);
-        break;
-      case "setCurrentServer":
-        network.currentServer = data;
-        this.emit('network.server', id, data);
-        break;
-      case "setServerList":
-        network.ServerList = data;
-        this.emit('network.serverlist', id, data);
-        break;
-      case "setCodecForDecoding":
-        network.codecForDecoding = data;
-        this.emit('network.codec.decoding', id, data);
-        break;
-      case "setCodecForEncoding":
-        network.codecForEncoding = data;
-        this.emit('network.codec.encoding', id, data);
-        break;
-      case "setCodecForServer":
-        network.codecForServer = data;
-        this.emit('network.codec.server', id, data);
-        break;
-      case "setPerform":
-        network.perform = data;
-        this.emit('network.perform', id, data);
-        break;
-      case "setIdentity":
-        network.identityId = data;
-        this.emit('network.identity', id, data);
-        break;
-      case "setAutoReconnectInterval":
-        network.autoReconnectInterval = data;
-        this.emit('network.autoreconnect.interval', id, data);
-        break;
-      case "setAutoReconnectRetries":
-        network.autoReconnectRetries = data;
-        this.emit('network.autoreconnect.retries', id, data);
-        break;
-      case "setAutoIdentifyService":
-        network.autoIdentifyService = data;
-        this.emit('network.autoidentify.service', id, data);
-        break;
-      case "setAutoIdentifyPassword":
-        network.autoIdentifyPassword = data;
-        this.emit('network.autoidentify.password', id, data);
-        break;
-      case "setUnlimitedReconnectRetries":
-        network.unlimitedReconnectRetries = data;
-        this.emit('network.unlimitedreconnectretries', id, data);
-        break;
-      case "setUseSasl":
-        network.useSasl = data;
-        this.emit('network.usesasl', id, data);
-        break;
-      case "setSaslAccount":
-        network.saslAccount = data;
-        this.emit('network.sasl.account', id, data);
-        break;
-      case "setSaslPassword":
-        network.saslPassword = data;
-        this.emit('network.sasl.password', id, data);
-        break;
-      case "setRejoinChannels":
-        network.rejoinChannels = data;
-        this.emit('network.rejoinchannels', id, data);
-        break;
-      case "setUseCustomMessageRate":
-        network.useCustomMessageRate = data;
-        this.emit('network.usecustommessagerate', id, data);
-        break;
-      case "setUnlimitedMessageRate":
-        network.unlimitedMessageRate = data;
-        this.emit('network.messagerate.unlimited', id, data);
-        break;
-      case "setMessageRateDelay":
-        network.msgRateMessageDelay = data;
-        this.emit('network.messagerate.delay', id, data);
-        break;
-      case "setMessageRateBurstSize":
-        network.msgRateBurstSize = data;
-        this.emit('network.messagerate.burstsize', id, data);
-        break;
-      default:
-        logger('Unhandled Sync.Network %s', functionName);
+    switch (functionName) {
+    case 'addIrcUser':
+      network.addUser(new IRCUser(data));
+      [ nick ] = data.split('!');
+      this.core.sendInitRequest('IrcUser',  `${id}/${nick}`);
+      break;
+    case 'addIrcChannel':
+      if (network.buffers.has(data)) {
+        this.emit('network.addbuffer', id, network.buffers.get(data).id);
+      }
+      this.core.sendInitRequest('IrcChannel', `${id}/${data}`);
+      break;
+    case 'setConnectionState':
+      network.connectionState = data;
+      this.emit('network.connectionstate', id, data);
+      break;
+    case 'setLatency':
+      network.latency = data;
+      this.emit('network.latency', id, data);
+      break;
+    case 'setConnected':
+      network.isConnected = data;
+      this.emit(data ? 'network.connected' : 'network.disconnected', id);
+      break;
+    case 'setMyNick':
+      oldNick = network.nick;
+      network.nick = data;
+      network.renameUser(oldNick, data);
+      this.emit('network.userrenamed', id, oldNick, data);
+      this.emit('network.mynick', id, data);
+      break;
+    case 'setNetworkName':
+      network.networkName = data;
+      this.emit('network.networkname', id, data);
+      break;
+    case 'setCurrentServer':
+      network.currentServer = data;
+      this.emit('network.server', id, data);
+      break;
+    case 'setServerList':
+      network.ServerList = data;
+      this.emit('network.serverlist', id, data);
+      break;
+    case 'setCodecForDecoding':
+      network.codecForDecoding = data;
+      this.emit('network.codec.decoding', id, data);
+      break;
+    case 'setCodecForEncoding':
+      network.codecForEncoding = data;
+      this.emit('network.codec.encoding', id, data);
+      break;
+    case 'setCodecForServer':
+      network.codecForServer = data;
+      this.emit('network.codec.server', id, data);
+      break;
+    case 'setPerform':
+      network.perform = data;
+      this.emit('network.perform', id, data);
+      break;
+    case 'setIdentity':
+      network.identityId = data;
+      this.emit('network.identity', id, data);
+      break;
+    case 'setAutoReconnectInterval':
+      network.autoReconnectInterval = data;
+      this.emit('network.autoreconnect.interval', id, data);
+      break;
+    case 'setAutoReconnectRetries':
+      network.autoReconnectRetries = data;
+      this.emit('network.autoreconnect.retries', id, data);
+      break;
+    case 'setAutoIdentifyService':
+      network.autoIdentifyService = data;
+      this.emit('network.autoidentify.service', id, data);
+      break;
+    case 'setAutoIdentifyPassword':
+      network.autoIdentifyPassword = data;
+      this.emit('network.autoidentify.password', id, data);
+      break;
+    case 'setUnlimitedReconnectRetries':
+      network.unlimitedReconnectRetries = data;
+      this.emit('network.unlimitedreconnectretries', id, data);
+      break;
+    case 'setUseSasl':
+      network.useSasl = data;
+      this.emit('network.usesasl', id, data);
+      break;
+    case 'setSaslAccount':
+      network.saslAccount = data;
+      this.emit('network.sasl.account', id, data);
+      break;
+    case 'setSaslPassword':
+      network.saslPassword = data;
+      this.emit('network.sasl.password', id, data);
+      break;
+    case 'setRejoinChannels':
+      network.rejoinChannels = data;
+      this.emit('network.rejoinchannels', id, data);
+      break;
+    case 'setUseCustomMessageRate':
+      network.useCustomMessageRate = data;
+      this.emit('network.usecustommessagerate', id, data);
+      break;
+    case 'setUnlimitedMessageRate':
+      network.unlimitedMessageRate = data;
+      this.emit('network.messagerate.unlimited', id, data);
+      break;
+    case 'setMessageRateDelay':
+      network.msgRateMessageDelay = data;
+      this.emit('network.messagerate.delay', id, data);
+      break;
+    case 'setMessageRateBurstSize':
+      network.msgRateBurstSize = data;
+      this.emit('network.messagerate.burstsize', id, data);
+      break;
+    default:
+      logger('Unhandled Sync.Network %s', functionName);
     }
   }
 
   handleStructSyncBufferSyncer(functionName, [ bufferId, data ]) {
-    switch(functionName) {
-      case "markBufferAsRead":
-        this.emit('buffer.read', data);
-        break;
-      case "setLastSeenMsg":
+    let bufferTo, bufferFrom;
+    switch (functionName) {
+    case 'markBufferAsRead':
+      this.emit('buffer.read', data);
+      break;
+    case 'setLastSeenMsg':
         // data is a messageId
-        this.emit('buffer.lastseen', bufferId, data);
-        break;
-      case "setMarkerLine":
+      this.emit('buffer.lastseen', bufferId, data);
+      break;
+    case 'setMarkerLine':
         // data is a messageId
-        this.emit('buffer.markerline', bufferId, data);
-        break;
-      case "removeBuffer":
-        this.networks.deleteBuffer(bufferId);
-        this.emit('buffer.remove', bufferId);
-        break;
-      case "renameBuffer":
+      this.emit('buffer.markerline', bufferId, data);
+      break;
+    case 'removeBuffer':
+      this.networks.deleteBuffer(bufferId);
+      this.emit('buffer.remove', bufferId);
+      break;
+    case 'renameBuffer':
         // data is the new name
-        this.networks.getBuffer(bufferId).name = data;
-        this.emit('buffer.rename', bufferId, data);
-        break;
-      case 'mergeBuffersPermanently':
-        const bufferTo = this.networks.getBuffer(bufferId);
-        const bufferFrom = this.networks.getBuffer(data);
-        if (bufferTo && bufferFrom) {
-          for (const [ key, val ] of bufferFrom.messages) {
-            val.buffer = bufferTo;
-            bufferTo.messages.set(key, val);
-          }
+      this.networks.getBuffer(bufferId).name = data;
+      this.emit('buffer.rename', bufferId, data);
+      break;
+    case 'mergeBuffersPermanently':
+      bufferTo = this.networks.getBuffer(bufferId);
+      bufferFrom = this.networks.getBuffer(data);
+      if (bufferTo && bufferFrom) {
+        for (const [ key, val ] of bufferFrom.messages) {
+          val.buffer = bufferTo;
+          bufferTo.messages.set(key, val);
         }
-        this.networks.deleteBuffer(bufferFrom);
-        this.emit('buffer.merge', bufferTo, bufferFrom);
-        break;
-      default:
-        logger('Unhandled Sync.BufferSyncer %s', functionName);
+      }
+      this.networks.deleteBuffer(bufferFrom);
+      this.emit('buffer.merge', bufferTo, bufferFrom);
+      break;
+    default:
+      logger('Unhandled Sync.BufferSyncer %s', functionName);
     }
   }
 
   handleStructSyncBufferViewManager(functionName, [ data ]) {
-    switch(functionName) {
-      case "addBufferViewConfig":
+    switch (functionName) {
+    case 'addBufferViewConfig':
         // data is a bufferViewId
-        this.core.sendInitRequest("BufferViewConfig", String(data));
-        break;
-      default:
-        logger('Unhandled Sync.BufferViewManager %s', functionName);
+      this.core.sendInitRequest('BufferViewConfig', String(data));
+      break;
+    default:
+      logger('Unhandled Sync.BufferViewManager %s', functionName);
     }
   }
 
@@ -739,125 +750,125 @@ class Client extends EventEmitter {
       logger('Uninitialized bufferView %d. Ignoring %s', id, functionName);
       return;
     }
-    switch(functionName) {
-      case "addBuffer":
-        bufferView.addBuffer(...data);
-        bufferView.unhide(data[0]);
-        this.emit('bufferview.bufferunhide', id, data[0]);
-        this.emit('bufferview.orderchanged', id);
-        break;
-      case "removeBuffer":
-        bufferView.setTemporarilyRemoved(data[0]);
-        this.emit('bufferview.bufferhidden', id, data[0], "temp");
-        break;
-      case "removeBufferPermanently":
-        bufferView.setPermanentlyRemoved(data[0]);
-        this.emit('bufferview.bufferhidden', id, data[0], "perm");
-        break;
-      case "moveBuffer":
-        bufferView.moveBuffer(...data);
-        this.emit('bufferview.orderchanged', id);
-        break;
-      case "setNetworkId":
-        bufferView.networkId = data[0];
-        this.emit('bufferview.networkid', id, data[0]);
-        break;
-      case "setShowSearch":
-        bufferView.showSearch = data[0];
-        this.emit('bufferview.search', id, data[0]);
-        break;
-      case "setHideInactiveNetworks":
-        bufferView.hideInactiveNetworks = data[0];
-        this.emit('bufferview.hideinactivenetworks', id, data[0]);
-        break;
-      case "setHideInactiveBuffers":
-        bufferView.hideInactiveBuffers = data[0];
-        this.emit('bufferview.hideinactivebuffers', id, data[0]);
-        break;
-      case "setAllowedBufferTypes":
-        bufferView.allowedBufferTypes = data[0];
-        this.emit('bufferview.allowedbuffertypes', id, data[0]);
-        break;
-      case "setAddNewBuffersAutomatically":
-        bufferView.addNewBuffersAutomatically = data[0];
-        this.emit('bufferview.addnewbuffersautomatically', id, data[0]);
-        break;
-      case "setMinimumActivity":
-        bufferView.minimumActivity = data[0];
-        this.emit('bufferview.minimumactivity', id, data[0]);
-        break;
-      case "setBufferViewName":
-        bufferView.bufferViewName = data[0];
-        this.emit('bufferview.bufferviewname', id, data[0]);
-        break;
-      case "setDisableDecoration":
-        bufferView.disableDecoration = data[0];
-        this.emit('bufferview.disabledecoration', id, data[0]);
-        break;
-      case "update":
-        bufferView.update(data[0]);
-        this.emit('bufferview.update', id, data[0]);
-        break;
-      default:
-        logger('Unhandled Sync.BufferViewConfig %s', functionName);
+    switch (functionName) {
+    case 'addBuffer':
+      bufferView.addBuffer(...data);
+      bufferView.unhide(data[0]);
+      this.emit('bufferview.bufferunhide', id, data[0]);
+      this.emit('bufferview.orderchanged', id);
+      break;
+    case 'removeBuffer':
+      bufferView.setTemporarilyRemoved(data[0]);
+      this.emit('bufferview.bufferhidden', id, data[0], 'temp');
+      break;
+    case 'removeBufferPermanently':
+      bufferView.setPermanentlyRemoved(data[0]);
+      this.emit('bufferview.bufferhidden', id, data[0], 'perm');
+      break;
+    case 'moveBuffer':
+      bufferView.moveBuffer(...data);
+      this.emit('bufferview.orderchanged', id);
+      break;
+    case 'setNetworkId':
+      [ bufferView.networkId ] = data;
+      this.emit('bufferview.networkid', id, bufferView.networkId);
+      break;
+    case 'setShowSearch':
+      [ bufferView.showSearch ] = data;
+      this.emit('bufferview.search', id, bufferView.showSearch);
+      break;
+    case 'setHideInactiveNetworks':
+      [ bufferView.hideInactiveNetworks ] = data;
+      this.emit('bufferview.hideinactivenetworks', id, bufferView.hideInactiveNetworks);
+      break;
+    case 'setHideInactiveBuffers':
+      [ bufferView.hideInactiveBuffers ] = data;
+      this.emit('bufferview.hideinactivebuffers', id, bufferView.hideInactiveBuffers);
+      break;
+    case 'setAllowedBufferTypes':
+      [ bufferView.allowedBufferTypes ] = data;
+      this.emit('bufferview.allowedbuffertypes', id, bufferView.allowedBufferTypes);
+      break;
+    case 'setAddNewBuffersAutomatically':
+      [ bufferView.addNewBuffersAutomatically ] = data;
+      this.emit('bufferview.addnewbuffersautomatically', id, bufferView.addNewBuffersAutomatically);
+      break;
+    case 'setMinimumActivity':
+      [ bufferView.minimumActivity ] = data;
+      this.emit('bufferview.minimumactivity', id, bufferView.minimumActivity);
+      break;
+    case 'setBufferViewName':
+      [ bufferView.bufferViewName ] = data;
+      this.emit('bufferview.bufferviewname', id, bufferView.bufferViewName);
+      break;
+    case 'setDisableDecoration':
+      [ bufferView.disableDecoration ] = data;
+      this.emit('bufferview.disabledecoration', id, bufferView.disableDecoration);
+      break;
+    case 'update':
+      bufferView.update(data[0]);
+      this.emit('bufferview.update', id, data[0]);
+      break;
+    default:
+      logger('Unhandled Sync.BufferViewConfig %s', functionName);
     }
   }
 
   handleStructSyncIrcUser(networkId, username, functionName, [ data ]) {
     const network = this.networks.get(networkId);
-    let user;
+    let user, buffer, ids;
     if (!network) {
       logger('Uninitialized network %d. Ignoring %s', networkId, functionName);
       return;
     }
-    switch(functionName) {
-      case "partChannel":
+    switch (functionName) {
+    case 'partChannel':
         // data is bufferName
-        const buffer = network.buffers.get(data);
-        buffer.removeUser(username);
-        this.emit('user.part', networkId, username, buffer.id);
-        if (buffer.isChannel) {
-          if (network.nick !== null && network.nick.toLowerCase() === username.toLowerCase()) {
+      buffer = network.buffers.get(data);
+      buffer.removeUser(username);
+      this.emit('user.part', networkId, username, buffer.id);
+      if (buffer.isChannel) {
+        if (network.nick !== null && network.nick.toLowerCase() === username.toLowerCase()) {
             // We part
-            buffer.active = false;
-            this.emit('buffer.deactivate', buffer.id);
-          }
-        } else if (buffer.name === username) {
           buffer.active = false;
           this.emit('buffer.deactivate', buffer.id);
         }
-        break;
-      case "quit":
-        const ids = network.deleteUser(username);
-        for (let id of ids) {
-          this.emit('buffer.deactivate', id);
-        }
-        this.emit('user.quit', networkId, username);
-        break;
-      case "setNick":
+      } else if (buffer.name === username) {
+        buffer.active = false;
+        this.emit('buffer.deactivate', buffer.id);
+      }
+      break;
+    case 'quit':
+      ids = network.deleteUser(username);
+      for (let id of ids) {
+        this.emit('buffer.deactivate', id);
+      }
+      this.emit('user.quit', networkId, username);
+      break;
+    case 'setNick':
         // Already handled by RPC call
-        break;
+      break;
       /*case "setServer":
         // TODO
         break;*/
-      case "setAway":
+    case 'setAway':
         // data is isAway
-        user = network.getUser(username);
-        if (user) {
-          user.away = data;
-          this.emit('user.away', networkId, username, data);
-        }
-        break;
-      case "setRealName":
+      user = network.getUser(username);
+      if (user) {
+        user.away = data;
+        this.emit('user.away', networkId, username, data);
+      }
+      break;
+    case 'setRealName':
         // data is realname
-        user = network.getUser(username);
-        if (user) {
-          user.realname = data;
-          this.emit('user.realname', networkId, username, data);
-        }
-        break;
-      default:
-        logger('Unhandled Sync.IrcUser %s', functionName);
+      user = network.getUser(username);
+      if (user) {
+        user.realname = data;
+        this.emit('user.realname', networkId, username, data);
+      }
+      break;
+    default:
+      logger('Unhandled Sync.IrcUser %s', functionName);
     }
   }
 
@@ -873,71 +884,71 @@ class Client extends EventEmitter {
       return;
     }
     let user, nick, mode;
-    switch(functionName) {
-      case "joinIrcUsers":
-        for (let i=0; i < data[0].length; i++) {
-          user = network.getUser(data[0][i]); // nick
-          buffer.addUser(user, data[1][i]); // modes
-          this.emit('channel.join', buffer.id, data[0][i]);
-        }
-        break;
-      case "addUserMode":
-        [ nick, mode ] = data;
-        user = network.getUser(nick);
-        buffer.addUserMode(user, mode);
-        this.emit('channel.addusermode', buffer.id, nick, mode);
-        break;
-      case "removeUserMode":
-        [ nick, mode ] = data;
-        user = network.getUser(nick);
-        buffer.removeUserMode(user, mode);
-        this.emit('channel.removeusermode', buffer.id, nick, mode);
-        break;
-      case "setTopic":
-        // data[0] is topic
-        buffer.topic = data[0];
-        this.emit('channel.topic', buffer.id, data[0]);
-        break;
-      default:
-        logger('Unhandled Sync.IrcChannel %s', functionName);
+    switch (functionName) {
+    case 'joinIrcUsers':
+      for (let i=0; i < data[0].length; i++) {
+        user = network.getUser(data[0][i]); // nick
+        buffer.addUser(user, data[1][i]); // modes
+        this.emit('channel.join', buffer.id, data[0][i]);
+      }
+      break;
+    case 'addUserMode':
+      [ nick, mode ] = data;
+      user = network.getUser(nick);
+      buffer.addUserMode(user, mode);
+      this.emit('channel.addusermode', buffer.id, nick, mode);
+      break;
+    case 'removeUserMode':
+      [ nick, mode ] = data;
+      user = network.getUser(nick);
+      buffer.removeUserMode(user, mode);
+      this.emit('channel.removeusermode', buffer.id, nick, mode);
+      break;
+    case 'setTopic':
+      [ buffer.topic ] = data;
+      this.emit('channel.topic', buffer.id, buffer.topic);
+      break;
+    default:
+      logger('Unhandled Sync.IrcChannel %s', functionName);
     }
   }
 
   handleStructSyncBacklogManager(functionName, [ bufferId, _first, _last, _maxAmount, _, data ]) {
-    switch(functionName) {
-      case "receiveBacklog":
-        const buffer = this.networks.getBuffer(bufferId);
-        const network = this.networks.get(buffer.network);
-        const identity = this.identities.get(network.identityId);
-        const messageIds = [];
-        if (buffer) {
-          for (let message of data) {
-            message = buffer.addMessage(message);
-            if (!message) {
-              logger("Message %d already exists in buffer %d", message.id, buffer.id);
-            } else {
-              messageIds.push(message.id);
-              message._updateFlags(network, identity, this.options.highlightmode);
-            }
+    const messageIds = [];
+    let buffer, network, identity;
+    switch (functionName) {
+    case 'receiveBacklog':
+      buffer = this.networks.getBuffer(bufferId);
+      network = this.networks.get(buffer.network);
+      identity = this.identities.get(network.identityId);
+      if (buffer) {
+        for (let message of data) {
+          message = buffer.addMessage(message);
+          if (!message) {
+            logger('Message %d already exists in buffer %d', message.id, buffer.id);
+          } else {
+            messageIds.push(message.id);
+            message._updateFlags(network, identity, this.options.highlightmode);
           }
-          this.emit("buffer.backlog", bufferId, messageIds);
-        } else {
-          logger("Buffer %d does not exists.", bufferId);
         }
-        break;
-      default:
-        logger('Unhandled Sync.BacklogManager %s', functionName);
+        this.emit('buffer.backlog', bufferId, messageIds);
+      } else {
+        logger('Buffer %d does not exists.', bufferId);
+      }
+      break;
+    default:
+      logger('Unhandled Sync.BacklogManager %s', functionName);
     }
   }
 
   handleStructSyncIgnoreListManager(functionName, [ data ]) {
-    switch(functionName) {
-      case "update":
-        this.ignoreList.import(data);
-        this.emit('ignorelist', this.ignoreList);
-        break;
-      default:
-        logger('Unhandled Sync.IgnoreListManager %s', functionName);
+    switch (functionName) {
+    case 'update':
+      this.ignoreList.import(data);
+      this.emit('ignorelist', this.ignoreList);
+      break;
+    default:
+      logger('Unhandled Sync.IgnoreListManager %s', functionName);
     }
   }
 
@@ -959,12 +970,12 @@ class Client extends EventEmitter {
 
   handleStructSyncAliasManager(functionName, [ data ]) {
     switch (functionName) {
-      case "update":
-        this.aliases = alias.toArray(data);
-        this.emit('aliases', this.aliases);
-        break;
-      default:
-        logger('Unhandled Sync.AliasManager %s', functionName);
+    case 'update':
+      this.aliases = alias.toArray(data);
+      this.emit('aliases', this.aliases);
+      break;
+    default:
+      logger('Unhandled Sync.AliasManager %s', functionName);
     }
   }
 
@@ -1500,7 +1511,7 @@ class Client extends EventEmitter {
 
 function splitOnce(str, character) {
   const i = str.indexOf(character);
-  return [ str.slice(0,i), str.slice(i+1) ];
+  return [ str.slice(0, i), str.slice(i+1) ];
 }
 
 module.exports = {
