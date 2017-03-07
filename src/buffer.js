@@ -310,7 +310,7 @@ class IRCBuffer {
 class IRCBufferCollection extends Map {
 
   constructor(...args) {
-    if (args.length > 0) throw new Error("IRCBufferCollection doesn't support initializing with an array.");
+    if (args.length > 0) throw new Error(`IRCBufferCollection doesn't support initializing with an array.`);
     super();
     // This map references buffers by their IDs for quick lookup
     this._map_buffer_ids = new Map();

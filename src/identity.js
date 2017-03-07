@@ -26,7 +26,7 @@ class Identity {
   autoAwayEnabled = false;
 
   @exportas(qtypes.QString)
-  autoAwayReason = "Not here. No, really. not here!";
+  autoAwayReason = 'Not here. No, really. not here!';
 
   @exportas(qtypes.QBool)
   autoAwayReasonEnabled = false;
@@ -35,13 +35,13 @@ class Identity {
   autoAwayTime = 10;
 
   @exportas(qtypes.QString)
-  awayNick = "";
+  awayNick = '';
 
   @exportas(qtypes.QBool)
   awayNickEnabled = false;
 
   @exportas(qtypes.QString)
-  awayReason = "Gone fishing.";
+  awayReason = 'Gone fishing.';
 
   @exportas(qtypes.QBool)
   awayReasonEnabled = true;
@@ -50,15 +50,15 @@ class Identity {
   detachAwayEnabled = false;
 
   @exportas(qtypes.QString)
-  detachAwayReason = "All Quassel clients vanished from the face of the earth...";
+  detachAwayReason = 'All Quassel clients vanished from the face of the earth...';
 
   @exportas(qtypes.QBool)
   detachAwayReasonEnabled = false;
 
   @exportas(qtypes.QString)
-  ident = "quassel";
+  ident = 'quassel';
 
-  @exportas(qtypes.QUserType.get("IdentityId"))
+  @exportas(qtypes.QUserType.get('IdentityId'))
   identityId = -1;
 
   @exportas(qtypes.QString)
@@ -71,13 +71,13 @@ class Identity {
   nicks;
 
   @exportas(qtypes.QString)
-  kickReason = "Kindergarten is elsewhere!";
+  kickReason = 'Kindergarten is elsewhere!';
 
   @exportas(qtypes.QString)
-  partReason = "http://quassel-irc.org - Chat comfortably. Anywhere.";
+  partReason = 'http://quassel-irc.org - Chat comfortably. Anywhere.';
 
   @exportas(qtypes.QString)
-  quitReason = "http://quassel-irc.org - Chat comfortably. Anywhere.";
+  quitReason = 'http://quassel-irc.org - Chat comfortably. Anywhere.';
 
   constructor(data) {
     if (data) {

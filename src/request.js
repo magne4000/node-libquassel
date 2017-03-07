@@ -136,7 +136,7 @@ class Core extends EventEmitter {
    */
   heartBeat(reply) {
     const d = new Date();
-    const ms = d.getTime() - d.setHours(0,0,0,0);
+    const ms = d.getTime() - d.setHours(0, 0, 0, 0);
     const slist = [
       reply ? Types.HEARTBEAT : Types.HEARTBEATREPLY,
       qtypes.QTime.from(ms)
@@ -164,7 +164,6 @@ class Core extends EventEmitter {
   backlog(bufferId, firstMsgId = -1, lastMsgId = -1, maxAmount = undefined) {
     maxAmount = maxAmount || this.options.backloglimit;
     logger('Sending backlog request');
-    console.log(bufferId)
     return [ '', bufferId, firstMsgId, lastMsgId, maxAmount, 0 ];
   }
 

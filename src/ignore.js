@@ -6,7 +6,7 @@
  * Licensed under the MIT license.
  */
 
-let { Types } = require('./message');
+const { Types } = require('./message');
 const logger = require('debug')('libquassel:ignore');
 
 /** @module ignore */
@@ -208,8 +208,10 @@ class IgnoreList {
   }
 }
 
-exports.IgnoreItem = IgnoreItem;
-exports.IgnoreList = IgnoreList;
-exports.IgnoreTypes = IgnoreTypes;
-exports.StrictnessTypes = StrictnessTypes;
-exports.ScopeTypes = ScopeTypes;
+module.exports = {
+  IgnoreItem,
+  IgnoreList,
+  IgnoreTypes,
+  StrictnessTypes,
+  ScopeTypes
+};
