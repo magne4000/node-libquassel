@@ -71,7 +71,7 @@ const HighlightModes = {
  * @param {Object} message
  */
 class IRCMessage {
-  contructor(message, buffer) {
+  constructor(message) {
     this.nick = null;
     this.hostmask = null;
     this._flags = null;
@@ -85,7 +85,7 @@ class IRCMessage {
     this.flags = message.flags;
     this.sender = message.sender ? util.str(message.sender) : null;
     this.content = message.content ? util.str(message.content) : null;
-    this.buffer = buffer;
+    this.bufferInfo = message.bufferInfo;
   }
 
   /**
@@ -140,7 +140,11 @@ class IRCMessage {
 
   set sender(value) {
     this._sender = value;
-    [ this.nick, this.hostmask ] = value.split('!');
+    if (value) {
+      [ this.nick, this.hostmask ] = value.split('!');
+    } else {
+      this.nick = this.hostmask = null;
+    }
   }
 
   get sender() {

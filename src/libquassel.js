@@ -56,8 +56,6 @@ const Features = {
  * Main class to interact with Quassel instance. It extends {@link https://nodejs.org/api/events.html#events_class_eventemitter|EventEmitter}
  * @class
  * @extends {EventEmitter}
- * @param {string} server The server hostname or IP address
- * @param {number} port The port on which runs Quassel on the server
  * @param {Object} [options] Allows optionnal parameters
  * @param {number} [options.initialbackloglimit=options.backloglimit] number of backlogs to request per buffer at connection
  * @param {number} [options.backloglimit=100] number of backlogs to request per buffer after connection
@@ -65,20 +63,17 @@ const Features = {
  * @param {module:libquassel~Quassel.HighlightModes} [options.highlightmode=0x02] Choose how highlights on nicks works. Defaults to only highlight a message if current nick is present.
  * @param {module:libquassel~Quassel~loginCallback} loginCallback
  * @example
+ * //FIXME
  * var quassel = new Quassel("localhost", 4242, {}, function(next) {
  *   next("user", "password");
  * });
  * quassel.connect();
  */
 class Client extends EventEmitter {
-  contructor(server, port, loginCallback, options = {}) {
-    /** @member {?net.Duplex} */
-    this.client = null;
-    /** @member {String} */
-    this.server = server;
-    /** @member {number} */
-    this.port = port;
+  constructor(loginCallback, options = {}) {
+    super();
     /** @member {Object} options */
+    this.options = {};
     this.options.backloglimit = parseInt(options.backloglimit || 100, 10);
     this.options.initialbackloglimit = parseInt(options.initialbackloglimit || this.options.backloglimit, 10);
     this.options.highlightmode = (typeof options.highlightmode === 'number') ? options.highlightmode : HighlightModes.CURRENTNICK;
@@ -172,6 +167,7 @@ class Client extends EventEmitter {
   }
 
   handleSessionInit(obj) {
+    this.emit('init', obj);
     // Init networks
     for (let networkId of obj.SessionState.NetworkIds) {
       // Save network list
@@ -181,32 +177,27 @@ class Client extends EventEmitter {
     // Attach buffers to network
     for (let bufferInfo of obj.SessionState.BufferInfos) {
       const ircbuffer = new IRCBuffer(bufferInfo);
-      this.networks.get(ircbuffer.network).getBufferCollection().addBuffer(ircbuffer);
+      this.networks.get(ircbuffer.network).buffers.add(ircbuffer);
       if (ircbuffer.isChannel) {
-        // FIXME
         this.core.sendInitRequest('IrcChannel', `${ircbuffer.network}/${ircbuffer.name}`);
       }
       this.emit('network.addbuffer', ircbuffer.network, bufferInfo.id);
+      // Init backlogs for this buffer
+      if (this.options.initialbackloglimit > 0) {
+        this.core.backlog(bufferInfo.id);
+      }
     }
     // Init Identities
     for (let identity of obj.SessionState.Identities) {
       this.identities.set(new Identity(identity));
     }
-    this.emit('init', obj);
     this.emit('identities.init', this.identities);
-    // FIXME
-    this.core.sendInitRequest('BufferSyncer', '');
-    this.core.sendInitRequest('BufferViewManager', '');
-    this.core.sendInitRequest('IgnoreListManager', '');
-    this.core.sendInitRequest('AliasManager', '');
-    if (this.options.initialbackloglimit > 0) {
-      // TODO trigger this on some event instead
-      setTimeout(function(){
-        this.requestBacklogs(this.options.initialbackloglimit);
-      }, 1000);
-    }
-    this.heartbeatInterval = setInterval(function() {
-      this.heartBeat();
+    this.core.sendInitRequest('BufferSyncer');
+    this.core.sendInitRequest('BufferViewManager');
+    this.core.sendInitRequest('IgnoreListManager');
+    this.core.sendInitRequest('AliasManager');
+    this.heartbeatInterval = setInterval(() => {
+      this.core.heartBeat();
     }, 30000);
   }
 
@@ -231,7 +222,7 @@ class Client extends EventEmitter {
       logger('Received null object ... ?');
     } else if (obj.MsgType !== undefined) {
       this.handleMsgType(obj);
-    } else if (Buffer.isBuffer(obj[1])) {
+    } else if (Array.isArray(obj)) {
       this.handleStruct(obj);
     } else {
       logger('Unknown message: %O', obj);
@@ -243,9 +234,10 @@ class Client extends EventEmitter {
    * @param {Object} obj
    * @protected
    */
-  handleInitDataNetwork(obj) {
-    const network = this.networks.get(parseInt(obj[2], 10));
-    network.update(obj[3]);
+  handleInitDataNetwork(id, data) {
+    id = parseInt(id, 10);
+    const network = this.networks.get(id);
+    network.update(data);
     return network;
   }
 
@@ -332,7 +324,7 @@ class Client extends EventEmitter {
     switch (requesttype) {
     case RequestTypes.SYNC:
       [ , className, id, functionName, ...data ] = obj;
-      this.handleStructSync(className, id, functionName, data);
+      this.handleStructSync(className.toString(), id, functionName.toString(), data);
       break;
     case RequestTypes.RPCCALL:
       [ , functionName, ...data ] = obj;
@@ -340,11 +332,11 @@ class Client extends EventEmitter {
       break;
     case RequestTypes.INITDATA:
       [ , className, id, ...data ] = obj;
-      this.handleStructInitData(className, id, data);
+      this.handleStructInitData(className.toString(), id, data);
       break;
     case RequestTypes.HEARTBEAT:
       logger('HeartBeat');
-      this.heartBeat(true);
+      this.core.heartBeat(true);
       break;
     case RequestTypes.HEARTBEATREPLY:
       logger('HeartBeatReply');
@@ -381,14 +373,13 @@ class Client extends EventEmitter {
       return this.handleStructSyncAliasManager(functionName, data);
     default:
       logger('Unhandled Sync %s', className);
-      return () => {};
     }
   }
 
   handleStructRpcCall(functionName, data) {
     switch (functionName) {
     case '2displayStatusMsg(QString,QString)':
-        // Even official client doesn't use this ...
+      // Even official client doesn't use this ...
       break;
     case '2displayMsg(Message)':
       this.handleStructRpcCallDisplayMsg(data);
@@ -397,24 +388,24 @@ class Client extends EventEmitter {
       this.handleStructRpcCall__objectRenamed__(data);
       break;
     case '2networkCreated(NetworkId)':
-        // data[0] is networkId
+      // data[0] is networkId
       this.networks.add(data[0]);
       this.core.sendInitRequest('Network', String(data[0]));
       this.emit('network.new', data[0]);
       break;
     case '2networkRemoved(NetworkId)':
-        // data[0] is networkId
+      // data[0] is networkId
       this.networks.add(data[0]);
       this.networks.delete(data[0]);
       this.emit('network.remove', data[0]);
       break;
     case '2identityCreated(Identity)':
-        // data[0] is identity
+      // data[0] is identity
       this.identities.set(data[0].identityId, new Identity(data[0]));
       this.emit('identity.new', data[0].identityId);
       break;
     case '2identityRemoved(IdentityId)':
-        // data[0] is identityId
+      // data[0] is identityId
       this.identities.delete(data[0]);
       this.emit('identity.remove', data[0]);
       break;
@@ -428,11 +419,20 @@ class Client extends EventEmitter {
     if (network) {
       const identity = this.identities.get(network.identityId);
       let buffer = network.buffers.get(message.bufferInfo.id);
-      if (!buffer) buffer = network.buffers.get(message.bufferInfo.name);
+      if (!buffer) {
+        buffer = network.buffers.get(message.bufferInfo.name);
+        if (buffer) {
+          // TODO move this in BufferCollection
+          buffer.update(message.bufferInfo);
+          network.buffers.move(buffer, message.bufferInfo.id);
+        } else {
+          // TODO Create buffer ?
+        }
+      }
       if (message.type === MessageTypes.NETSPLITJOIN) {
-          // TODO
+        // TODO
       } else if (message.type === MessageTypes.NETSPLITQUIT) {
-          // TODO
+        // TODO
       }
 
       if (buffer) {
@@ -442,7 +442,7 @@ class Client extends EventEmitter {
           this.emit('buffer.message', message.bufferInfo.id, simpleMessage.id);
         }
       } else {
-        // TODO listen for buffer init event x seconds ?
+        logger('Buffer %s does not exists', message.bufferInfo.name);
       }
     } else {
       logger('Network %d does not exists', message.bufferInfo.network);
@@ -468,7 +468,7 @@ class Client extends EventEmitter {
     let network, bufferViewIds;
     switch (className) {
     case 'Network':
-      network = this.handleInitDataNetwork(data);
+      network = this.handleInitDataNetwork(id, data);
       this.emit('network.init', network.networkId);
       break;
     case 'BufferSyncer':
@@ -582,6 +582,10 @@ class Client extends EventEmitter {
     case 'addIrcChannel':
       if (network.buffers.has(data)) {
         this.emit('network.addbuffer', id, network.buffers.get(data).id);
+      } else {
+        const ircbuffer = new IRCBuffer({ name: data, network: id });
+        this.networks.get(ircbuffer.network).buffers.add(ircbuffer);
+        this.emit('network.addbuffer', id, data);
       }
       this.core.sendInitRequest('IrcChannel', `${id}/${data}`);
       break;
@@ -697,7 +701,7 @@ class Client extends EventEmitter {
     let bufferTo, bufferFrom;
     switch (functionName) {
     case 'markBufferAsRead':
-      this.emit('buffer.read', data);
+      this.emit('buffer.read', bufferId);
       break;
     case 'setLastSeenMsg':
         // data is a messageId
@@ -983,7 +987,7 @@ class Client extends EventEmitter {
    * Sends a request to quasselcore to fetch initial backlogs for all buffers
    * @param {number} limit
    */
-  backlogs(limit){
+  backlogs(limit = undefined){
     for (let network of this.networks) {
       for (let buffer of network.buffers) {
         this.core.backlog(buffer.id, -1, -1, limit);
@@ -1063,7 +1067,7 @@ class Client extends EventEmitter {
  * This event is fired when a buffer is added to a network
  * @event module:libquassel~Quassel#event:"network.addbuffer"
  * @property {number} networkId
- * @property {number} bufferId
+ * @property {(number|String)} bufferId
  */
 /**
  * Network latency value

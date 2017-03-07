@@ -23,7 +23,7 @@ const Types = {
   SYNC: 0x01,
   RPCCALL: 0x02,
   INITREQUEST: 0x03,
-  INITDATZ: 0x04,
+  INITDATA: 0x04,
   HEARTBEAT: 0x05,
   HEARTBEATREPLY: 0x06
 };
@@ -32,13 +32,14 @@ function sync(className, functionName, ...datatypes) {
   const qsync = qtypes.QInt.from(Types.SYNC);
   const qclassName = qtypes.QByteArray.from(className);
   const qfunctionName = qtypes.QByteArray.from(functionName);
-  return function(target, _key, _descriptor) {
+  return function(target, _key, descriptor) {
     return {
       enumerable: false,
       configurable: false,
       writable: false,
-      value: function([ id, ...data ]) {
-        target.qtsocket.write([
+      value: function(...args) {
+        const [ id, ...data ] = descriptor.value.apply(this, args);
+        this.qtsocket.write([
           qsync,
           qclassName,
           qtypes.QByteArray.from(id),
@@ -53,16 +54,17 @@ function sync(className, functionName, ...datatypes) {
 function rpc(functionName, ...datatypes) {
   const qrpc = qtypes.QInt.from(Types.RPCCALL);
   const qfunctionName = qtypes.QByteArray.from(`2${functionName}`);
-  return function(target, _key, _descriptor) {
+  return function(target, _key, descriptor) {
     return {
       enumerable: false,
       configurable: false,
       writable: false,
       value: function(...args) {
-        target.qtsocket.write([
+        const data = descriptor.value.apply(this, args);
+        this.qtsocket.write([
           qrpc,
           qfunctionName,
-          ...args.map((value, index) => datatypes[index].from(value))
+          ...data.map((value, index) => datatypes[index].from(value))
         ]);
       }
     };
@@ -118,7 +120,7 @@ class Core extends EventEmitter {
       // }
 
       this.qtsocket
-      .on('data', data => this.emit(data))
+      .on('data', data => this.emit('data', data))
       .on('close', () => this.emit('close'))
       .on('end', () => this.emit('end'))
       .on('error', e => this.emit('error', e));
@@ -134,10 +136,10 @@ class Core extends EventEmitter {
    */
   heartBeat(reply) {
     const d = new Date();
-    const secs = d.getSeconds() + (60 * d.getMinutes()) + (60 * 60 * d.getHours());
+    const ms = d.getTime() - d.setHours(0,0,0,0);
     const slist = [
       reply ? Types.HEARTBEAT : Types.HEARTBEATREPLY,
-      qtypes.QTime.from(secs)
+      qtypes.QTime.from(ms)
     ];
     logger('Sending heartbeat');
     this.qtsocket.write(slist);
@@ -162,6 +164,7 @@ class Core extends EventEmitter {
   backlog(bufferId, firstMsgId = -1, lastMsgId = -1, maxAmount = undefined) {
     maxAmount = maxAmount || this.options.backloglimit;
     logger('Sending backlog request');
+    console.log(bufferId)
     return [ '', bufferId, firstMsgId, lastMsgId, maxAmount, 0 ];
   }
 
@@ -459,9 +462,9 @@ class Core extends EventEmitter {
    * @example
    * quassel.sendInitRequest("IrcUser", "1/randomuser");
    */
-  sendInitRequest(classname, objectname) {
+  sendInitRequest(classname, objectname = '') {
     let initRequest = [
-      qtypes.QUInt.from(Types.InitRequest),
+      qtypes.QUInt.from(Types.INITREQUEST),
       qtypes.QString.from(classname),
       qtypes.QString.from(objectname)
     ];

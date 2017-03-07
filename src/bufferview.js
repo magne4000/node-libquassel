@@ -15,7 +15,7 @@
  * @param {Object} data
  */
 class BufferView {
-  contructor (id, data) {
+  constructor (id, data) {
     /** @member {number} id */
     this.id = id;
     if (data) {
@@ -106,7 +106,7 @@ class BufferView {
    * @param {number} position
    */
   addBuffer(bufferId, position) {
-    let index = this.BufferList.indexOf(bufferId);
+    const index = this.BufferList.indexOf(bufferId);
     if (index !== -1) {
       this.moveBuffer(bufferId, position);
     } else {

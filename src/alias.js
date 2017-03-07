@@ -44,7 +44,7 @@ function toCoreObject(aliasitems) {
  * @param {String} expansion
  */
 class AliasItem {
-  contructor(name, expansion) {
+  constructor(name, expansion) {
     this.name = name;
     this.expansion = expansion;
   }

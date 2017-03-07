@@ -186,8 +186,8 @@ class IgnoreList {
    * @returns {boolean}
    */
   matches(message, networks) {
-    const network = networks.get(message.networkId);
-    const buffer = network.buffers.get(message.bufferId);
+    const network = networks.get(message.bufferInfo.network);
+    const buffer = network.buffers.get(message.bufferInfo.id);
 
     if (message.type !== Types.PLAIN && message.type !== Types.ACTION && message.type !== Types.NOTICE)
       return false;

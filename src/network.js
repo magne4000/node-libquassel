@@ -420,10 +420,9 @@ class NetworkCollection extends Map {
    */
   getBuffer(bufferId) {
     if (typeof bufferId !== 'number') return undefined;
-    const networks = this.values();
     let buffer;
-    for (let network of networks) {
-      buffer = network.value.buffers.get(bufferId);
+    for (let network of this.values()) {
+      buffer = network.buffers.get(bufferId);
       if (buffer) return buffer;
     }
     return undefined;
@@ -434,10 +433,37 @@ class NetworkCollection extends Map {
    * @param {number} bufferId
    */
   deleteBuffer(bufferId) {
+    if (typeof bufferId !== 'number') {
+      logger('deleteBuffer:%O is not a number', bufferId);
+      return;
+    }
     const buffer = this.getBuffer(bufferId);
     if (buffer) {
-      this.get(buffer.network).buffers.removeBuffer(bufferId);
+      this.get(buffer.network).buffers.delete(bufferId);
     }
+  }
+
+  /**
+   * Yields all buffers from all networks
+   */
+  *buffers() {
+    let buffer;
+    for (let network of this.values()) {
+      for (buffer of network.buffers.values()) {
+        yield buffer;
+      }
+    }
+  }
+
+  hasBuffer(bufferId) {
+    if (typeof bufferId !== 'number') {
+      logger('hasBuffer:%O is not a number', bufferId);
+      return false;
+    }
+    for (let network of this.values()) {
+      if (network.hasBuffer(bufferId)) return true;
+    }
+    return false;
   }
 }
 

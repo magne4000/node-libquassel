@@ -184,7 +184,6 @@ class IRCBuffer {
    * @returns {?message/IRCMessage} the message, if successfully added, `undefined` otherwise
    */
   addMessage(message) {
-    message.id = parseInt(message.id, 10);
     if (this.messages.has(message.id)) return undefined;
     if (this._lastMessageId === null || this._lastMessageId < message.id) {
       this._lastMessageId = message.id;
@@ -192,7 +191,7 @@ class IRCBuffer {
     if (this._firstMessageId === null || this._firstMessageId > message.id) {
       this._firstMessageId = message.id;
     }
-    let ircmsg = new IRCMessage(message, this);
+    const ircmsg = new IRCMessage(message);
     this.messages.set(message.id, ircmsg);
     return ircmsg;
   }
@@ -311,9 +310,11 @@ class IRCBuffer {
 class IRCBufferCollection extends Map {
 
   constructor(...args) {
-    super(...args);
-    // This weakmap references buffers by their names for quick lookup
-    this._weakmap_buffer_names = new WeakMap();
+    if (args.length > 0) throw new Error("IRCBufferCollection doesn't support initializing with an array.");
+    super();
+    // This map references buffers by their IDs for quick lookup
+    this._map_buffer_ids = new Map();
+    this.statusBuffer = null;
   }
 
   /**
@@ -321,37 +322,40 @@ class IRCBufferCollection extends Map {
    * @param {IRCBuffer} buffer
    */
   add(buffer) {
-    if (this.has(buffer.id)) {
+    if (this.has(buffer.name)) {
       logger('Buffer already added (%s)', buffer.name);
       return;
     }
-    this.set(buffer.id, buffer);
+    this.set(buffer.name, buffer);
   }
 
   /**
    * @override
    */
   set(key, value) {
-    super.set(key, value);
-    if (typeof value.name === 'string') {
-      this._weakmap_buffer_names.set(value.name.toLowerCase(), value);
+    if (key !== null && typeof key !== 'string') throw new Error(`Key must be a string or null`);
+    key = key === null ? null : key.toLowerCase();
+    if (value.id !== -1) {
+      this._map_buffer_ids.set(value.id, key);
     }
+    super.set(key, value);
   }
 
   /**
-   * Get the buffer by name if bufferId is a `String`, by id otherwise
+   * Get the buffer by name if bufferId is a `String` or a `Buffer`, by id otherwise
    * @param {(number|string|Buffer)} key
    * @override
    * @returns {?Buffer}
    */
   get(key) {
+    if (typeof key === 'number') {
+      return this.get(this._map_buffer_ids.get(key));
+    }
+    if (key === undefined) return false;
     if (key instanceof Buffer) {
       key = util.str(key);
     }
-    if (typeof key === 'string') {
-      return this._weakmap_buffer_names.get(key.toLowerCase());
-    }
-    return super.get(key);
+    return super.get(key === null ? null : key.toLowerCase());
   }
 
   /**
@@ -361,13 +365,45 @@ class IRCBufferCollection extends Map {
    * @returns {boolean}
    */
   has(key) {
+    if (key === undefined) return false;
     if (key instanceof Buffer) {
       key = util.str(key);
     }
-    if (typeof key === 'string') {
-      return this._weakmap_buffer_names.has(key.toLowerCase());
+    if (typeof key === 'number') {
+      return this._map_buffer_ids.has(key);
     }
-    return super.has(key);
+    return super.has(key === null ? null : key.toLowerCase());
+  }
+
+  /**
+   * Delete the buffer from the collection
+   * @param {(number|string|Buffer)} key
+   * @override
+   * @returns {boolean}
+   */
+  delete(key) {
+    if (key === undefined) return undefined;
+    if (key instanceof Buffer) {
+      key = util.str(key);
+    }
+    if (typeof key === 'number') {
+      key = this._map_buffer_ids.delete(key);
+      return super.delete(key);
+    }
+    const deleted = super.delete(key === null ? null : key.toLowerCase());
+    if (deleted.id !== -1) {
+      this._map_buffer_ids.delete(deleted.id);
+    }
+    return deleted;
+  }
+
+  /**
+   * Clear the buffer
+   * @override
+   */
+  clear() {
+    super.clear();
+    this._map_buffer_ids.clear();
   }
 
   /**
@@ -376,10 +412,9 @@ class IRCBufferCollection extends Map {
    * @param {(number|string)} bufferIdTo
    */
   move(buffer, bufferIdTo) {
-    const bufferIdFrom = buffer.id;
-    this.set(bufferIdTo, buffer);
+    this.delete(buffer.name);
     buffer.id = bufferIdTo;
-    this.delete(bufferIdFrom);
+    this.set(buffer.name, buffer);
   }
 }
 
