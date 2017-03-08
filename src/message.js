@@ -96,25 +96,24 @@ class IRCMessage {
    * @protected
    */
   _updateFlags(network, identity, mode) {
-    // TODO move part of this into network
     let nickRegex = null, nicks = [];
     switch (mode) {
     case HighlightModes.NONE:
-        // None, do nothing
+      // None, do nothing
       return;
     case HighlightModes.CURRENTNICK:
       if (this.type !== Types.PLAIN && this.type !== Types.ACTION) return;
       if (!network.nick) return;
-      nickRegex = network.nick.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1');
+      ({ nickRegex } = network);
       break;
     case HighlightModes.ALLIDENTITYNICKS:
       if (this.type !== Types.PLAIN && this.type !== Types.ACTION) return;
       if (identity.nicks.length === 0) return;
-      for (let i=0; i<identity.nicks.length; i++) {
-        nicks.push(identity.nicks[i].replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1'));
+      for (let identityNickRegex of identity.nickRegexes) {
+        nicks.push(identityNickRegex);
       }
       if (network.nick && identity.nicks.indexOf(network.nick) === -1) {
-        nicks.push(network.nick.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1'));
+        nicks.push(network.nickRegex);
       }
       nickRegex = `(${nicks.join('|')})`;
       break;

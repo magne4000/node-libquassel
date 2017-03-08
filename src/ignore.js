@@ -8,11 +8,14 @@
 
 const { Types } = require('./message');
 const logger = require('debug')('libquassel:ignore');
+const { Exportable } = require('qtdatastream').types;
+
+import { traits } from 'traits-decorator';
 
 /** @module ignore */
 
 /**
- * @alias module:ignore.IgnoreType
+ * @alias module:ignore.IgnoreTypes
  * @readonly
  * @enum {number}
  * @default
@@ -24,7 +27,7 @@ const IgnoreTypes = {
 };
 
 /**
- * @alias module:ignore.StrictnessType
+ * @alias module:ignore.StrictnessTypes
  * @readonly
  * @enum {number}
  * @default
@@ -36,7 +39,7 @@ const StrictnessTypes = {
 };
 
 /**
- * @alias module:ignore.ScopeType
+ * @alias module:ignore.ScopeTypes
  * @readonly
  * @enum {number}
  * @default
@@ -124,6 +127,7 @@ function wildcardToRegex(subject) {
  * @alias module:ignore.IgnoreList
  * @extends {Array}
  */
+@traits(Exportable)
 class IgnoreList {
 
   construct() {
@@ -153,28 +157,30 @@ class IgnoreList {
 
   /**
    * Export the map into an Object ready for qtdatasteam
+   * @override
    * @returns {Object}
    */
-  export() {
+  _export() {
+    const len = this.list.length;
     const ret = {
       IgnoreList: {
-        strictness: [],
-        scopeRule: [],
-        scope: [],
-        isRegEx: [],
-        isActive: [],
-        ignoreType: [],
-        ignoreRule: []
+        strictness: Array(len),
+        scopeRule: Array(len),
+        scope: Array(len),
+        isRegEx: Array(len),
+        isActive: Array(len),
+        ignoreType: Array(len),
+        ignoreRule: Array(len)
       }
     };
-    for (let i=0; i<this.list.length; i++) {
-      ret.IgnoreList.strictness.push(this.list[i].strictness);
-      ret.IgnoreList.scopeRule.push(this.list[i].scopeRule);
-      ret.IgnoreList.scope.push(this.list[i].scope);
-      ret.IgnoreList.isRegEx.push(this.list[i].isRegEx);
-      ret.IgnoreList.isActive.push(this.list[i].isActive);
-      ret.IgnoreList.ignoreType.push(this.list[i].ignoreType);
-      ret.IgnoreList.ignoreRule.push(this.list[i].ignoreRule);
+    for (let i=0; i<len; i++) {
+      ret.IgnoreList.strictness[i] = this.list[i].strictness;
+      ret.IgnoreList.scopeRule[i] = this.list[i].scopeRule;
+      ret.IgnoreList.scope[i] = this.list[i].scope;
+      ret.IgnoreList.isRegEx[i] = this.list[i].isRegEx;
+      ret.IgnoreList.isActive[i] = this.list[i].isActive;
+      ret.IgnoreList.ignoreType[i] = this.list[i].ignoreType;
+      ret.IgnoreList.ignoreRule[i] = this.list[i].ignoreRule;
     }
     return ret;
   }

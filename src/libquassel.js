@@ -196,9 +196,7 @@ class Client extends EventEmitter {
     this.core.sendInitRequest('BufferViewManager');
     this.core.sendInitRequest('IgnoreListManager');
     this.core.sendInitRequest('AliasManager');
-    this.heartbeatInterval = setInterval(() => {
-      this.core.heartBeat();
-    }, 30000);
+    this.heartbeatInterval = setInterval(() => this.core.heartBeat(), 30000);
   }
 
   /**
@@ -342,7 +340,7 @@ class Client extends EventEmitter {
       logger('HeartBeatReply');
       break;
     default:
-      logger('Unhandled RequestType %s', obj[0]);
+      logger('Unhandled RequestType #%s', requesttype);
     }
   }
 
@@ -422,11 +420,12 @@ class Client extends EventEmitter {
       if (!buffer) {
         buffer = network.buffers.get(message.bufferInfo.name);
         if (buffer) {
-          // TODO move this in BufferCollection
           buffer.update(message.bufferInfo);
           network.buffers.move(buffer, message.bufferInfo.id);
         } else {
-          // TODO Create buffer ?
+          buffer = new IRCBuffer(message.bufferInfo);
+          this.networks.get(message.bufferInfo.network).buffers.add(buffer);
+          this.emit('network.addbuffer', message.bufferInfo.network, message.bufferInfo.id);
         }
       }
       if (message.type === MessageTypes.NETSPLITJOIN) {
@@ -435,14 +434,10 @@ class Client extends EventEmitter {
         // TODO
       }
 
-      if (buffer) {
-        const simpleMessage = buffer.addMessage(message);
-        if (simpleMessage) {
-          simpleMessage._updateFlags(network, identity, this.options.highlightmode);
-          this.emit('buffer.message', message.bufferInfo.id, simpleMessage.id);
-        }
-      } else {
-        logger('Buffer %s does not exists', message.bufferInfo.name);
+      const simpleMessage = buffer.addMessage(message);
+      if (simpleMessage) {
+        simpleMessage._updateFlags(network, identity, this.options.highlightmode);
+        this.emit('buffer.message', message.bufferInfo.id, simpleMessage.id);
       }
     } else {
       logger('Network %d does not exists', message.bufferInfo.network);
@@ -704,11 +699,11 @@ class Client extends EventEmitter {
       this.emit('buffer.read', bufferId);
       break;
     case 'setLastSeenMsg':
-        // data is a messageId
+      // data is a messageId
       this.emit('buffer.lastseen', bufferId, data);
       break;
     case 'setMarkerLine':
-        // data is a messageId
+      // data is a messageId
       this.emit('buffer.markerline', bufferId, data);
       break;
     case 'removeBuffer':
@@ -716,7 +711,7 @@ class Client extends EventEmitter {
       this.emit('buffer.remove', bufferId);
       break;
     case 'renameBuffer':
-        // data is the new name
+      // data is the new name
       this.networks.getBuffer(bufferId).name = data;
       this.emit('buffer.rename', bufferId, data);
       break;
@@ -740,7 +735,7 @@ class Client extends EventEmitter {
   handleStructSyncBufferViewManager(functionName, [ data ]) {
     switch (functionName) {
     case 'addBufferViewConfig':
-        // data is a bufferViewId
+      // data is a bufferViewId
       this.core.sendInitRequest('BufferViewConfig', String(data));
       break;
     default:
@@ -827,13 +822,13 @@ class Client extends EventEmitter {
     }
     switch (functionName) {
     case 'partChannel':
-        // data is bufferName
+      // data is bufferName
       buffer = network.buffers.get(data);
       buffer.removeUser(username);
       this.emit('user.part', networkId, username, buffer.id);
       if (buffer.isChannel) {
         if (network.nick !== null && network.nick.toLowerCase() === username.toLowerCase()) {
-            // We part
+          // We part
           buffer.active = false;
           this.emit('buffer.deactivate', buffer.id);
         }
@@ -850,13 +845,13 @@ class Client extends EventEmitter {
       this.emit('user.quit', networkId, username);
       break;
     case 'setNick':
-        // Already handled by RPC call
+      // Already handled by RPC call
       break;
-      /*case "setServer":
-        // TODO
-        break;*/
+    /*case "setServer":
+      // TODO
+      break;*/
     case 'setAway':
-        // data is isAway
+      // data is isAway
       user = network.getUser(username);
       if (user) {
         user.away = data;
@@ -864,7 +859,7 @@ class Client extends EventEmitter {
       }
       break;
     case 'setRealName':
-        // data is realname
+      // data is realname
       user = network.getUser(username);
       if (user) {
         user.realname = data;
@@ -980,18 +975,6 @@ class Client extends EventEmitter {
       break;
     default:
       logger('Unhandled Sync.AliasManager %s', functionName);
-    }
-  }
-
-  /**
-   * Sends a request to quasselcore to fetch initial backlogs for all buffers
-   * @param {number} limit
-   */
-  backlogs(limit = undefined){
-    for (let network of this.networks) {
-      for (let buffer of network.buffers) {
-        this.core.backlog(buffer.id, -1, -1, limit);
-      }
     }
   }
 

@@ -11,12 +11,12 @@
 /**
  * @class
  * @alias module:user
- * @augments module:glouton.Glouton
  * @param {number} id
  * @param {?Object} data
  */
 class IRCUser {
   constructor(data) {
+    this._id = null;
     if (data) {
       this.update(data);
     }

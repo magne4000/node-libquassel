@@ -2,7 +2,7 @@
  * libquassel
  * https://github.com/magne4000/node-libquassel
  *
- * Copyright (c) 2016 Joël Charles
+ * Copyright (c) 2017 Joël Charles
  * Licensed under the MIT license.
  */
 
@@ -36,8 +36,9 @@ const ConnectionStates = {
  * @class
  * @alias module:network.Server
  */
+@traits(Exportable)
 @usertype('Network::Server')
-class Server extends Exportable {
+class Server {
   @exportas(qtypes.QString, 'Host')
   host;
 
@@ -75,7 +76,6 @@ class Server extends Exportable {
   sslVerify = false;
 
   constructor(...args) {
-    super();
     Object.assign(this, args);
   }
 }
@@ -199,7 +199,7 @@ class Network extends EventEmitter {
     /** @member {module:buffer.IRCBufferCollection} buffers */
     this.buffers = new IRCBufferCollection();
     /** @member {Map.<String, module:user>} users */
-    this.users = new Map; // TODO weakmap
+    this.users = new Map;
     /** @member {boolean} open */
     this.open = false;
     /** @member {module:network.Network.ConnectionStates} connectionState */
@@ -213,7 +213,8 @@ class Network extends EventEmitter {
     /** @member {?string} networkName */
     this.name = name;
     /** @member {?string} nick */
-    this.nick = null;
+    this._nick = null;
+    this.nickRegex = null;
     /** @member {Server[]} ServerList */
     /** @member {?string} autoIdentifyPassword */
     /** @member {?string} autoIdentifyService */
@@ -247,7 +248,16 @@ class Network extends EventEmitter {
   }
 
   get myNick() {
-    return this.nick;
+    return this._nick;
+  }
+
+  set nick(value) {
+    this._nick = value;
+    this.nickRegex = value.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1');
+  }
+
+  get nick() {
+    return this._nick;
   }
 
   /**
@@ -312,7 +322,6 @@ class Network extends EventEmitter {
    * @returns {Array} list of buffers that has been deactivated
    */
   deleteUser(nick) {
-    // TODO weakmap ?
     const ids = [];
     for (let buffer of this.buffers.values()) {
       if (buffer.isChannel) {
@@ -444,7 +453,7 @@ class NetworkCollection extends Map {
   }
 
   /**
-   * Yields all buffers from all networks
+   * Yields all buffers of all networks
    */
   *buffers() {
     let buffer;

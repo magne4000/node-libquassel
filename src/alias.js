@@ -15,9 +15,9 @@
  * @returns {module:alias.AliasItem[]}
  */
 function toArray(data) {
-  let i = 0, ret = [];
+  let i = 0, ret = Array(data.Aliases.names.length);
   for (; i<data.Aliases.names.length; i++) {
-    ret.push(new AliasItem(data.Aliases.names[i], data.Aliases.expansions[i]));
+    ret[i] = new AliasItem(data.Aliases.names[i], data.Aliases.expansions[i]);
   }
   return ret;
 }

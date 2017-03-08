@@ -68,7 +68,14 @@ class Identity {
   realName;
 
   @exportas(qtypes.QList)
-  nicks;
+  get nicks() {
+    return this._nicks;
+  }
+
+  set nicks(value) {
+    this._nicks = value;
+    this.nickRegexes = value.map(nick => nick.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1'));
+  }
 
   @exportas(qtypes.QString)
   kickReason = 'Kindergarten is elsewhere!';
@@ -80,6 +87,8 @@ class Identity {
   quitReason = 'http://quassel-irc.org - Chat comfortably. Anywhere.';
 
   constructor(data) {
+    this._nicks = [];
+    this.nickRegexes = [];
     if (data) {
       this.update(data);
     }

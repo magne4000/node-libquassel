@@ -47,6 +47,7 @@ class IRCBufferUser {
     this.isOwner = false;
     this.isAdmin = false;
     this.isVoiced = false;
+    this._modes = null;
     this.modes = modes;
   }
 
@@ -128,7 +129,7 @@ class IRCBuffer {
    */
   addUserMode(user, mode) {
     if (user && typeof user.nick === 'string') {
-      let userAndModes = this.users.get(user.nick);
+      const userAndModes = this.users.get(user.nick);
       if (userAndModes) userAndModes.modes += mode;
     }
   }
@@ -151,7 +152,7 @@ class IRCBuffer {
    * @returns {?boolean}
    */
   hasUser(nick) {
-    if (typeof nick === 'undefined' || nick === null) {
+    if (nick === undefined || nick === null) {
       logger('User should not be null or undefined');
       return null;
     }
@@ -171,7 +172,7 @@ class IRCBuffer {
    * @param {string} oldnick
    */
   updateUserMaps(oldnick) {
-    let userAndModes = this.users.get(oldnick);
+    const userAndModes = this.users.get(oldnick);
     if (oldnick !== userAndModes.user.nick) {
       this.users.set(userAndModes.user.nick, userAndModes);
       this.users.delete(oldnick);
@@ -239,14 +240,14 @@ class IRCBuffer {
     if (n <= 0) {
       this.clearMessages();
     } else if (n < this.messages.size) {
-      let idsToKeep = [], newMap = new Map, self = this;
-      this.messages.forEach(function(val, key) {
+      let idsToKeep = [], newMap = new Map;
+      this.messages.forEach((val, key) => {
         idsToKeep.push(key);
       });
       idsToKeep.sort();
       idsToKeep.splice(0, idsToKeep.length - n);
-      idsToKeep.forEach(function(val) {
-        newMap.set(val, self.messages.get(val));
+      idsToKeep.forEach(val => {
+        newMap.set(val, this.messages.get(val));
       });
       this.messages = newMap;
       this._updateFirstAndLast();
@@ -310,7 +311,7 @@ class IRCBuffer {
 class IRCBufferCollection extends Map {
 
   constructor(...args) {
-    if (args.length > 0) throw new Error(`IRCBufferCollection doesn't support initializing with an array.`);
+    if (args.length > 0) throw new Error(`IRCBufferCollection doesn't support initializing with values.`);
     super();
     // This map references buffers by their IDs for quick lookup
     this._map_buffer_ids = new Map();

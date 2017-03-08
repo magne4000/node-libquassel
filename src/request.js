@@ -12,6 +12,7 @@ const { EventEmitter } = require('events');
 const { types: qtypes, socket } = require('qtdatastream');
 const { Network, Server } = require('./network');
 const logger = require('debug')('libquassel:request');
+const pkg = require('../package.json');
 
 /**
  * @readonly
@@ -28,6 +29,10 @@ const Types = {
   HEARTBEATREPLY: 0x06
 };
 
+/**
+ * Decorator for SYNC methods
+ * @protected
+ */
 function sync(className, functionName, ...datatypes) {
   const qsync = qtypes.QInt.from(Types.SYNC);
   const qclassName = qtypes.QByteArray.from(className);
@@ -51,6 +56,10 @@ function sync(className, functionName, ...datatypes) {
   };
 }
 
+/**
+ * Decorator for RPC methods
+ * @protected
+ */
 function rpc(functionName, ...datatypes) {
   const qrpc = qtypes.QInt.from(Types.RPCCALL);
   const qfunctionName = qtypes.QByteArray.from(`2${functionName}`);
@@ -71,6 +80,9 @@ function rpc(functionName, ...datatypes) {
   };
 }
 
+/**
+ * Send commands to the core
+ */
 class Core extends EventEmitter {
   constructor(options) {
     super();
@@ -478,11 +490,9 @@ class Core extends EventEmitter {
    */
   sendClientInfo(useSSL, useCompression){
     let smap = {
-      // FIXME
-      'ClientDate': 'Apr 14 2014 17:18:30',
+      'ClientDate': '',
       'UseSsl': useSSL,
-      // FIXME
-      'ClientVersion': 'libquassel',
+      'ClientVersion': `${pkg.name} ${pkg.version}`,
       'UseCompression': useCompression,
       'MsgType': 'ClientInit',
       'ProtocolVersion': 10
