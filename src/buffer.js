@@ -47,7 +47,7 @@ class IRCBufferUser {
     this.isOwner = false;
     this.isAdmin = false;
     this.isVoiced = false;
-    this._modes = null;
+    this._modes = '';
     this.modes = modes;
   }
 
@@ -70,10 +70,7 @@ class IRCBufferUser {
    * @returns {boolean}
    */
   hasMode(mode) {
-    if (typeof this._modes === 'string') {
-      return this._modes.indexOf(mode) !== -1;
-    }
-    return false;
+    return this._modes.indexOf(mode) !== -1;
   }
 }
 
@@ -296,10 +293,11 @@ class IRCBuffer {
   }
 
   update(data) {
-    const keys = Object.keys(data);
-    for (let key of keys) {
-      this[key] = data[key];
-    }
+    Object.assign(this, data);
+  }
+
+  toString() {
+    return `<IRCBuffer ${this._name ? this._name : '*'}>`;
   }
 }
 

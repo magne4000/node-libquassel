@@ -398,10 +398,11 @@ class Network extends EventEmitter {
   }
 
   update(data) {
-    const keys = Object.keys(data);
-    for (let key of keys) {
-      this[key] = data[key];
-    }
+    Object.assign(this, data);
+  }
+
+  toString() {
+    return `<Network ${this.id} ${this.name}>`;
   }
 }
 

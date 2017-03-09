@@ -149,6 +149,10 @@ class IRCMessage {
   get sender() {
     return this._sender;
   }
+
+  toString() {
+    return `<IRCMessage [${this.nick}] ${this.content ? this.content.substring(0, 9) : '*empty*'}>`;
+  }
 }
 
 module.exports = {

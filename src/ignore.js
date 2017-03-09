@@ -115,6 +115,15 @@ class IgnoreItem {
       this.isActive = false;
     }
   }
+
+  toString() {
+    const ret = [ '<IgnoreItem' ];
+    for (let key of [ 'strictness', 'scopeRule', 'scope', 'isRegEx', 'isActive', 'ignoreType', 'ignoreRule' ]) {
+      ret.push(`${key}=${this[key]}`);
+    }
+    ret.push('>');
+    return ret.join(' ');
+  }
 }
 
 function wildcardToRegex(subject) {
@@ -130,7 +139,7 @@ function wildcardToRegex(subject) {
 @traits(Exportable)
 class IgnoreList {
 
-  construct() {
+  constructor() {
     this.list = new Array();
   }
 
@@ -211,6 +220,10 @@ class IgnoreList {
       }
     }
     return false;
+  }
+
+  toString() {
+    return [ '<IgnoreList', this.list.map(x => '\n\t' + x), '>' ].join(' ');
   }
 }
 

@@ -115,10 +115,7 @@ class Identity {
   }
 
   update(data) {
-    const keys = Object.keys(data);
-    for (let key of keys) {
-      this[key] = data[key];
-    }
+    Object.assign(this, data);
   }
 
   /**
@@ -142,6 +139,10 @@ class Identity {
 
   get id() {
     return this.identityId;
+  }
+
+  toString() {
+    return `<Identity ${this.identityName}>`;
   }
 }
 

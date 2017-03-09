@@ -1,28 +1,29 @@
 const { Client } = require('../src/libquassel.js');
 const inquirer = require('inquirer');
 const net = require('net');
+const style = require('ansi-styles');
 
 const ACTIONS = [
-  "Disconnect Network",
-  "Connect Network",
-  "Mark buffer as read",
-  "Mark last line of a buffer",
-  "Hide buffer permanently",
-  "Hide buffer temporarily",
-  "Unhide buffer",
-  "Remove buffer",
-  "Request 20 more backlogs for a buffer",
-  "Send a message",
-  "Merge buffers request",
-  "Update ignoreList",
-  "Create identity",
-  "Remove identity",
-  "Create network",
-  "Remove network",
-  "Update identity",
-  "Update network",
-  "Setup core",
-  "Rename buffer"
+  { name: "Disconnect Network", value: "network-disconnect" },
+  { name: "Connect Network", value: "network-connect" },
+  { name: "Create network", value: "network-create" },
+  { name: "Remove network", value: "network-remove" },
+  { name: "Update network", value: "network-update" },
+  { name: "Mark buffer as read", value: "buffer-mark-read" },
+  { name: "Mark last line of a buffer", value: "buffer-mark-last-line" },
+  { name: "Hide buffer permanently", value: "buffer-hide-perm" },
+  { name: "Hide buffer temporarily", value: "buffer-hide-temp" },
+  { name: "Unhide buffer", value: "buffer-unhide" },
+  { name: "Remove buffer", value: "buffer-remove" },
+  { name: "Merge buffers request", value: "buffer-merge" },
+  { name: "Rename buffer", value: "buffer-rename" },
+  { name: "Request 20 more backlogs for a buffer", value: "backlogs" },
+  { name: "Send a message", value: "send-message" },
+  { name: "Update ignoreList", value: "ignorelist" },
+  { name: "Create identity", value: "identity-create" },
+  { name: "Remove identity", value: "identity-remove" },
+  { name: "Update identity", value: "identity-update" },
+  { name: "Setup core", value: "setup" }
 ];
 
 function ask() {
@@ -46,16 +47,238 @@ function ask_creds() {
   }]);
 }
 
+function red_if_undefined(s) {
+  if (s === undefined) {
+    return `${style.red.open}${s}${style.red.close}`
+  }
+  return s;
+}
+
+function log(key, ...args) {
+  const colors = [ 'grey', 'green', 'blue', 'magenta', 'cyan' ];
+  const indice = [...key].map(x => x.charCodeAt(0)).reduce((x, y) => x + y) % 5;
+  const stylekey = style[colors[indice]];
+  process.stdout.write(`${stylekey.open}${key}${stylekey.close} `);
+  console.log(...args.map(x => red_if_undefined(x)));
+}
+
 const socket = net.createConnection({
   host: "localhost",
   port: 4242
 });
 
-var quassel = new Client((next) => {
+const quassel = new Client((next) => {
   ask_creds().then((creds) => {
     next(creds.username, creds.password);
   });
 });
+
+quassel.on('buffer.backlog', function(bufferId, messageIds) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('buffer.backlog', '%s: %d messages', buffer, buffer.messages.size);
+});
+
+quassel.on('network.init', function(networkId) {
+  const network = quassel.networks.get(networkId);
+  log('network.init', '%s', network);
+});
+
+quassel.on('coreinfoinit', function(coreinfo) {
+  log('coreinfoinit', coreinfo);
+});
+
+quassel.on('coreinfo', function(coreinfo) {
+  log('coreinfo', coreinfo);
+});
+
+quassel.on('network.addbuffer', function(networkId, bufferId) {
+  const network = quassel.networks.get(networkId);
+  const buffer = network.buffers.get(bufferId);
+  log('network.addbuffer', '%s %s', network, buffer);
+});
+
+quassel.on('network.latency', function(networkId, latency) {
+  const network = quassel.networks.get(networkId);
+  log('network.latency', '%s: %d', network, latency);
+});
+
+quassel.on('network.adduser', function(networkId, nick) {
+  const network = quassel.networks.get(networkId);
+  log('network.adduser', '%s %s', network, nick);
+});
+
+quassel.on('network.connectionstate', function(networkId, state) {
+  const network = quassel.networks.get(networkId);
+  log('network.connectionstate', '%s %s', network, state);
+});
+
+quassel.on('network.connected', function(networkId) {
+  const network = quassel.networks.get(networkId);
+  log('network.connected', '%s', network);
+});
+
+quassel.on('network.disconnected', function(networkId) {
+  const network = quassel.networks.get(networkId);
+  log('network.disconnected', '%s', network);
+});
+
+quassel.on('network.mynick', function(networkId, nick) {
+  const network = quassel.networks.get(networkId);
+  log('network.mynick', '%s: %s', network, nick);
+});
+
+quassel.on('network.networkname', function(networkId, name) {
+  const network = quassel.networks.get(networkId);
+  log('network.networkname', '%s: %s', network, name);
+});
+
+quassel.on('network.server', function(networkId, server) {
+  const network = quassel.networks.get(networkId);
+  log('network.server', '%s: %s', network, server);
+});
+
+quassel.on('buffer.message', function(bufferId, messageId) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  const message = buffer.messages.get(messageId);
+  log('buffer.message', '[%s] %s %s', quassel.ignoreList.matches(message, quassel.networks) ? 'h' : 'v', buffer, message);
+});
+
+quassel.on('buffer.read', function(bufferId) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('buffer.read', '%s', buffer);
+});
+
+quassel.on('buffer.remove', function(bufferId) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('buffer.remove', '%s', buffer);
+});
+
+quassel.on('buffer.rename', function(bufferId, newName) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('buffer.remove', '%s: %s', buffer, newName);
+});
+
+quassel.on('buffer.merge', function(bufferId1, bufferId2) {
+  const buffer = quassel.networks.getBuffer(bufferId1);
+  log('buffer.merge', '%s -> %s', bufferId2, buffer);
+});
+
+quassel.on('buffer.lastseen', function(bufferId, messageId) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('buffer.lastseen', '%s: #%d', buffer, messageId);
+});
+
+quassel.on('buffer.markerline', function(bufferId, messageId) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('buffer.markerline', '%s above %d', buffer, messageId);
+});
+
+quassel.on('buffer.activate', function(bufferId) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('buffer.activate', '%s', buffer);
+});
+
+quassel.on('buffer.deactivate', function(bufferId) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('buffer.deactivate', '%s', buffer);
+});
+
+quassel.on('bufferview.bufferunhide', function(bufferViewId, bufferId) {
+  const bufferView = quassel.bufferViews.get(bufferViewId);
+  log('bufferview.bufferunhide', '%s #%d', bufferView, bufferId);
+});
+
+quassel.on('bufferview.bufferhidden', function(bufferViewId, bufferId, type) {
+  const bufferView = quassel.bufferViews.get(bufferViewId);
+  // type can be either "temp" or "perm"
+  log('bufferview.bufferhidden', '(%s) %s #%d', type, bufferView, bufferId);
+});
+
+quassel.on('bufferview.orderchanged', function(bufferViewId) {
+  const bufferView = quassel.bufferViews.get(bufferViewId);
+  log('bufferview.orderchanged', '%s', bufferView);
+});
+
+quassel.on('user.quit', function(networkId, username) {
+  const network = quassel.networks.get(networkId);
+  log('user.quit', '%s: %s', network, username);
+});
+
+quassel.on('user.part', function(networkId, username, bufferId) {
+  const network = quassel.networks.get(networkId);
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('user.quit', '%s %s: %s', network, buffer, username);
+});
+
+quassel.on('user.away', function(networkId, username, isAway) {
+  const network = quassel.networks.get(networkId);
+  log('user.away', '(%s) %s: %s', isAway, network, username);
+});
+
+quassel.on('user.realname', function(networkId, username, realname) {
+  const network = quassel.networks.get(networkId);
+  log('user.realname', '%s: %s is %s', network, username, realname);
+});
+
+quassel.on('channel.join', function(bufferId, nick) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('channel.join', '%s: %s', buffer, nick);
+});
+
+quassel.on('channel.addusermode', function(bufferId, nick, mode) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('channel.addusermode', '%s: %s modes +%s', buffer, nick, mode);
+});
+
+quassel.on('channel.removeusermode', function(bufferId, nick, mode) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('channel.removeusermode', '%s: %s modes -%s', buffer, nick, mode);
+});
+
+quassel.on('channel.topic', function(bufferId, topic) {
+  const buffer = quassel.networks.getBuffer(bufferId);
+  log('channel.topic', '%s: %s', buffer, topic);
+});
+
+quassel.on('ignorelist', function(ignorelist) {
+  log('ignorelist', '%s', ignorelist);
+});
+
+quassel.on('network.new', function(networkId) {
+  const network = quassel.networks.get(networkId);
+  log('network.new', '%s', network);
+});
+
+quassel.on('network.remove', function(networkId) {
+  const network = quassel.networks.get(networkId);
+  log('network.remove', '%s', network);
+});
+
+quassel.on('identity.new', function(identityId) {
+  const identity = quassel.identities.get(identityId);
+  log('identity.new', '%s', identity);
+});
+
+quassel.on('identity.remove', function(identityId) {
+  log('identity.remove', identityId);
+});
+
+quassel.on('identities.init', function(identities) {
+  const ids = [];
+  for (let identity of identities.values()) {
+    ids.push(identity.toString());
+  }
+  log('identities.init', ids);
+});
+
+quassel.on('setup', function(data) {
+  log('setup', data);
+});
+
+quassel.on('init', function(data) {
+  log('init');
+});
+
 
 // function echoBackends() {
 //     for (let storageBackend of quassel.coreInfo.StorageBackends) {
@@ -86,213 +309,7 @@ var quassel = new Client((next) => {
 //     });
 // }
 
-    quassel.on('buffer.backlog', function(bufferId, messageIds) {
-        var buf = quassel.networks.getBuffer(bufferId);
-        console.log(buf.name + " : " + buf.messages.size);
-    });
 
-    quassel.on('network.init', function(network) {
-        network = quassel.networks.get(network);
-        // TODO
-    });
-
-    quassel.on('coreinfoinit', function(coreinfo) {
-        console.log('Coreinfoinit', coreinfo);
-    });
-
-    quassel.on('coreinfo', function(coreinfo) {
-        console.log('Coreinfo', coreinfo);
-    });
-
-    quassel.on('network.addbuffer', function(network, bufferId) {
-        network = quassel.networks.get(network);
-        var buffer = network.buffers.get(bufferId);
-        if (buffer.isStatusBuffer) {
-            console.log('Network ' + network.networkId + ' - status buffer');
-        } else {
-            console.log('Network ' + network.networkId + ' - new buffer : ' + buffer.name);
-        }
-    });
-
-    quassel.on('network.latency', function(network, latency) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' - latency : ' + latency);
-    });
-
-    quassel.on('network.adduser', function(network, nick) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' - user : ' + nick);
-    });
-
-    quassel.on('network.connectionstate', function(network, state) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' - state : ' + state);
-    });
-
-    quassel.on('network.connected', function(network) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' - connected');
-    });
-
-    quassel.on('network.disconnected', function(network) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' - disconnected');
-    });
-
-    quassel.on('network.mynick', function(network, nick) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' - nick : ' + nick);
-    });
-
-    quassel.on('network.networkname', function(network, name) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' - name : ' + name);
-    });
-
-    quassel.on('network.server', function(network, server) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' - server : ' + server);
-    });
-
-    quassel.on('buffer.message', function(bufferId, messageId) {
-        console.log('New message on buffer #' + bufferId + ' :', messageId);
-        var buffer = quassel.networks.getBuffer(bufferId);
-        var message = buffer.messages.get(messageId);
-        console.log(messageId, message);
-        if (quassel.ignoreList.matches(message, quassel.networks)) {
-            console.log(messageId, 'is ignored');
-        }
-    });
-
-    quassel.on('buffer.read', function(bufferId) {
-        console.log('Buffer #' + bufferId + ' marked as read.');
-    });
-
-    quassel.on('buffer.remove', function(bufferId) {
-        console.log('Removed buffer #' + bufferId);
-    });
-
-    quassel.on('buffer.rename', function(bufferId, newName) {
-        console.log('New name for buffer #' + bufferId + ' : ' + newName);
-    });
-
-    quassel.on('buffer.merge', function(bufferId1, bufferId2) {
-        console.log('Buffer #' + bufferId2 + ' merged into buffer #' + bufferId1);
-    });
-
-    quassel.on('buffer.lastseen', function(bufferId, messageId) {
-        console.log('Buffer #' + bufferId + ' : Last seen message #' + messageId);
-    });
-
-    quassel.on('buffer.markerline', function(bufferId, messageId) {
-        console.log('Buffer #' + bufferId + ' : Markerline above message #' + messageId);
-    });
-
-    quassel.on('buffer.activate', function(bufferId) {
-        console.log('Buffer ' + bufferId + ' activated');
-    });
-
-    quassel.on('buffer.deactivate', function(bufferId) {
-        console.log('Buffer ' + bufferId + ' deactivated');
-    });
-
-    quassel.on('bufferview.bufferunhide', function(bufferViewId, bufferId) {
-        console.log('Buffer ' + bufferId + ' not hidden anymore - BF[' + bufferViewId + ']');
-    });
-
-    quassel.on('bufferview.bufferhidden', function(bufferViewId, bufferId, type) {
-        // type can be either "temp" or "perm"
-        switch (type) {
-            case "temp":
-                console.log('Buffer ' + bufferId + ' temporarily hidden - BF[' + bufferViewId + ']');
-                break;
-            case "perm":
-                console.log('Buffer ' + bufferId + ' permanently hidden - BF[' + bufferViewId + ']');
-                break;
-            default:
-                console.log("Unknown type " + type);
-        }
-    });
-
-    quassel.on('bufferview.orderchanged', function(bufferViewId) {
-        console.log('Buffers order changed in BF[' + bufferViewId + ']');
-    });
-
-    quassel.on('user.quit', function(network, username) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' : user ' + username + ' quit');
-    });
-
-    quassel.on('user.part', function(network, username, bufferId) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' - Buffer #' + bufferId + ' : user ' + username + ' part');
-    });
-
-    quassel.on('user.away', function(network, username, isAway) {
-        network = quassel.networks.get(network);
-        if (isAway) {
-            console.log('Network ' + network.networkName + ' : user ' + username + ' is away');
-        } else {
-            console.log('Network ' + network.networkName + ' : user ' + username + ' is back');
-        }
-    });
-
-    quassel.on('user.realname', function(network, username, isAway) {
-        network = quassel.networks.get(network);
-        console.log('Network ' + network.networkName + ' : user ' + username + ' real name is');
-    });
-
-    quassel.on('channel.join', function(bufferId, nick) {
-        console.log('Channel ' + bufferId + ' : user ' + nick + ' joined');
-    });
-
-    quassel.on('channel.addusermode', function(bufferId, nick, mode) {
-        console.log('Channel ' + bufferId + ' - user ' + nick + ' -> mode : +' + mode);
-    });
-
-    quassel.on('channel.removeusermode', function(bufferId, nick, mode) {
-        console.log('Channel ' + bufferId + ' : user ' + nick + ' -> mode -' + mode);
-    });
-
-    quassel.on('channel.topic', function(bufferId, topic) {
-        console.log('Channel ' + bufferId + ' - new topic : ' + topic);
-    });
-
-    quassel.on('ignorelist', function(ignorelist) {
-        console.log('IgnoreList received', ignorelist);
-    });
-
-    quassel.on('network.new', function(networkId) {
-        console.log('Network created', networkId);
-    });
-
-    quassel.on('network.remove', function(networkId) {
-        console.log('Network removed', networkId);
-    });
-
-    quassel.on('identity.new', function(identityId) {
-        console.log('Identity created', identityId);
-    });
-
-    quassel.on('identity.remove', function(identityId) {
-        console.log('Identity removed', identityId);
-    });
-
-    quassel.on('identities.init', function(identities) {
-        console.log('Identities initalized', identities);
-    });
-
-    quassel.on('setup', function(data) {
-        console.log('Core needs setup', data);
-    });
-
-    quassel.on('coreinfoinit', function(data) {
-        console.log('Core info init', data);
-    });
-
-    quassel.on('init', function(data) {
-        console.log('Init', data);
-    });
 // } else {
 
 //     var schemaActionChoices = [{

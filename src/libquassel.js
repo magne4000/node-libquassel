@@ -189,7 +189,7 @@ class Client extends EventEmitter {
     }
     // Init Identities
     for (let identity of obj.SessionState.Identities) {
-      this.identities.set(new Identity(identity));
+      this.identities.set(identity.identityId, new Identity(identity));
     }
     this.emit('identities.init', this.identities);
     this.core.sendInitRequest('BufferSyncer');
@@ -450,6 +450,7 @@ class Client extends EventEmitter {
     switch (renamedSubject) {
     case 'IrcUser':
       [ networkId, newNick ] = splitOnce(oldSubject, '/'); // 1/Nick
+      networkId = parseInt(networkId, 10);
       [ , oldNick ] = splitOnce(newSubject, '/'); // 1/Nick_
       this.networks.get(networkId).renameUser(oldNick, newNick);
       this.emit('network.userrenamed', networkId, oldNick, newNick);
@@ -534,7 +535,7 @@ class Client extends EventEmitter {
     const buffer = this.networks.get(networkId).buffers.get(bufferName);
     buffer.topic = data.topic;
     buffer.isActive = true;
-    this.emit('channel.topic', networkId, bufferName, data.topic);
+    this.emit('channel.topic', buffer.id, data.topic);
     this.emit('buffer.activate', buffer.id);
   }
 
@@ -551,10 +552,10 @@ class Client extends EventEmitter {
   handleStructInitDataBufferViewConfig(id, data) {
     id = parseInt(id, 10);
     this.bufferViews.set(id, new BufferView(id, data));
-    for (let temporarilyRemovedBuffer in data.TemporarilyRemovedBuffers) {
+    for (let temporarilyRemovedBuffer of data.TemporarilyRemovedBuffers) {
       this.emit('bufferview.bufferhidden', id, temporarilyRemovedBuffer, 'temp');
     }
-    for (let removedBuffer in data.RemovedBuffers) {
+    for (let removedBuffer of data.RemovedBuffers) {
       this.emit('bufferview.bufferhidden', id, removedBuffer, 'perm');
     }
     this.emit('bufferview.orderchanged', id);
