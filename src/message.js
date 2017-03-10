@@ -6,15 +6,28 @@
  * Licensed under the MIT license.
  */
 
-/** @module message */
-
 const { util } = require('qtdatastream');
 
 /**
- * @alias module:message.Type
- * @readonly
- * @enum {number}
- * @default
+ * @type {Object}
+ * @property {number} Types.PLAIN
+ * @property {number} Types.NOTICE
+ * @property {number} Types.ACTION
+ * @property {number} Types.NICK
+ * @property {number} Types.MODE
+ * @property {number} Types.JOIN
+ * @property {number} Types.PART
+ * @property {number} Types.QUIT
+ * @property {number} Types.KICK
+ * @property {number} Types.KILL
+ * @property {number} Types.SERVER
+ * @property {number} Types.INFO
+ * @property {number} Types.ERROR
+ * @property {number} Types.DAYCHANGE
+ * @property {number} Types.TOPIC
+ * @property {number} Types.NETSPLITJOIN
+ * @property {number} Types.NETSPLITQUIT
+ * @property {number} Types.INVITE
  */
 export const Types = {
   PLAIN: 0x00001,
@@ -39,10 +52,13 @@ export const Types = {
 
 
 /**
- * @alias module:message.Flag
- * @readonly
- * @enum {number}
- * @default
+ * @type {Object}
+ * @property {number} Flags.NONE
+ * @property {number} Flags.SELF
+ * @property {number} Flags.HIGHLIGHT
+ * @property {number} Flags.REDIRECTED
+ * @property {number} Flags.SERVERMSG
+ * @property {number} Flags.BACKLOG
  */
 export const Flags = {
   NONE: 0x00,
@@ -54,10 +70,10 @@ export const Flags = {
 };
 
 /**
- * @alias module:message.HighlightModes
- * @readonly
- * @enum {number}
- * @default
+ * @type {Object}
+ * @property {number} HighlightModes.NONE
+ * @property {number} HighlightModes.CURRENTNICK
+ * @property {number} HighlightModes.ALLIDENTITYNICKS
  */
 export const HighlightModes = {
   NONE: 0x01,
@@ -66,33 +82,40 @@ export const HighlightModes = {
 };
 
 /**
- * @class
- * @alias module:message.IRCMessage
- * @param {Object} message
+ * IRC Message
  */
 export class IRCMessage {
   constructor(message) {
+    /** @type {string} */
     this.nick = null;
+    /** @type {string} */
     this.hostmask = null;
     this._flags = null;
     this.isSelf = false;
     this.isHighlighted = false;
     this._sender = null;
 
+    /** @type {number} */
     this.id = message.id;
+    /** @type {Date} */
     this.datetime = new Date(message.timestamp * 1000);
+    /** @type {number} */
     this.type = message.type;
+    /** @type {number} */
     this.flags = message.flags;
+    /** @type {string} */
     this.sender = message.sender ? util.str(message.sender) : null;
+    /** @type {string} */
     this.content = message.content ? util.str(message.content) : null;
+    /** @type {BufferInfo} */
     this.bufferInfo = message.bufferInfo;
   }
 
   /**
    * Update internal highlight flags
-   * @param {module:network.Network} network
-   * @param {module:identity} identity
-   * @param {module:libquassel~Quassel.HighlightModes} mode
+   * @param {Network} network
+   * @param {Identity} identity
+   * @param {number} mode
    * @protected
    */
   _updateFlags(network, identity, mode) {
@@ -127,16 +150,19 @@ export class IRCMessage {
     }
   }
 
+  /** @type {number} */
   set flags(value) {
     this._flags = value;
     this.isSelf = (value & Flags.SELF) !== 0;
     this.isHighlighted = ((value & Flags.HIGHLIGHT) !== 0) && !this.isSelf;
   }
 
+  /** @type {number} */
   get flags() {
     return this._flags;
   }
 
+  /** @type {string} */
   set sender(value) {
     this._sender = value;
     if (value) {
@@ -146,6 +172,7 @@ export class IRCMessage {
     }
   }
 
+  /** @type {string} */
   get sender() {
     return this._sender;
   }

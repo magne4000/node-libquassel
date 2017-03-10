@@ -12,13 +12,11 @@ const { Exportable } = require('qtdatastream').types;
 import { Types } from './message';
 import { traits } from 'traits-decorator';
 
-/** @module ignore */
-
 /**
- * @alias module:ignore.IgnoreTypes
- * @readonly
- * @enum {number}
- * @default
+ * @type {Object}
+ * @property {number} IgnoreTypes.SENDER
+ * @property {number} IgnoreTypes.MESSAGE
+ * @property {number} IgnoreTypes.CTCP
  */
 export const IgnoreTypes = {
   SENDER: 0,
@@ -27,10 +25,10 @@ export const IgnoreTypes = {
 };
 
 /**
- * @alias module:ignore.StrictnessTypes
- * @readonly
- * @enum {number}
- * @default
+ * @type {Object}
+ * @property {number} StrictnessTypes.UNMATCHED
+ * @property {number} StrictnessTypes.SOFT
+ * @property {number} StrictnessTypes.HARD
  */
 export const StrictnessTypes = {
   UNMATCHED: 0,
@@ -39,10 +37,10 @@ export const StrictnessTypes = {
 };
 
 /**
- * @alias module:ignore.ScopeTypes
- * @readonly
- * @enum {number}
- * @default
+ * @type {Object}
+ * @property {number} ScopeTypes.GLOBAL
+ * @property {number} ScopeTypes.NETWORK
+ * @property {number} ScopeTypes.CHANNEL
  */
 export const ScopeTypes = {
   GLOBAL: 0,
@@ -51,32 +49,43 @@ export const ScopeTypes = {
 };
 
 /**
- * @class
- * @alias module:ignore.IgnoreItem
- * @param {number} strictness
- * @param {String} scopeRule
- * @param {number} scope
- * @param {(number|boolean)} isRegEx
- * @param {(number|boolean)} isActive
- * @param {number} ignoreType
- * @param {String} ignoreRule
+ * Ignore item as represented in the configuration
  */
 export class IgnoreItem {
+  /**
+   * @param {number} strictness
+   * @param {string} scopeRule
+   * @param {number} scope
+   * @param {boolean} isRegEx
+   * @param {boolean} isActive
+   * @param {number} ignoreType
+   * @param {string} ignoreRule
+   */
   constructor(strictness, scopeRule, scope, isRegEx, isActive, ignoreType, ignoreRule){
+    /** @type {number} */
     this.strictness = strictness;
+    /** @type {string} */
     this.scopeRule = scopeRule;
+    /** @type {number} */
     this.scope = scope;
+    /** @type {boolean} */
     this.isRegEx = isRegEx;
+    /** @type {boolean} */
     this.isActive = isActive;
+    /** @type {number} */
     this.ignoreType = ignoreType;
+    /** @type {string} */
     this.ignoreRule = ignoreRule;
+    /** @type {RegExp[]} */
     this.regexScope = [];
+    /** @type {RegExp} */
+    this.regexIgnore;
     this.compile();
   }
 
   /**
-   * Returns true if subject match the scope rules, false otherwhise
-   * @param {String} subject
+   * Returns `true` if subject match the scope rules, `false` otherwhise
+   * @param {string} subject
    * @returns {boolean}
    */
   matchScope(subject) {
@@ -90,7 +99,7 @@ export class IgnoreItem {
   }
 
   /**
-   * Returns true if subject match ignore rule, false otherwhise
+   * Returns `true` if subject match ignore rule, `false` otherwhise
    * @param {String} subject
    * @returns {boolean}
    */
@@ -132,9 +141,8 @@ function wildcardToRegex(subject) {
 }
 
 /**
- * @class
- * @alias module:ignore.IgnoreList
- * @extends {Array}
+ * Handles list of {@link IgnoreItem}
+ * @implements {Exportable}
  */
 @traits(Exportable)
 export class IgnoreList {
@@ -144,21 +152,21 @@ export class IgnoreList {
   }
 
   /**
-   * Import the map into current IgnoreList as a list of {@link module:ignore.IgnoreItem}
-   * @param {Object} map
+   * Import object as a list of {@link IgnoreItem}
+   * @param {Object} data
    */
-  import(map) {
+  import(data) {
     let item;
-    this.list = new Array(map.IgnoreList.ignoreRule.length);
-    for (let i=0; i<map.IgnoreList.ignoreRule.length; i++) {
+    this.list = new Array(data);
+    for (let i=0; i<data.IgnoreList.ignoreRule.length; i++) {
       item = new IgnoreItem(
-        map.IgnoreList.strictness[i],
-        map.IgnoreList.scopeRule[i],
-        map.IgnoreList.scope[i],
-        map.IgnoreList.isRegEx[i],
-        map.IgnoreList.isActive[i],
-        map.IgnoreList.ignoreType[i],
-        map.IgnoreList.ignoreRule[i]
+        data.IgnoreList.strictness[i],
+        data.IgnoreList.scopeRule[i],
+        data.IgnoreList.scope[i],
+        data.IgnoreList.isRegEx[i],
+        data.IgnoreList.isActive[i],
+        data.IgnoreList.ignoreType[i],
+        data.IgnoreList.ignoreRule[i]
       );
       this.list[i] = item;
     }
@@ -195,9 +203,9 @@ export class IgnoreList {
   }
 
   /**
-   * Returns true if `message` match ignore rules
-   * @param {message.IRCMessage} message
-   * @param {network.NetworkCollection} networks
+   * Returns true if `message` matches ignore rules
+   * @param {IRCMessage} message
+   * @param {NetworkCollection} networks
    * @returns {boolean}
    */
   matches(message, networks) {

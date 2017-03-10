@@ -6,18 +6,14 @@
  * Licensed under the MIT license.
  */
 
-/** @module identity */
-
 const { types: qtypes } = require('qtdatastream');
 const { Exportable, exportas } = qtypes;
 
 import { traits } from 'traits-decorator';
 
 /**
- * @class
- * @alias module:identity
- * @extends {Exportable}
- * @param {Object} data
+ * Quassel Identity
+ * @implements {Exportable}
  */
 @traits(Exportable)
 export default class Identity {
@@ -61,20 +57,34 @@ export default class Identity {
   @exportas(qtypes.QUserType.get('IdentityId'))
   identityId = -1;
 
+  /** @type {string} */
   @exportas(qtypes.QString)
   identityName;
 
+  /** @type {string} */
   @exportas(qtypes.QString)
   realName;
 
+  /** @type {string[]} */
   @exportas(qtypes.QList)
   get nicks() {
     return this._nicks;
   }
 
+  /** @type {string[]} */
   set nicks(value) {
     this._nicks = value;
     this.nickRegexes = value.map(nick => nick.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1'));
+  }
+  
+  /** @type {number} */
+  set id(value) {
+    this.identityId = value;
+  }
+
+  /** @type {number} */
+  get id() {
+    return this.identityId;
   }
 
   @exportas(qtypes.QString)
@@ -93,25 +103,6 @@ export default class Identity {
       this.update(data);
     }
     // TODO see if identityId is always a number, otherwise parseInt
-    /** @member {boolean} autoAwayEnabled */
-    /** @member {String} autoAwayReason */
-    /** @member {boolean} autoAwayReasonEnabled */
-    /** @member {number} autoAwayTime */
-    /** @member {String} awayNick */
-    /** @member {String} kickReason */
-    /** @member {boolean} awayNickEnabled */
-    /** @member {String} awayReason */
-    /** @member {boolean} awayReasonEnabled */
-    /** @member {boolean} detachAwayEnabled */
-    /** @member {String} detachAwayReason */
-    /** @member {boolean} detachAwayReasonEnabled */
-    /** @member {String} ident */
-    /** @member {number} identityId */
-    /** @member {String} identityName */
-    /** @member {String[]} nicks */
-    /** @member {String} partReason */
-    /** @member {String} quitReason */
-    /** @member {String} realName */
   }
 
   update(data) {
@@ -131,14 +122,6 @@ export default class Identity {
       nicks: [ nick || name ]
     };
     return new this(options);
-  }
-
-  set id(value) {
-    this.identityId = value;
-  }
-
-  get id() {
-    return this.identityId;
   }
 
   toString() {

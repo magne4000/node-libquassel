@@ -6,8 +6,6 @@
  * Licensed under the MIT license.
  */
 
-/** @module network */
-
 const { EventEmitter } = require('events');
 const logger = require('debug')('libquassel:network');
 const { util, types: qtypes } = require('qtdatastream');
@@ -18,10 +16,13 @@ import { IRCBufferCollection } from './buffer';
 import { traits } from 'traits-decorator';
 
 /**
- * @alias module:network.Network.ConnectionState
- * @readonly
- * @enum {number}
- * @default
+ * @type {Object}
+ * @property {number} ConnectionStates.DISCONNECTED
+ * @property {number} ConnectionStates.CONNECTING
+ * @property {number} ConnectionStates.INITIALIZING
+ * @property {number} ConnectionStates.INITIALIZED
+ * @property {number} ConnectionStates.RECONNECTING
+ * @property {number} ConnectionStates.DISCONNECTING
  */
 export const ConnectionStates = {
   DISCONNECTED: 0x00,
@@ -33,12 +34,13 @@ export const ConnectionStates = {
 };
 
 /**
- * @class
- * @alias module:network.Server
+ * A server as used in {@link Network}
+ * @implements {Exportable}
  */
 @traits(Exportable)
 @usertype('Network::Server')
 export class Server {
+  /** @type {string} */
   @exportas(qtypes.QString, 'Host')
   host;
 
@@ -81,59 +83,68 @@ export class Server {
 }
 
 /**
- * @class
- * @alias module:network.Network
- * @augments EventEmitter
- * @param {number} id
+ * Quassel Network
+ * @implements {Exportable}
  */
 @traits(Exportable)
 @usertype('NetworkInfo')
 export class Network extends EventEmitter {
 
+  /** @type {number} */
   @exportas(qtypes.QUserType.get('NetworkId'), 'NetworkId')
   get networkId() {
     return this.id;
   }
 
+  /** @type {number} */
   set networkId(value) {
     this.id = value;
   }
 
+  /** @type {string} */
   @exportas(qtypes.QString, 'NetworkName')
   get networkName() {
     return this.name;
   }
 
+  /** @type {string} */
   set networkName(value) {
     this.name = value;
   }
 
+  /** @type {number} */
   @exportas(qtypes.QUserType.get('IdentityId'), 'Identity')
   identityId;
 
+  /** @type {string} */
   @exportas(qtypes.QByteArray, 'CodecForServer')
   get codecForServer() {
     return this._codecForServer;
   }
 
+  /** @type {string|Buffer} */
   set codecForServer(s) {
     this._codecForServer = Buffer.isBuffer(s) ? util.str(s) : s;
   }
 
+  /** @type {string} */
   @exportas(qtypes.QByteArray, 'CodecForEncoding')
   get codecForEncoding() {
     return this._codecForEncoding;
   }
 
+  /** @type {string|Buffer} */
   set codecForEncoding(s) {
     this._codecForEncoding = Buffer.isBuffer(s) ? util.str(s) : s;
   }
 
+  /** @type {string} */
   @exportas(qtypes.QByteArray, 'CodecForDecoding')
   get codecForDecoding() {
     return this._codecForDecoding;
   }
 
+  /** @type {string|Buffer} */
   set codecForDecoding(s) {
     this._codecForDecoding = Buffer.isBuffer(s) ? util.str(s) : s;
   }
@@ -192,78 +203,28 @@ export class Network extends EventEmitter {
   @exportas(qtypes.QUInt, 'MessageRateBurstSize')
   msgRateBurstSize = 5;
 
-  constructor(id, name = null) {
-    super();
-    /** @member {number} id */
-    this.id = typeof id === 'number' ? id : -1;
-    /** @member {module:buffer.IRCBufferCollection} buffers */
-    this.buffers = new IRCBufferCollection();
-    /** @member {Map.<String, module:user>} users */
-    this.users = new Map;
-    /** @member {boolean} open */
-    this.open = false;
-    /** @member {module:network.Network.ConnectionStates} connectionState */
-    this.connectionState = ConnectionStates.DISCONNECTED;
-    /** @member {boolean} isConnected */
-    this._isConnected = false;
-    /** @member {number} latency */
-    this.latency = 0;
-    /** @member {?module:buffer.IRCBuffer} statusBuffer */
-    this.statusBuffer = null;
-    /** @member {?string} networkName */
-    this.name = name;
-    /** @member {?string} nick */
-    this._nick = null;
-    this.nickRegex = null;
-    /** @member {Server[]} ServerList */
-    /** @member {?string} autoIdentifyPassword */
-    /** @member {?string} autoIdentifyService */
-    /** @member {number} autoReconnectInterval */
-    /** @member {number} autoReconnectRetries */
-    /** @member {?string} codecForDecoding */
-    this._codecForDecoding = null;
-    /** @member {?string} codecForEncoding */
-    this._codecForEncoding = null;
-    /** @member {?string} codecForServer */
-    this._codecForServer = null;
-    /** @member {?string} currentServer */
-    /** @member {number} identityId */
-    /** @member {string[]} perform */
-    /** @member {boolean} rejoinChannels */
-    /** @member {?string} saslAccount */
-    /** @member {?string} saslPassword */
-    /** @member {boolean} unlimitedReconnectRetries */
-    /** @member {boolean} useAutoIdentify */
-    /** @member {boolean} useAutoReconnect */
-    /** @member {boolean} useRandomServer */
-    /** @member {boolean} useSasl */
-    /** @member {boolean} useCustomMessageRate */
-    /** @member {boolean} unlimitedMessageRate */
-    /** @member {number} messageRateDelay */
-    /** @member {number} messageRateBurstSize */
-  }
-
+  /** @type {string} */
   set myNick(value) {
     this.nick = value;
   }
 
+  /** @type {string} */
   get myNick() {
     return this._nick;
   }
 
+  /** @type {string} */
   set nick(value) {
     this._nick = value;
     this.nickRegex = value.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1');
   }
 
+  /** @type {string} */
   get nick() {
     return this._nick;
   }
 
-  /**
-   * Update `isConnected` value, and change the state of the `statusBuffer` of this network
-   * @param {boolean} connected
-   */
+  /** @type {boolean} */
   set isConnected(connected) {
     connected = Boolean(connected);
     if (this.statusBuffer) {
@@ -272,8 +233,33 @@ export class Network extends EventEmitter {
     this._isConnected = connected;
   }
 
+  /** @type {boolean} */
   get isConnected() {
     return this._isConnected;
+  }
+
+  constructor(id, name = null) {
+    super();
+    this._isConnected = false;
+    this._nick = null;
+    this._codecForEncoding = null;
+    this._codecForDecoding = null;
+    this._codecForServer = null;
+    this.id = typeof id === 'number' ? id : -1;
+    /** @type {IRCBufferCollection} */
+    this.buffers = new IRCBufferCollection();
+    /** @type {Map<String, IRCUser>} */
+    this.users = new Map;
+    /** @type {boolean} */
+    this.open = false;
+    /** @type {number} */
+    this.connectionState = ConnectionStates.DISCONNECTED;
+    /** @type {number} */
+    this.latency = 0;
+    /** @type {?IRCBuffer} */
+    this.statusBuffer = null;
+    this.nickRegex = null;
+    this.name = name;
   }
 
   getUser(nick) {
@@ -282,15 +268,15 @@ export class Network extends EventEmitter {
 
   /**
    * Add given user to the network
-   * @param {module:user} user
+   * @param {IRCUser} user
    */
   addUser(user) {
     this.users.set(user.nick, user);
   }
 
   /**
-   * Returns `true` if the specified nick exists in the network, `false` otherwise
-   * @param {(string|module:user)} nick
+   * Returns `true` if the specified nick/{@link IRCUser} exists in the network, `false` otherwise
+   * @param {string|IRCUser} nick
    * @returns {boolean}
    */
   hasUser(nick) {
@@ -319,7 +305,7 @@ export class Network extends EventEmitter {
   /**
    * Delete the user identified by `nick` from the network and buffers
    * @param {string} nick
-   * @returns {Array} list of buffers that has been deactivated
+   * @returns {number[]} list of buffer ids that has been deactivated
    */
   deleteUser(nick) {
     const ids = [];
@@ -341,6 +327,9 @@ export class Network extends EventEmitter {
     return ids;
   }
 
+  /**
+   * @param {IRCUser[]} userlist
+   */
   updateUsers(userlist) {
     this.users.clear();
     if (Array.isArray(userlist) && userlist.length> 0) {
@@ -351,16 +340,16 @@ export class Network extends EventEmitter {
   }
 
   /**
-   * Get the {module:buffer.IRCBuffer} corresponding to specified ID or name
-   * @param {(number|string)} bufferId
+   * Get the {IRCBuffer} corresponding to specified id or name
+   * @param {number|string} bufferId
    */
   getBuffer(bufferId) {
     return this.buffers.get(bufferId);
   }
 
   /**
-   * Returns `true` if a buffer exists with corresponding ID or name
-   * @param {(number|string)} bufferId
+   * Returns `true` if a buffer exists with corresponding id or name
+   * @param {number|string} bufferId
    */
   hasBuffer(bufferId) {
     return this.buffers.has(bufferId);
@@ -368,6 +357,7 @@ export class Network extends EventEmitter {
 
   /**
    * This method is used internally by update method
+   * @protected
    * @param {Object} uac
    */
   set ircUsersAndChannels(uac) {
@@ -407,12 +397,11 @@ export class Network extends EventEmitter {
 }
 
 /**
- * @class
- * @alias module:network.NetworkCollection
+ * Map of {@link Network}, with helpers
  */
 export class NetworkCollection extends Map {
   /**
-   * Add and empty {@link module:network.Network} identified by `networkId` to the collection
+   * Add an empty {@linkNetwork} identified by `networkId` to the collection
    * @param {number} networkId
    * @returns {module:network.Network}
    */
@@ -424,9 +413,9 @@ export class NetworkCollection extends Map {
   }
 
   /**
-   * Returns {@link module:buffer.IRCBuffer} corresponding to given `bufferId`, or `undefined` otherwise
+   * Returns {@link IRCBuffer} corresponding to given `bufferId`, or `undefined` otherwise
    * @param {number} bufferId
-   * @returns {?module:buffer.IRCBuffer}
+   * @returns {?IRCBuffer}
    */
   getBuffer(bufferId) {
     if (typeof bufferId !== 'number') return undefined;
@@ -439,7 +428,7 @@ export class NetworkCollection extends Map {
   }
 
   /**
-   * Delete the {@link module:buffer.IRCBuffer} Object identified by `bufferId` from the networks
+   * Delete the {@link IRCBuffer} object identified by `bufferId` from the networks
    * @param {number} bufferId
    */
   deleteBuffer(bufferId) {
@@ -465,6 +454,10 @@ export class NetworkCollection extends Map {
     }
   }
 
+  /**
+   * Returns `true` if buffer identified by `bufferId` exists
+   * @param {number} bufferId
+   */
   hasBuffer(bufferId) {
     if (typeof bufferId !== 'number') {
       logger('hasBuffer:%O is not a number', bufferId);

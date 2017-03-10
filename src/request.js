@@ -6,8 +6,6 @@
  * Licensed under the MIT license.
  */
 
-/** @module request */
-
 const { EventEmitter } = require('events');
 const { types: qtypes, socket } = require('qtdatastream');
 const logger = require('debug')('libquassel:request');
@@ -16,9 +14,14 @@ const pkg = require('../package.json');
 import { Network, Server } from './network';
 
 /**
- * @readonly
- * @enum {number}
- * @default
+ * @type {Object}
+ * @property {number} Types.INVALID
+ * @property {number} Types.SYNC
+ * @property {number} Types.RPCCALL
+ * @property {number} Types.INITREQUEST
+ * @property {number} Types.INITDATA
+ * @property {number} Types.HEARTBEAT
+ * @property {number} Types.HEARTBEATREPLY
  */
 export const Types = {
   INVALID: 0x00,
@@ -94,7 +97,10 @@ export class Core extends EventEmitter {
     this.duplex = null;
   }
 
-  // Handle magic number response
+  /**
+   * Handle magic number response
+   * @param {net.Duplex} duplex
+   */
   init(duplex) {
     this.duplex = duplex;
     this.duplex.once('data', data => {
@@ -143,9 +149,8 @@ export class Core extends EventEmitter {
   }
 
   /**
-   * Handles heartbeat
-   * @param {boolean} reply - is this a heartbeat reply
-   * @protected
+   * Send heartbeat response
+   * @param {boolean} reply
    */
   heartBeat(reply) {
     const d = new Date();
@@ -311,7 +316,8 @@ export class Core extends EventEmitter {
 
   /**
    * Core Sync request - Create a new chat list
-   * @param {object} data
+   * @experimental
+   * @param {Object} data
    * @example
    * FIXME
    * createBufferView({
@@ -359,7 +365,7 @@ export class Core extends EventEmitter {
 
   /**
    * Core Sync request - Update aliases
-   * @param {object} data @see {@link module:alias.toCoreObject}
+   * @param {object} data see {@link toCoreObject}
    */
   @sync('AliasManager', 'requestUpdate', qtypes.QMap)
   updateAliasManager(data) {
@@ -374,21 +380,21 @@ export class Core extends EventEmitter {
   }
 
   /**
-   * Core RPC request - Remove an {@link module:identity}
+   * Core RPC request - Remove an {@link Identity}
    * @param {number} identityId
    */
   @rpc('removeIdentity(IdentityId)', qtypes.QUserType.get('IdentityId'))
-  removeIdentity(build, identityId) {
+  removeIdentity(identityId) {
     logger('Deleting identity');
     return [ identityId ];
   }
 
   /**
-   * Core RPC request - Remove a {@link module:network.Network}
+   * Core RPC request - Remove a {@link Network}
    * @param {number} networkId
    */
   @rpc('removeNetwork(NetworkId)', qtypes.QUserType.get('NetworkId'))
-  removeNetwork (build, networkId) {
+  removeNetwork (networkId) {
     logger('Deleting nhetwork');
     return [ networkId ];
   }
@@ -399,7 +405,7 @@ export class Core extends EventEmitter {
    * @param {String} message
    */
   @rpc('sendInput(BufferInfo,QString)', qtypes.QUserType.get('BufferInfo'), qtypes.QString)
-  sendMessage(build, bufferInfo, message) {
+  sendMessage(bufferInfo, message) {
     logger('Sending message');
     return [ bufferInfo, message ];
   }
@@ -409,7 +415,7 @@ export class Core extends EventEmitter {
    * @param {module:identity} identity
    */
   @rpc('createIdentity(Identity,QVariantMap)', qtypes.QUserType.get('Identity'), qtypes.QMap)
-  createIdentity(build, identity) {
+  createIdentity(identity) {
     logger('Creating identity');
     return [ identity, {}];
   }
@@ -418,7 +424,7 @@ export class Core extends EventEmitter {
    * Core RPC request - Create a new {@link module:network.Network}
    * @param {String} networkName
    * @param {number} identityId
-   * @param {(String|Object)} initialServer - Server hostname or IP, or full Network::Server Object. Can also be undefined if options.ServerList is defined.
+   * @param {String|Object} initialServer - Server hostname or IP, or full Network::Server Object. Can also be undefined if options.ServerList is defined.
    * @param {String} [initialServer.Host=initialServer]
    * @param {String} [initialServer.Port="6667"]
    * @param {String} [initialServer.Password=""]
@@ -454,7 +460,7 @@ export class Core extends EventEmitter {
    * @param {number} [options.msgRateBurstSize=5]
    */
   @rpc('createNetwork(NetworkInfo,QStringList)', qtypes.QUserType.get('NetworkInfo'), qtypes.QStringList)
-  createNetwork(build, networkName, identityId, initialServer, options = {}) {
+  createNetwork(networkName, identityId, initialServer, options = {}) {
     const network = new Network(-1, networkName);
     network.update(options);
     if (typeof initialServer === 'string') {
@@ -472,10 +478,10 @@ export class Core extends EventEmitter {
    * @param {String} classname
    * @param {String} objectname
    * @example
-   * quassel.sendInitRequest("IrcUser", "1/randomuser");
+   * quassel.core.sendInitRequest("IrcUser", "1/randomuser");
    */
   sendInitRequest(classname, objectname = '') {
-    let initRequest = [
+    const initRequest = [
       qtypes.QUInt.from(Types.INITREQUEST),
       qtypes.QString.from(classname),
       qtypes.QString.from(objectname)
@@ -490,7 +496,7 @@ export class Core extends EventEmitter {
    * @protected
    */
   sendClientInfo(useSSL, useCompression){
-    let smap = {
+    const smap = {
       'ClientDate': '',
       'UseSsl': useSSL,
       'ClientVersion': `${pkg.name} ${pkg.version}`,
@@ -507,7 +513,8 @@ export class Core extends EventEmitter {
    * @param {String} backend
    * @param {String} adminuser
    * @param {String} adminpassword
-   * @param {Object} [properties]
+   * @param {boolean} [useSSL=false]
+   * @param {Object} [properties={}]
    */
   setupCore(backend, adminuser, adminpassword, useSSL = false, properties = {}) {
     const obj = {
@@ -550,10 +557,7 @@ export class Core extends EventEmitter {
   }
 
   /**
-   * Initialize the connection
-   * @example
-   * const quassel = new Client(...);
-   * quassel.connect();
+   * Send magic number to the core
    */
   connect() {
     let magic = 0x42b33f00;
@@ -563,7 +567,7 @@ export class Core extends EventEmitter {
       magic |= 0x01;
     }
 
-    // At this point `duplex` should already be connected
+    // At this point `duplex` must already be connected
     const bufs = [
       qtypes.QUInt.from(magic).toBuffer(),
       qtypes.QUInt.from(0x01).toBuffer(),

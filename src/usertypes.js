@@ -1,60 +1,55 @@
 const { types: qtypes } = require('qtdatastream');
 
 /**
- * Qt UserType
- * @typedef UserType
- */
-
-/**
- * @typedef {UserType} UserType&lt;NetworkId&gt;
+ * @typedef {QUserType} UserType<NetworkId>
  * @property {INT} this
  */
 qtypes.QUserType.register('NetworkId', qtypes.Types.INT);
 
 /**
- * @typedef {UserType} UserType&lt;IdentityId&gt;
+ * @typedef {QUserType} UserType<IdentityId>
  * @property {INT} this
  */
 qtypes.QUserType.register('IdentityId', qtypes.Types.INT);
 
 /**
- * @typedef {UserType} UserType&lt;BufferId&gt;
+ * @typedef {QUserType} UserType<BufferId>
  * @property {INT} this
  */
 qtypes.QUserType.register('BufferId', qtypes.Types.INT);
 
 /**
- * @typedef {UserType} UserType&lt;MsgId&gt;
+ * @typedef {QUserType} UserType<MsgId>
  * @property {INT} this
  */
 qtypes.QUserType.register('MsgId', qtypes.Types.INT);
 
 /**
- * @typedef {UserType} UserType&lt;Identity&gt;
+ * @typedef {QUserType} UserType<Identity>
  * @property {MAP} this
  */
 qtypes.QUserType.register('Identity', qtypes.Types.MAP);
 
 /**
- * @typedef {UserType} UserType&lt;NetworkInfo&gt;
+ * @typedef {QUserType} UserType<NetworkInfo>
  * @property {MAP} this
  */
 qtypes.QUserType.register('NetworkInfo', qtypes.Types.MAP);
 
 /**
- * @typedef {UserType} UserType&lt;Network::Server&gt;
+ * @typedef {QUserType} UserType<Network::Server>
  * @property {MAP} this
  */
 qtypes.QUserType.register('Network::Server', qtypes.Types.MAP);
 
 /**
- * @typedef {UserType} UserType&lt;NetworkId&gt;
+ * @typedef {QUserType} UserType<NetworkId>
  * @property {INT} this
  */
 qtypes.QUserType.register('NetworkId', qtypes.Types.INT);
 
 /**
- * @typedef {UserType} UserType&lt;BufferInfo&gt;
+ * @typedef {QUserType} UserType<BufferInfo>
  * @property {INT} id
  * @property {INT} network
  * @property {SHORT} type
@@ -70,7 +65,7 @@ qtypes.QUserType.register('BufferInfo', [
 ]);
 
 /**
- * @typedef {UserType} UserType&lt;Message&gt;
+ * @typedef {QUserType} UserType<Message>
  * @property {INT} id
  * @property {UINT} timestamp
  * @property {UINT} type

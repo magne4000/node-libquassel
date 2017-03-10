@@ -6,34 +6,42 @@
  * Licensed under the MIT license.
  */
 
-/** @module bufferview */
-
 /**
- * @class
- * @alias module:bufferview
- * @augments module:glouton.Glouton
- * @param {Object} data
+ * Quassel BufferView
  */
 export default class BufferView {
   constructor (id, data) {
-    /** @member {number} id */
+    /** @type {number} */
     this.id = id;
+    /** @type {boolean} */
+    this.sortAlphabetically;
+    /** @type {number} */
+    this.showSearch;
+    /** @type {number} */
+    this.networkId;
+    /** @type {number} */
+    this.minimumActivity;
+    /** @type {boolean} */
+    this.hideInactiveNetworks;
+    /** @type {boolean} */
+    this.hideInactiveBuffers;
+    /** @type {boolean} */
+    this.disableDecoration;
+    /** @type {String} */
+    this.bufferViewName;
+    /** @type {number} */
+    this.allowedBufferTypes;
+    /** @type {boolean} */
+    this.addNewBuffersAutomatically;
+    /** @type {number[]} */
+    this.TemporarilyRemovedBuffers;
+    /** @type {number[]} */
+    this.RemovedBuffers;
+    /** @type {number[]} */
+    this.BufferList;
     if (data) {
       this.update(data);
     }
-    /** @member {boolean} sortAlphabetically */
-    /** @member {number} showSearch */
-    /** @member {number} networkId */
-    /** @member {number} minimumActivity */
-    /** @member {boolean} hideInactiveNetworks */
-    /** @member {boolean} hideInactiveBuffers */
-    /** @member {boolean} disableDecoration */
-    /** @member {String} bufferViewName */
-    /** @member {number} allowedBufferTypes */
-    /** @member {boolean} addNewBuffersAutomatically */
-    /** @member {number[]} TemporarilyRemovedBuffers */
-    /** @member {number[]} RemovedBuffers */
-    /** @member {number[]} BufferList */
   }
 
   /**
@@ -129,6 +137,12 @@ export default class BufferView {
 
   /**
    * Used by sort methods
+   * @param {number} id1
+   * @param {number} id2
+   * @returns {number}
+   * @example
+   * const bufferView = new BufferView(1, {...});
+   * anArrayOfBufferIds.sort(bufferView.comparator);
    */
   comparator(id1, id2) {
     if (!this.BufferList) return 0;

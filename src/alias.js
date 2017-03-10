@@ -7,10 +7,9 @@
  */
 
 /**
- * Returns a {@link module:alias.AliasItem[]} for the given object received from the core.
- * @alias module:alias.toArray
- * @param {object} data
- * @returns {module:alias.AliasItem[]}
+ * Converts core object to an Array of {@link AliasItem}
+ * @param {Object} data
+ * @returns {AliasItem[]}
  */
 export function toArray(data) {
   let i = 0, ret = Array(data.Aliases.names.length);
@@ -22,9 +21,8 @@ export function toArray(data) {
 
 /**
  * Returns an object that can be fed to the core
- * @alias module:alias.toCoreObject
- * @param {module:alias.AliasItem[]} data
- * @returns {object}
+ * @param {AliasItem[]} aliasitems
+ * @returns {Object}
  */
 export function toCoreObject(aliasitems) {
   const ret = { Aliases: { names: [], expansions: [] } };
@@ -36,8 +34,7 @@ export function toCoreObject(aliasitems) {
 }
 
 /**
- * @class
- * @alias module:alias.AliasItem
+ * Object representing an alias
  * @param {String} name
  * @param {String} expansion
  */

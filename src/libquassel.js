@@ -6,8 +6,6 @@
  * Licensed under the MIT license.
  */
 
-/** @module libquassel */
-
 import './usertypes'; // register usertypes first
 const { EventEmitter } = require('events');
 const logger = require('debug')('libquassel:main');
@@ -24,10 +22,16 @@ import * as alias from './alias';
 import * as ignore from './ignore';
 
 /**
- * @alias module:libquassel~Quassel.Features
- * @readonly
- * @enum {number}
- * @default
+ * @type {Object}
+ * @property {number} Features.SYNCHRONIZEDMARKERLINE
+ * @property {number} Features.SASLAUTHENTICATION
+ * @property {number} Features.SASLEXTERNAL
+ * @property {number} Features.HIDEINACTIVENETWORKS
+ * @property {number} Features.PASSWORDCHANGE
+ * @property {number} Features.CAPNEGOTIATION
+ * @property {number} Features.VERIFYSERVERSSL
+ * @property {number} Features.CUSTOMRATELIMITS
+ * @property {number} Features.NUMFEATURES
  */
 export const Features = {
   SYNCHRONIZEDMARKERLINE: 0x0001,
@@ -42,67 +46,66 @@ export const Features = {
 };
 
 /**
- * This callback is used by Quassel at login phase
- * @callback module:libquassel~Quassel~loginCallback
- * @param {function} next - callback with 2 parameters: user and password; must be called at the end of this callback
- * @example
- * function(next) {
- *   var user = source.getUser();
- *   var password = source.getPassword();
- *   next(user, password);
- * }
+ * @typedef {function(user: string, password: string)} loginCallback
  */
 
 /**
- * Main class to interact with Quassel instance. It extends {@link https://nodejs.org/api/events.html#events_class_eventemitter|EventEmitter}
- * @class
- * @extends {EventEmitter}
- * @param {Object} [options] Allows optionnal parameters
- * @param {number} [options.initialbackloglimit=options.backloglimit] number of backlogs to request per buffer at connection
- * @param {number} [options.backloglimit=100] number of backlogs to request per buffer after connection
- * @param {boolean} [options.securecore=true] Use SSL to connect to the core (if the core allows it)
- * @param {module:libquassel~Quassel.HighlightModes} [options.highlightmode=0x02] Choose how highlights on nicks works. Defaults to only highlight a message if current nick is present.
- * @param {module:libquassel~Quassel~loginCallback} loginCallback
+ * Main class to interact with Quassel instance
  * @example
- * //FIXME
- * var quassel = new Quassel("localhost", 4242, {}, function(next) {
+ * import { Client } from 'libquassel';
+ * const net = require('net');
+ *
+ * const quassel = new Client(function(next) {
  *   next("user", "password");
  * });
- * quassel.connect();
+ * const socket = net.createConnection({
+ *   host: "localhost",
+ *   port: 4242
+ * });
+ *
+ * quassel.connect(socket);
  */
 export class Client extends EventEmitter {
+  /**
+   * @param {function(next: loginCallback)} loginCallback
+   * @param {Object} [options] Allows optionnal parameters
+   * @param {number} [options.initialbackloglimit=options.backloglimit] number of backlogs to request per buffer at connection
+   * @param {number} [options.backloglimit=100] number of backlogs to request per buffer after connection
+   * @param {boolean} [options.securecore=true] Use SSL to connect to the core (if the core allows it)
+   * @param {number} [options.highlightmode=0x02] Choose how highlights on nicks works. Defaults to only highlight a message if current nick is present.
+   */
   constructor(loginCallback, options = {}) {
     super();
-    /** @member {Object} options */
+    /** @type {Object} options */
     this.options = {};
     this.options.backloglimit = parseInt(options.backloglimit || 100, 10);
     this.options.initialbackloglimit = parseInt(options.initialbackloglimit || this.options.backloglimit, 10);
     this.options.highlightmode = (typeof options.highlightmode === 'number') ? options.highlightmode : HighlightModes.CURRENTNICK;
-    /** @member {?module:request.Request} */
+    /** @type {Core} */
     this.core = new Core(this.options);
-    /** @member {module:network.NetworkCollection} */
+    /** @type {NetworkCollection} */
     this.networks = new NetworkCollection();
-    /** @member {Map.<number, module:identity>} */
+    /** @type {Map<number, Identity>} */
     this.identities = new Map();
-    /** @member {module:ignore.IgnoreList} */
+    /** @type {IgnoreList} */
     this.ignoreList = new ignore.IgnoreList();
-    /** @member {Map.<string, string>} */
-    this.aliases = new Map();
-    /** @member {Map.<number, module:bufferview>} */
+    /** @type {AliasItem[]} */
+    this.aliases = [];
+    /** @type {Map<number, BufferView>} */
     this.bufferViews = new Map();
-    /** @member {?number} */
+    /** @type {?number} */
     this.heartbeatInterval = null;
-    /** @member {boolean} */
+    /** @type {boolean} */
     this.useSSL = false;
-    /** @member {boolean} */
+    /** @type {boolean} */
     this.useCompression = false;
-    /** @member {?boolean} */
+    /** @type {?boolean} */
     this.connected = null;
-    /** @member {?Object} */
+    /** @type {?Object} */
     this.coreInfo = null;
-    /** @member {?Object} */
+    /** @type {?Object} */
     this.coreData = null;
-    /** @member {module:libquassel~Quassel~loginCallback} */
+    /** @type {function(next: loginCallback)} */
     this.loginCallback = loginCallback;
 
     if (typeof loginCallback !== 'function') {
@@ -115,15 +118,15 @@ export class Client extends EventEmitter {
   /**
    * Handles quasselcore messages that possesses a `MsgType` attribute
    * @param {Object} obj
-   * @fires module:libquassel~Quassel#event:"coreinfoinit"
-   * @fires module:libquassel~Quassel#event:"login"
-   * @fires module:libquassel~Quassel#event:"loginfailed"
-   * @fires module:libquassel~Quassel#event:"network.addbuffer"
-   * @fires module:libquassel~Quassel#event:"init"
-   * @fires module:libquassel~Quassel#event:"setup"
-   * @fires module:libquassel~Quassel#event:"setupok"
-   * @fires module:libquassel~Quassel#event:"setupfailed"
-   * @fires module:libquassel~Quassel#event:"identities.init"
+   * @emits {Event:coreinfoinit}
+   * @emits {Event:login}
+   * @emits {Event:loginfailed}
+   * @emits {Event:network.addbuffer}
+   * @emits {Event:init}
+   * @emits {Event:setup}
+   * @emits {Event:setupok}
+   * @emits {Event:setupfailed}
+   * @emits {Event:identities.init}
    * @protected
    */
   handleMsgType(obj) {
@@ -155,6 +158,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleClientInitAck(obj) {
     this.coreInfo = obj;
     this.emit('coreinfoinit', obj);
@@ -167,6 +173,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleSessionInit(obj) {
     this.emit('init', obj);
     // Init networks
@@ -204,7 +213,7 @@ export class Client extends EventEmitter {
    * Returns `true` if the core supports the given feature
    * @example
    * quassel.supports(Features.PASSWORDCHANGE);
-   * @param {module:libquassel~Quassel.Features} feature
+   * @param {number} feature
    * @returns {boolean}
    */
   supports(feature) {
@@ -229,8 +238,6 @@ export class Client extends EventEmitter {
   }
 
   /**
-   * Affects obj to corresponding {@link module:network.Network}
-   * @param {Object} obj
    * @protected
    */
   handleInitDataNetwork(id, data) {
@@ -243,78 +250,77 @@ export class Client extends EventEmitter {
   /**
    * Handles most of the quasselcore messages
    * @param {Object} obj - quasselcore message decoded by qtdatasteam
-   * @fires module:libquassel~Quassel#event:"coreinfo"
-   * @fires module:libquassel~Quassel#event:"network.init"
-   * @fires module:libquassel~Quassel#event:"network.latency"
-   * @fires module:libquassel~Quassel#event:"network.connectionstate"
-   * @fires module:libquassel~Quassel#event:"network.addbuffer"
-   * @fires module:libquassel~Quassel#event:"network.connected"
-   * @fires module:libquassel~Quassel#event:"network.disconnected"
-   * @fires module:libquassel~Quassel#event:"network.userrenamed"
-   * @fires module:libquassel~Quassel#event:"network.mynick"
-   * @fires module:libquassel~Quassel#event:"network.networkname"
-   * @fires module:libquassel~Quassel#event:"network.server"
-   * @fires module:libquassel~Quassel#event:"network.serverlist"
-   * @fires module:libquassel~Quassel#event:"network.adduser"
-   * @fires module:libquassel~Quassel#event:"network.new"
-   * @fires module:libquassel~Quassel#event:"network.remove"
-   * @fires module:libquassel~Quassel#event:"network.codec.decoding"
-   * @fires module:libquassel~Quassel#event:"network.codec.encoding"
-   * @fires module:libquassel~Quassel#event:"network.codec.server"
-   * @fires module:libquassel~Quassel#event:"network.perform"
-   * @fires module:libquassel~Quassel#event:"network.identity"
-   * @fires module:libquassel~Quassel#event:"network.autoreconnect.interval"
-   * @fires module:libquassel~Quassel#event:"network.autoreconnect.retries"
-   * @fires module:libquassel~Quassel#event:"network.autoidentify.service"
-   * @fires module:libquassel~Quassel#event:"network.autoidentify.password"
-   * @fires module:libquassel~Quassel#event:"network.unlimitedreconnectretries"
-   * @fires module:libquassel~Quassel#event:"network.usesasl"
-   * @fires module:libquassel~Quassel#event:"network.sasl.account"
-   * @fires module:libquassel~Quassel#event:"network.sasl.password"
-   * @fires module:libquassel~Quassel#event:"network.rejoinchannels"
-   * @fires module:libquassel~Quassel#event:"network.usecustommessagerate"
-   * @fires module:libquassel~Quassel#event:"network.messagerate.unlimited"
-   * @fires module:libquassel~Quassel#event:"network.messagerate.delay"
-   * @fires module:libquassel~Quassel#event:"network.messagerate.burstsize"
-   * @fires module:libquassel~Quassel#event:"buffer.read"
-   * @fires module:libquassel~Quassel#event:"buffer.lastseen"
-   * @fires module:libquassel~Quassel#event:"buffer.markerline"
-   * @fires module:libquassel~Quassel#event:"buffer.remove"
-   * @fires module:libquassel~Quassel#event:"buffer.rename"
-   * @fires module:libquassel~Quassel#event:"buffer.merge"
-   * @fires module:libquassel~Quassel#event:"buffer.deactivate"
-   * @fires module:libquassel~Quassel#event:"buffer.activate"
-   * @fires module:libquassel~Quassel#event:"buffer.backlog"
-   * @fires module:libquassel~Quassel#event:"buffer.message"
-   * @fires module:libquassel~Quassel#event:"buffer.order"
-   * @fires module:libquassel~Quassel#event:"bufferview.ids"
-   * @fires module:libquassel~Quassel#event:"bufferview.bufferunhide"
-   * @fires module:libquassel~Quassel#event:"bufferview.bufferhidden"
-   * @fires module:libquassel~Quassel#event:"bufferview.orderchanged"
-   * @fires module:libquassel~Quassel#event:"bufferview.init"
-   * @fires module:libquassel~Quassel#event:"bufferview.networkid"
-   * @fires module:libquassel~Quassel#event:"bufferview.search"
-   * @fires module:libquassel~Quassel#event:"bufferview.hideinactivenetworks"
-   * @fires module:libquassel~Quassel#event:"bufferview.hideinactivebuffers"
-   * @fires module:libquassel~Quassel#event:"bufferview.allowedbuffertypes"
-   * @fires module:libquassel~Quassel#event:"bufferview.addnewbuffersautomatically"
-   * @fires module:libquassel~Quassel#event:"bufferview.minimumactivity"
-   * @fires module:libquassel~Quassel#event:"bufferview.bufferviewname"
-   * @fires module:libquassel~Quassel#event:"bufferview.disabledecoration"
-   * @fires module:libquassel~Quassel#event:"bufferview.update"
-   * @fires module:libquassel~Quassel#event:"user.part"
-   * @fires module:libquassel~Quassel#event:"user.quit"
-   * @fires module:libquassel~Quassel#event:"user.away"
-   * @fires module:libquassel~Quassel#event:"user.realname"
-   * @fires module:libquassel~Quassel#event:"channel.join"
-   * @fires module:libquassel~Quassel#event:"channel.addusermode"
-   * @fires module:libquassel~Quassel#event:"channel.removeusermode"
-   * @fires module:libquassel~Quassel#event:"channel.topic"
-   * @fires module:libquassel~Quassel#event:"ignorelist"
-   * @fires module:libquassel~Quassel#event:"identity"
-   * @fires module:libquassel~Quassel#event:"identity.new"
-   * @fires module:libquassel~Quassel#event:"identity.remove"
-   * @fires module:libquassel~Quassel#event:"aliases"
+   * @emits {Event:coreinfo}
+   * @emits {Event:network.init}
+   * @emits {Event:network.latency}
+   * @emits {Event:network.connectionstate}
+   * @emits {Event:network.addbuffer}
+   * @emits {Event:network.connected}
+   * @emits {Event:network.disconnected}
+   * @emits {Event:network.userrenamed}
+   * @emits {Event:network.mynick}
+   * @emits {Event:network.networkname}
+   * @emits {Event:network.server}
+   * @emits {Event:network.serverlist}
+   * @emits {Event:network.adduser}
+   * @emits {Event:network.new}
+   * @emits {Event:network.remove}
+   * @emits {Event:network.codec.decoding}
+   * @emits {Event:network.codec.encoding}
+   * @emits {Event:network.codec.server}
+   * @emits {Event:network.perform}
+   * @emits {Event:network.identity}
+   * @emits {Event:network.autoreconnect.interval}
+   * @emits {Event:network.autoreconnect.retries}
+   * @emits {Event:network.autoidentify.service}
+   * @emits {Event:network.autoidentify.password}
+   * @emits {Event:network.unlimitedreconnectretries}
+   * @emits {Event:network.usesasl}
+   * @emits {Event:network.sasl.account}
+   * @emits {Event:network.sasl.password}
+   * @emits {Event:network.rejoinchannels}
+   * @emits {Event:network.usecustommessagerate}
+   * @emits {Event:network.messagerate.unlimited}
+   * @emits {Event:network.messagerate.delay}
+   * @emits {Event:network.messagerate.burstsize}
+   * @emits {Event:buffer.read}
+   * @emits {Event:buffer.lastseen}
+   * @emits {Event:buffer.markerline}
+   * @emits {Event:buffer.remove}
+   * @emits {Event:buffer.rename}
+   * @emits {Event:buffer.merge}
+   * @emits {Event:buffer.deactivate}
+   * @emits {Event:buffer.activate}
+   * @emits {Event:buffer.backlog}
+   * @emits {Event:buffer.message}
+   * @emits {Event:bufferview.ids}
+   * @emits {Event:bufferview.bufferunhide}
+   * @emits {Event:bufferview.bufferhidden}
+   * @emits {Event:bufferview.orderchanged}
+   * @emits {Event:bufferview.init}
+   * @emits {Event:bufferview.networkid}
+   * @emits {Event:bufferview.search}
+   * @emits {Event:bufferview.hideinactivenetworks}
+   * @emits {Event:bufferview.hideinactivebuffers}
+   * @emits {Event:bufferview.allowedbuffertypes}
+   * @emits {Event:bufferview.addnewbuffersautomatically}
+   * @emits {Event:bufferview.minimumactivity}
+   * @emits {Event:bufferview.bufferviewname}
+   * @emits {Event:bufferview.disabledecoration}
+   * @emits {Event:bufferview.update}
+   * @emits {Event:user.part}
+   * @emits {Event:user.quit}
+   * @emits {Event:user.away}
+   * @emits {Event:user.realname}
+   * @emits {Event:channel.join}
+   * @emits {Event:channel.addusermode}
+   * @emits {Event:channel.removeusermode}
+   * @emits {Event:channel.topic}
+   * @emits {Event:ignorelist}
+   * @emits {Event:identity}
+   * @emits {Event:identity.new}
+   * @emits {Event:identity.remove}
+   * @emits {Event:aliases}
    * @protected
    */
   handleStruct(obj) {
@@ -345,6 +351,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructSync(className, id, functionName, data) {
     let networkId, username, buffername;
     switch (className) {
@@ -375,6 +384,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructRpcCall(functionName, data) {
     switch (functionName) {
     case '2displayStatusMsg(QString,QString)':
@@ -413,6 +425,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructRpcCallDisplayMsg([ message ]) {
     const network = this.networks.get(message.bufferInfo.network);
     if (network) {
@@ -445,6 +460,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructRpcCall__objectRenamed__([ renamedSubject, oldSubject, newSubject ]) {
     renamedSubject = renamedSubject.toString();
     let networkId, newNick, oldNick;
@@ -461,6 +479,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructInitData(className, id, [ data ]) {
     let network, bufferViewIds;
     switch (className) {
@@ -504,6 +525,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructInitDataBufferSyncer(data) {
     const { MarkerLines: markerLinesData, LastSeenMsg: lastSeenData } = data;
     if (lastSeenData) {
@@ -530,6 +554,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructInitDataIrcChannel(id, data) {
     let [ networkId, bufferName ] = splitOnce(id, '/');
     networkId = parseInt(networkId, 10);
@@ -540,6 +567,9 @@ export class Client extends EventEmitter {
     this.emit('buffer.activate', buffer.id);
   }
 
+  /**
+   * @protected
+   */
   handleStructInitDataIrcUser(id, data) {
     let [ networkId, nick ] = splitOnce(id, '/');
     networkId = parseInt(networkId, 10);
@@ -550,6 +580,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructInitDataBufferViewConfig(id, data) {
     id = parseInt(id, 10);
     this.bufferViews.set(id, new BufferView(id, data));
@@ -563,6 +596,9 @@ export class Client extends EventEmitter {
     this.emit('bufferview.init', id);
   }
 
+  /**
+   * @protected
+   */
   handleStructSyncNetwork(id, functionName, [ data ]) {
     const network = this.networks.get(id);
     let nick, oldNick;
@@ -694,6 +730,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructSyncBufferSyncer(functionName, [ bufferId, data ]) {
     let bufferTo, bufferFrom;
     switch (functionName) {
@@ -734,6 +773,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructSyncBufferViewManager(functionName, [ data ]) {
     switch (functionName) {
     case 'addBufferViewConfig':
@@ -745,6 +787,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructSyncBufferViewConfig(id, functionName, data) {
     const bufferView = this.bufferViews.get(id);
     if (!bufferView) {
@@ -815,6 +860,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructSyncIrcUser(networkId, username, functionName, [ data ]) {
     const network = this.networks.get(networkId);
     let user, buffer, ids;
@@ -873,6 +921,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructSyncIrcChannel(networkId, buffername, functionName, data) {
     const network = this.networks.get(networkId);
     if (!network) {
@@ -914,6 +965,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructSyncBacklogManager(functionName, [ bufferId, _first, _last, _maxAmount, _, data ]) {
     const messageIds = [];
     let buffer, network, identity;
@@ -942,6 +996,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructSyncIgnoreListManager(functionName, [ data ]) {
     switch (functionName) {
     case 'update':
@@ -953,6 +1010,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructSyncIdentity(id, functionName, [ data ]) {
     const identity = this.identities.get(id);
     if (identity) {
@@ -969,6 +1029,9 @@ export class Client extends EventEmitter {
     }
   }
 
+  /**
+   * @protected
+   */
   handleStructSyncAliasManager(functionName, [ data ]) {
     switch (functionName) {
     case 'update':
@@ -982,10 +1045,10 @@ export class Client extends EventEmitter {
 
   /**
    * Setup core
-   * @param {String} backend
-   * @param {String} adminuser
-   * @param {String} adminpassword
-   * @param {Object} [properties]
+   * @param {string} backend
+   * @param {string} adminuser
+   * @param {string} adminpassword
+   * @param {Object} [properties={}]
    */
   setupCore(backend, adminuser, adminpassword, properties = {}) {
     this.core.setupCore(backend, adminuser, adminpassword, this.useSSL, properties);
@@ -1018,7 +1081,7 @@ export class Client extends EventEmitter {
 
 /**
  * This event is fired when quasselcore information are received
- * @event module:libquassel~Quassel#event:"coreinfoinit"
+ * @typedef {Event} Event:coreinfoinit
  * @property {Object} data
  * @property {boolean} data.Configured - Is the core configured
  * @property {number} data.CoreFeatures
@@ -1032,436 +1095,436 @@ export class Client extends EventEmitter {
  */
 /**
  * This event is fired upon successful login
- * @event module:libquassel~Quassel#event:"login"
+ * @typedef {Event} Event:login
  */
 /**
  * This event is fired upon unsuccessful login
- * @event module:libquassel~Quassel#event:"loginfailed"
+ * @typedef {Event} Event:loginfailed
  */
 /**
  * This event is fired upon successful session initialization
- * @event module:libquassel~Quassel#event:"init"
+ * @typedef {Event} Event:init
  * @property {Object} obj
  */
 /**
- * This event is fired when {@link module:identity} objects are first initialized
- * @event module:libquassel~Quassel#event:"identities.init"
- * @property {Map.<number, module:identity>}
+ * This event is fired when {@link Identity} objects are first initialized
+ * @typedef {Event} Event:identities.init
+ * @property {Map<number, Identity>} identities
  */
 /**
  * This event is fired when a buffer is added to a network
- * @event module:libquassel~Quassel#event:"network.addbuffer"
+ * @typedef {Event} Event:network.addbuffer
  * @property {number} networkId
- * @property {(number|String)} bufferId
+ * @property {number|String} bufferId
  */
 /**
  * Network latency value
- * @event module:libquassel~Quassel#event:"network.latency"
+ * @typedef {Event} Event:network.latency
  * @property {number} networkId
  * @property {number} value
  */
 /**
  * Network connection state
- * @event module:libquassel~Quassel#event:"network.connectionstate"
+ * @typedef {Event} Event:network.connectionstate
  * @property {number} networkId
  * @property {number} connectionState
  */
 /**
  * This event is fired when a network state is switched to connected
- * @event module:libquassel~Quassel#event:"network.connected"
+ * @typedef {Event} Event:network.connected
  * @property {number} networkId
  */
 /**
  * This event is fired when a network state is switched to disconnected
- * @event module:libquassel~Quassel#event:"network.disconnected"
+ * @typedef {Event} Event:network.disconnected
  * @property {number} networkId
  */
 /**
  * This event is fired when a user is renamed on a network
- * @event module:libquassel~Quassel#event:"network.userrenamed"
+ * @typedef {Event} Event:network.userrenamed
  * @property {number} networkId
  * @property {String} oldNick
  * @property {String} nick
  */
 /**
  * This event is fired when current connected user is renamed on a network
- * @event module:libquassel~Quassel#event:"network.mynick"
+ * @typedef {Event} Event:network.mynick
  * @property {number} networkId
  * @property {String} nick
  */
 /**
  * This event is fired when the name of a network changes
- * @event module:libquassel~Quassel#event:"network.networkname"
+ * @typedef {Event} Event:network.networkname
  * @property {number} networkId
  * @property {String} networkName
  */
 /**
  * This event is fired when the server on which a network is connected changes
- * @event module:libquassel~Quassel#event:"network.server"
+ * @typedef {Event} Event:network.server
  * @property {number} networkId
  * @property {String} server
  */
 /**
  * This event is fired when a network server list is updated
- * @event module:libquassel~Quassel#event:"network.serverlist"
+ * @typedef {Event} Event:network.serverlist
  * @property {number} networkId
  * @property {Object[]} serverlist
  */
 /**
  * Fired when encoding for sent messages has changed
- * @event module:libquassel~Quassel#event:"network.codec.decoding"
+ * @typedef {Event} Event:network.codec.decoding
  * @property {number} networkId
  * @property {String} codec
  */
 /**
  * Fired when encoding for received messages has changed
- * @event module:libquassel~Quassel#event:"network.codec.encoding"
+ * @typedef {Event} Event:network.codec.encoding
  * @property {number} networkId
  * @property {String} codec
  */
 /**
  * Fired when server encoding has changed
- * @event module:libquassel~Quassel#event:"network.codec.server"
+ * @typedef {Event} Event:network.codec.server
  * @property {number} networkId
  * @property {String} codec
  */
 /**
  * Fired when the list of commands to perform on connection to a server has changed
- * @event module:libquassel~Quassel#event:"network.perform"
+ * @typedef {Event} Event:network.perform
  * @property {number} networkId
  * @property {String[]} commands
  */
 /**
  * Fired when the network identity changed
- * @event module:libquassel~Quassel#event:"network.identity"
+ * @typedef {Event} Event:network.identity
  * @property {number} networkId
  * @property {number} identityId
  */
 /**
  * Fired when interval value for reconnecting to the network changed
- * @event module:libquassel~Quassel#event:"network.autoreconnect.interval"
+ * @typedef {Event} Event:network.autoreconnect.interval
  * @property {number} networkId
  * @property {number} interval
  */
 /**
  * Fired when retries value for reconnecting to the network changed
- * @event module:libquassel~Quassel#event:"network.autoreconnect.retries"
+ * @typedef {Event} Event:network.autoreconnect.retries
  * @property {number} networkId
  * @property {number} retries
  */
 /**
  * Fired when auto identify service changed
- * @event module:libquassel~Quassel#event:"network.autoidentify.service"
+ * @typedef {Event} Event:network.autoidentify.service
  * @property {number} networkId
  * @property {String} service
  */
 /**
  * Fired when auto identify service password changed
- * @event module:libquassel~Quassel#event:"network.autoidentify.password"
+ * @typedef {Event} Event:network.autoidentify.password
  * @property {number} networkId
  * @property {String} password
  */
 /**
  * Fired when Unlimited reconnect retries value has changed
- * @event module:libquassel~Quassel#event:"network.unlimitedreconnectretries"
+ * @typedef {Event} Event:network.unlimitedreconnectretries
  * @property {number} networkId
  * @property {boolean} unlimitedreconnectretries
  */
 /**
  * Fired when Use Sasl value has changed
- * @event module:libquassel~Quassel#event:"network.usesasl"
+ * @typedef {Event} Event:network.usesasl
  * @property {number} networkId
  * @property {boolean} usesasl
  */
 /**
  * Fired when Sasl account has changed
- * @event module:libquassel~Quassel#event:"network.sasl.account"
+ * @typedef {Event} Event:network.sasl.account
  * @property {number} networkId
  * @property {String} account
  */
 /**
  * Fired when Sasl account password has changed
- * @event module:libquassel~Quassel#event:"network.sasl.password"
+ * @typedef {Event} Event:network.sasl.password
  * @property {number} networkId
  * @property {String} password
  */
 /**
  * Fired when Rejoin Channels value has changed
- * @event module:libquassel~Quassel#event:"network.rejoinchannels"
+ * @typedef {Event} Event:network.rejoinchannels
  * @property {number} networkId
  * @property {boolean} rejoinchannels
  */
 /**
  * Fired when Use Custom Message Rate value has changed
- * @event module:libquassel~Quassel#event:"network.usecustommessagerate"
+ * @typedef {Event} Event:network.usecustommessagerate
  * @property {number} networkId
  * @property {boolean} usecustommessagerate
  */
 /**
  * Fired when Unlimited Message Rate Burst Size value has changed
- * @event module:libquassel~Quassel#event:"network.messagerate.unlimited"
+ * @typedef {Event} Event:network.messagerate.unlimited
  * @property {number} networkId
  * @property {boolean} unlimited
  */
 /**
  * Fired when Message Rate Burst Size value has changed
- * @event module:libquassel~Quassel#event:"network.messagerate.burstsize"
+ * @typedef {Event} Event:network.messagerate.burstsize
  * @property {number} networkId
  * @property {number} burstsize
  */
 /**
  * Fired when Message Rate Delay value has changed
- * @event module:libquassel~Quassel#event:"network.messagerate.delay"
+ * @typedef {Event} Event:network.messagerate.delay
  * @property {number} networkId
  * @property {number} delay
  */
 /**
  * Buffer has been marked as read
- * @event module:libquassel~Quassel#event:"buffer.read"
+ * @typedef {Event} Event:buffer.read
  * @property {number} bufferId
  */
 /**
  * Buffer's last seen message updated
- * @event module:libquassel~Quassel#event:"buffer.lastseen"
+ * @typedef {Event} Event:buffer.lastseen
  * @property {number} bufferId
  * @property {number} messageId
  */
 /**
  * Buffer's markeline attached to a message
- * @event module:libquassel~Quassel#event:"buffer.markerline"
+ * @typedef {Event} Event:buffer.markerline
  * @property {number} bufferId
  * @property {number} messageId
  */
 /**
  * Buffer has been removed
- * @event module:libquassel~Quassel#event:"buffer.remove"
+ * @typedef {Event} Event:buffer.remove
  * @property {number} bufferId
  */
 /**
  * Buffer has been renamed
- * @event module:libquassel~Quassel#event:"buffer.rename"
+ * @typedef {Event} Event:buffer.rename
  * @property {number} bufferId
  */
 /**
  * bufferId2 has been merged into bufferId1
- * @event module:libquassel~Quassel#event:"buffer.merge"
+ * @typedef {Event} Event:buffer.merge
  * @property {number} bufferId1
  * @property {number} bufferId2
  */
 /**
  * Buffer's hidden state removed
- * @event module:libquassel~Quassel#event:"bufferview.bufferunhide"
+ * @typedef {Event} Event:bufferview.bufferunhide
  * @property {number} bufferViewId
  * @property {number} bufferId
  */
 /**
  * Buffer's hidden state set
- * @event module:libquassel~Quassel#event:"bufferview.bufferhidden"
+ * @typedef {Event} Event:bufferview.bufferhidden
  * @property {number} bufferViewId
  * @property {number} bufferId
- * @property {String} type - Either "temp" or "perm"
+ * @property {String} type Either "temp" or "perm"
  */
 /**
  * Buffer set as inactive
- * @event module:libquassel~Quassel#event:"buffer.deactivate"
+ * @typedef {Event} Event:buffer.deactivate
  * @property {number} bufferId
  */
 /**
  * User has left a channel
- * @event module:libquassel~Quassel#event:"user.part"
+ * @typedef {Event} Event:user.part
  * @property {number} networkId
  * @property {String} nick
  * @property {number} bufferId
  */
 /**
  * User has left a network
- * @event module:libquassel~Quassel#event:"user.quit"
+ * @typedef {Event} Event:user.quit
  * @property {number} networkId
  * @property {String} nick
  */
 /**
  * User away state changed
- * @event module:libquassel~Quassel#event:"user.away"
+ * @typedef {Event} Event:user.away
  * @property {number} networkId
  * @property {String} nick
  * @property {boolean} isAway
  */
 /**
  * User realname changed
- * @event module:libquassel~Quassel#event:"user.realname"
+ * @typedef {Event} Event:user.realname
  * @property {number} networkId
  * @property {String} nick
  * @property {String} realname
  */
 /**
  * User joined a channel
- * @event module:libquassel~Quassel#event:"channel.join"
+ * @typedef {Event} Event:channel.join
  * @property {number} bufferId
  * @property {String} nick
  */
 /**
  * User mode has been added
- * @event module:libquassel~Quassel#event:"channel.addusermode"
+ * @typedef {Event} Event:channel.addusermode
  * @property {number} bufferId
  * @property {String} nick
  * @property {String} mode
  */
 /**
  * User mode has been removed
- * @event module:libquassel~Quassel#event:"channel.removeusermode"
+ * @typedef {Event} Event:channel.removeusermode
  * @property {number} bufferId
  * @property {String} nick
  * @property {String} mode
  */
 /**
  * Channel topic changed
- * @event module:libquassel~Quassel#event:"channel.topic"
+ * @typedef {Event} Event:channel.topic
  * @property {number} bufferId
  * @property {String} topic
  */
 /**
  * Core information
- * @event module:libquassel~Quassel#event:"coreinfo"
+ * @typedef {Event} Event:coreinfo
  * @property {Object} data
  */
 /**
- * Buffer activated
- * @event module:libquassel~Quassel#event:"buffer.activate"
+ * {@link IRCBuffer} activated
+ * @typedef {Event} Event:buffer.activate
  * @property {number} bufferId
  */
 /**
  * Backlogs received
- * @event module:libquassel~Quassel#event:"buffer.backlog"
+ * @typedef {Event} Event:buffer.backlog
  * @property {number} bufferId
  * @property {number[]} messageIds
  */
 /**
- * Message received on a buffer
- * @event module:libquassel~Quassel#event:"buffer.message"
+ * {@link IRCMessage} received on a buffer
+ * @typedef {Event} Event:buffer.message
  * @property {number} bufferId
  * @property {number} messageId
  */
 /**
  * Buffers order changed
- * @event module:libquassel~Quassel#event:"bufferview.orderchanged"
+ * @typedef {Event} Event:bufferview.orderchanged
  * @property {number} bufferViewId
  */
 /**
- * Buffer view manager init request received
- * @event module:libquassel~Quassel#event:"bufferview.ids"
+ * {@link BufferView} manager init request received
+ * @typedef {Event} Event:bufferview.ids
  * @property {number[]} ids
  */
 /**
- * Buffer view initialized
- * @event module:libquassel~Quassel#event:"bufferview.init"
+ * {@link BufferView} initialized
+ * @typedef {Event} Event:bufferview.init
  * @property {number} bufferViewId
  */
 /**
- * Buffer view networkId updated
- * @event module:libquassel~Quassel#event:"bufferview.networkid"
+ * {@link BufferView} networkId updated
+ * @typedef {Event} Event:bufferview.networkid
  * @property {number} bufferViewId
  * @property {number} networkId
  */
 /**
- * Buffer view search updated
- * @event module:libquassel~Quassel#event:"bufferview.search"
+ * {@link BufferView} search updated
+ * @typedef {Event} Event:bufferview.search
  * @property {number} bufferViewId
  * @property {boolean} search
  */
 /**
- * Buffer view hideInactiveNetworks updated
- * @event module:libquassel~Quassel#event:"bufferview.hideinactivenetworks"
+ * {@link BufferView} hideInactiveNetworks updated
+ * @typedef {Event} Event:bufferview.hideinactivenetworks
  * @property {number} bufferViewId
  * @property {boolean} hideinactivenetworks
  */
 /**
- * Buffer view hideInactiveBuffers updated
- * @event module:libquassel~Quassel#event:"bufferview.hideinactivebuffers"
+ * {@link BufferView} hideInactiveBuffers updated
+ * @typedef {Event} Event:bufferview.hideinactivebuffers
  * @property {number} bufferViewId
  * @property {boolean} hideinactivebuffers
  */
 /**
- * Buffer view allowedBufferTypes updated
- * @event module:libquassel~Quassel#event:"bufferview.allowedbuffertypes"
+ * {@link BufferView} allowedBufferTypes updated
+ * @typedef {Event} Event:bufferview.allowedbuffertypes
  * @property {number} bufferViewId
  * @property {number} allowedbuffertypes
  */
 /**
- * Buffer view addNewBuffersAutomatically updated
- * @event module:libquassel~Quassel#event:"bufferview.addnewbuffersautomatically"
+ * {@link BufferView} addNewBuffersAutomatically updated
+ * @typedef {Event} Event:bufferview.addnewbuffersautomatically
  * @property {number} bufferViewId
  * @property {boolean} addnewbuffersautomatically
  */
 /**
- * Buffer view minimumActivity updated
- * @event module:libquassel~Quassel#event:"bufferview.minimumactivity"
+ * {@link BufferView} minimumActivity updated
+ * @typedef {Event} Event:bufferview.minimumactivity
  * @property {number} bufferViewId
  * @property {boolean} minimumactivity
  */
 /**
- * Buffer view bufferViewName updated
- * @event module:libquassel~Quassel#event:"bufferview.bufferviewname"
+ * {@link BufferView} bufferViewName updated
+ * @typedef {Event} Event:bufferview.bufferviewname
  * @property {number} bufferViewId
  * @property {String} bufferviewname
  */
 /**
- * Buffer view disableDecoration updated
- * @event module:libquassel~Quassel#event:"bufferview.disabledecoration"
+ * {@link BufferView} disableDecoration updated
+ * @typedef {Event} Event:bufferview.disabledecoration
  * @property {number} bufferViewId
  * @property {boolean} disabledecoration
  */
 /**
- * Buffer view object updated
- * @event module:libquassel~Quassel#event:"bufferview.update"
+ * {@link BufferView} object updated
+ * @typedef {Event} Event:bufferview.update
  * @property {number} bufferViewId
  * @property {object} data
  */
 /**
- * {@link module:ignore.IgnoreList} updated
- * @event module:libquassel~Quassel#event:"ignorelist"
+ * {@link IgnoreList} updated
+ * @typedef {Event} Event:ignorelist
  */
 /**
- * {@link module:identity} updated
- * @event module:libquassel~Quassel#event:"identity"
+ * {@link Identity} updated
+ * @typedef {Event} Event:identity
  */
 /**
- * New {@link module:identity} created
- * @event module:libquassel~Quassel#event:"identity.new"
+ * New {@link Identity} created
+ * @typedef {Event} Event:identity.new
  * @property {number} identityId
  */
 /**
- * {@link module:identity} removed
- * @event module:libquassel~Quassel#event:"identity.remove"
+ * {@link Identity} removed
+ * @typedef {Event} Event:identity.remove
  * @property {number} identityId
  */
 /**
- * User connected to the {@link module:network.Network}
- * @event module:libquassel~Quassel#event:"network.adduser"
+ * User connected to the {@link Network}
+ * @typedef {Event} Event:network.adduser
  * @property {number} networkId
  * @property {String} nick
  */
 /**
- * New {@link module:network.Network} created
- * @event module:libquassel~Quassel#event:"network.new"
+ * New {@link Network} created
+ * @typedef {Event} Event:network.new
  * @property {number} networkId
  */
 /**
- * {@link module:network.Network} removed
- * @event module:libquassel~Quassel#event:"network.remove"
+ * {@link Network} removed
+ * @typedef {Event} Event:network.remove
  * @property {number} networkId
  */
 /**
- * {@link module:network.Network} is ready
- * @event module:libquassel~Quassel#event:"network.init"
+ * {@link Network} is ready
+ * @typedef {Event} Event:network.init
  * @property {number} networkId
  */
 /**
- * {@link module:aliases} updated
- * @event module:libquassel~Quassel#event:"aliases"
+ * Aliases updated
+ * @typedef {Event} Event:aliases
  */
 /**
  * This event is fired when the core needs it's first setup
- * @event module:libquassel~Quassel#event:"setup"
+ * @typedef {Event} Event:setup
  * @property {Object[]} backends - List of available storage backends
  * @property {String} backends[].DisplayName - Storage backends name
  * @property {String} backends[].Description - Storage backends description
@@ -1470,32 +1533,17 @@ export class Client extends EventEmitter {
  */
 /**
  * This event is fired if the setup of the core was successful
- * @event module:libquassel~Quassel#event:"setupok"
+ * @typedef {Event} Event:setupok
  */
 /**
  * This event is fired if the setup of the core has failed
- * @event module:libquassel~Quassel#event:"setupfailed"
+ * @typedef {Event} Event:setupfailed
  * @property {Object} error - The reason of the failure
  */
 /**
  * An error occured
- * @event module:libquassel~Quassel#event:"error"
+ * @typedef {Event} Event:error
  * @property {Object} error
- */
-
-/**
- * Handles quasselcore messages that possesses a `MsgType` attribute
- * @param {Object} obj
- * @fires module:libquassel~Quassel#event:"coreinfoinit"
- * @fires module:libquassel~Quassel#event:"login"
- * @fires module:libquassel~Quassel#event:"loginfailed"
- * @fires module:libquassel~Quassel#event:"network.addbuffer"
- * @fires module:libquassel~Quassel#event:"init"
- * @fires module:libquassel~Quassel#event:"setup"
- * @fires module:libquassel~Quassel#event:"setupok"
- * @fires module:libquassel~Quassel#event:"setupfailed"
- * @fires module:libquassel~Quassel#event:"identities.init"
- * @protected
  */
 
 function splitOnce(str, character) {

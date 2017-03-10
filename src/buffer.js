@@ -13,21 +13,6 @@ const { util } = require('qtdatastream');
 
 import { IRCMessage } from './message';
 
-
-/**
- * @alias module:buffer.Types
- * @readonly
- * @enum {number}
- * @default
- */
-const Types = {
-  INVALID: 0x00,
-  STATUS: 0x01,
-  CHANNEL: 0x02,
-  QUERY: 0x04,
-  GROUP: 0x08
-};
-
 /**
  * BufferInfo object representation
  * @typedef {Object} BufferInfo
@@ -39,9 +24,29 @@ const Types = {
  */
 
 /**
- * @alias module:buffer.IRCBufferUser
+ * @type {Object}
+ * @property {number} Types.INVALID
+ * @property {number} Types.STATUS
+ * @property {number} Types.CHANNEL
+ * @property {number} Types.QUERY
+ * @property {number} Types.GROUP
  */
-class IRCBufferUser {
+export const Types = {
+  INVALID: 0x00,
+  STATUS: 0x01,
+  CHANNEL: 0x02,
+  QUERY: 0x04,
+  GROUP: 0x08
+};
+
+/**
+ * User attached to a buffer, with its modes
+ */
+export class IRCBufferUser {
+  /**
+   * @param {IRCUser} user
+   * @param {string} modes
+   */
   constructor(user, modes) {
     this.user = user;
     this.isOp = false;
@@ -67,7 +72,7 @@ class IRCBufferUser {
   }
 
   /**
-   * Returns true if user has specified mode
+   * Returns `true` if user has specified mode
    * @param {string} mode
    * @returns {boolean}
    */
@@ -77,42 +82,39 @@ class IRCBufferUser {
 }
 
 /**
- * @alias module:buffer.IRCBuffer
+ * Quassel respresentation of a buffer
  */
-class IRCBuffer {
+export class IRCBuffer {
+  /**
+   * @param {object} data
+   */
   constructor(data) {
     this._name = null;
     this.isChannel = false;
-    /** @member {number} id */
-    /** @member {boolean} isChannel */
+    this.isActive = false;
+    /** @type {number} */
+    this.id = null;
     /**
      * Map of users of this channel.
-     * The Map keys are users nicknames `string`, the values is an `IRCBufferUser` with 2 attributes:
-     *  * value.user {@link module:user}
-     *  * value.modes `String`
-     * @member {Map.<string, IRCBufferUser>}
+     * @type {Map<string, IRCBufferUser>}
      */
     this.users = new Map();
     /**
      * Map of messages in this buffer.
-     * @member {Map.<number, IRCMessage>}
+     * @type {Map<number, IRCMessage>}
      */
     this.messages = new Map();
 
     this.update(data);
-
-    /** @member {boolean} */
-    this.isActive = false;
     /**
-     * @member {boolean}
-     * @protected
+     * @type {boolean}
      */
     this.isStatusBuffer = (this.type === Types.STATUS);
   }
 
   /**
-   * Add user to buffer
-   * @param {module:user} user
+   * Add {@link IRCUser} to the buffer
+   * @param {IRCUser} user
    * @param {string} modes
    */
   addUser(user, modes) {
@@ -122,8 +124,8 @@ class IRCBuffer {
   }
 
   /**
-   * Add mode to user
-   * @param {module:user} user
+   * Add a mode to an {@link IRCUser}
+   * @param {IRCUser} user
    * @param {string} mode
    */
   addUserMode(user, mode) {
@@ -134,8 +136,8 @@ class IRCBuffer {
   }
 
   /**
-   * remove mode from user
-   * @param {module:user} user
+   * remove mode from an {@link IRCUser}
+   * @param {IRCUser} user
    * @param {string} mode
    */
   removeUserMode(user, mode) {
@@ -147,8 +149,8 @@ class IRCBuffer {
 
   /**
    * Check if current buffer contains specified user
-   * @param {(string|module:user)} nick
-   * @returns {?boolean}
+   * @param {string|IRCUser} nick
+   * @returns {boolean}
    */
   hasUser(nick) {
     if (nick === undefined || nick === null) {
@@ -160,7 +162,7 @@ class IRCBuffer {
 
   /**
    * Remove user from buffer
-   * @param {(string|module:user)} nick
+   * @param {string|IRCUser} nick
    */
   removeUser(nick) {
     this.users.delete(typeof nick.nick === 'string' ? nick.nick : nick);
@@ -179,9 +181,9 @@ class IRCBuffer {
   }
 
   /**
-   * Add message to buffer
+   * Add an {@link IRCMessage} to the buffer
    * @param {Object} message
-   * @returns {?message/IRCMessage} the message, if successfully added, `undefined` otherwise
+   * @returns {?IRCMessage} the message, if successfully added, `undefined` otherwise
    */
   addMessage(message) {
     if (this.messages.has(message.id)) return undefined;
@@ -254,17 +256,16 @@ class IRCBuffer {
   }
 
   /**
-   * Check if specified messageId is the last one of this buffer
-   * @param {*} messageId
+   * Check if specified `messageId` is the last one of this buffer
+   * @param {number} messageId
    * @returns {boolean}
    */
   isLast(messageId) {
-    messageId = parseInt(messageId, 10);
     return this._lastMessageId === messageId;
   }
 
   /**
-   * get BufferInfo structure
+   * get {@link BufferInfo} corresponding to the current buffer
    * @returns {BufferInfo}
    */
   getBufferInfo() {
@@ -305,17 +306,14 @@ class IRCBuffer {
 
 /**
  * A collection of buffers
- * @alias module:buffer.IRCBufferCollection
- * @extends {Map}
  */
-class IRCBufferCollection extends Map {
+export class IRCBufferCollection extends Map {
 
   constructor(...args) {
     if (args.length > 0) throw new Error(`IRCBufferCollection doesn't support initializing with values.`);
     super();
     // This map references buffers by their IDs for quick lookup
     this._map_buffer_ids = new Map();
-    this.statusBuffer = null;
   }
 
   /**
@@ -343,8 +341,8 @@ class IRCBufferCollection extends Map {
   }
 
   /**
-   * Get the buffer by name if bufferId is a `String` or a `Buffer`, by id otherwise
-   * @param {(number|string|Buffer)} key
+   * Get the buffer by name if `key` is a `String` or a `Buffer`, by id otherwise
+   * @param {number|string|Buffer} key
    * @override
    * @returns {?Buffer}
    */
@@ -361,7 +359,7 @@ class IRCBufferCollection extends Map {
 
   /**
    * Does the buffer exists in this collection
-   * @param {(number|string|Buffer)} key
+   * @param {number|string|Buffer} key
    * @override
    * @returns {boolean}
    */
@@ -378,7 +376,7 @@ class IRCBufferCollection extends Map {
 
   /**
    * Delete the buffer from the collection
-   * @param {(number|string|Buffer)} key
+   * @param {number|string|Buffer} key
    * @override
    * @returns {boolean}
    */
@@ -409,8 +407,8 @@ class IRCBufferCollection extends Map {
 
   /**
    * Change buffer id
-   * @param {Buffer} buffer
-   * @param {(number|string)} bufferIdTo
+   * @param {IRCBuffer} buffer
+   * @param {number} bufferIdTo
    */
   move(buffer, bufferIdTo) {
     this.delete(buffer.name);
@@ -418,10 +416,3 @@ class IRCBufferCollection extends Map {
     this.set(buffer.name, buffer);
   }
 }
-
-module.exports = {
-  Types,
-  IRCBuffer,
-  IRCBufferCollection,
-  IRCBufferUser
-};
