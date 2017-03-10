@@ -16,7 +16,7 @@ const { util } = require('qtdatastream');
  * @enum {number}
  * @default
  */
-const Types = {
+export const Types = {
   PLAIN: 0x00001,
   NOTICE: 0x00002,
   ACTION: 0x00004,
@@ -44,7 +44,7 @@ const Types = {
  * @enum {number}
  * @default
  */
-const Flags = {
+export const Flags = {
   NONE: 0x00,
   SELF: 0x01,
   HIGHLIGHT: 0x02,
@@ -59,7 +59,7 @@ const Flags = {
  * @enum {number}
  * @default
  */
-const HighlightModes = {
+export const HighlightModes = {
   NONE: 0x01,
   CURRENTNICK: 0x02,
   ALLIDENTITYNICKS: 0x03
@@ -70,7 +70,7 @@ const HighlightModes = {
  * @alias module:message.IRCMessage
  * @param {Object} message
  */
-class IRCMessage {
+export class IRCMessage {
   constructor(message) {
     this.nick = null;
     this.hostmask = null;
@@ -154,10 +154,3 @@ class IRCMessage {
     return `<IRCMessage [${this.nick}] ${this.content ? this.content.substring(0, 9) : '*empty*'}>`;
   }
 }
-
-module.exports = {
-  IRCMessage,
-  Types,
-  Flags,
-  HighlightModes
-};

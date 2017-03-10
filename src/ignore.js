@@ -6,10 +6,10 @@
  * Licensed under the MIT license.
  */
 
-const { Types } = require('./message');
 const logger = require('debug')('libquassel:ignore');
 const { Exportable } = require('qtdatastream').types;
 
+import { Types } from './message';
 import { traits } from 'traits-decorator';
 
 /** @module ignore */
@@ -20,7 +20,7 @@ import { traits } from 'traits-decorator';
  * @enum {number}
  * @default
  */
-const IgnoreTypes = {
+export const IgnoreTypes = {
   SENDER: 0,
   MESSAGE: 1,
   CTCP: 2
@@ -32,7 +32,7 @@ const IgnoreTypes = {
  * @enum {number}
  * @default
  */
-const StrictnessTypes = {
+export const StrictnessTypes = {
   UNMATCHED: 0,
   SOFT: 1,
   HARD: 2
@@ -44,7 +44,7 @@ const StrictnessTypes = {
  * @enum {number}
  * @default
  */
-const ScopeTypes = {
+export const ScopeTypes = {
   GLOBAL: 0,
   NETWORK: 1,
   CHANNEL: 2
@@ -61,7 +61,7 @@ const ScopeTypes = {
  * @param {number} ignoreType
  * @param {String} ignoreRule
  */
-class IgnoreItem {
+export class IgnoreItem {
   constructor(strictness, scopeRule, scope, isRegEx, isActive, ignoreType, ignoreRule){
     this.strictness = strictness;
     this.scopeRule = scopeRule;
@@ -137,7 +137,7 @@ function wildcardToRegex(subject) {
  * @extends {Array}
  */
 @traits(Exportable)
-class IgnoreList {
+export class IgnoreList {
 
   constructor() {
     this.list = new Array();
@@ -226,11 +226,3 @@ class IgnoreList {
     return [ '<IgnoreList', this.list.map(x => '\n\t' + x), '>' ].join(' ');
   }
 }
-
-module.exports = {
-  IgnoreItem,
-  IgnoreList,
-  IgnoreTypes,
-  StrictnessTypes,
-  ScopeTypes
-};

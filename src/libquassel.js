@@ -8,19 +8,20 @@
 
 /** @module libquassel */
 
-require('./usertypes'); // register usertypes first
+import './usertypes'; // register usertypes first
 const { EventEmitter } = require('events');
-const { Types: RequestTypes } = require('./request');
-const { NetworkCollection } = require('./network');
-const { IRCBuffer } = require('./buffer');
-const IRCUser = require('./user');
-const Identity = require('./identity');
-const { Core } = require('./request');
-const BufferView = require('./bufferview');
-const alias = require('./alias');
-const { Types: MessageTypes, HighlightModes } = require('./message');
-const ignore = require('./ignore');
 const logger = require('debug')('libquassel:main');
+
+import { Types as RequestTypes } from './request';
+import { NetworkCollection } from './network';
+import { IRCBuffer } from './buffer';
+import IRCUser from './user';
+import Identity from './identity';
+import { Core } from './request';
+import BufferView from './bufferview';
+import { Types as MessageTypes, HighlightModes } from './message';
+import * as alias from './alias';
+import * as ignore from './ignore';
 
 /**
  * @alias module:libquassel~Quassel.Features
@@ -28,7 +29,7 @@ const logger = require('debug')('libquassel:main');
  * @enum {number}
  * @default
  */
-const Features = {
+export const Features = {
   SYNCHRONIZEDMARKERLINE: 0x0001,
   SASLAUTHENTICATION: 0x0002,
   SASLEXTERNAL: 0x0004,
@@ -69,7 +70,7 @@ const Features = {
  * });
  * quassel.connect();
  */
-class Client extends EventEmitter {
+export class Client extends EventEmitter {
   constructor(loginCallback, options = {}) {
     super();
     /** @member {Object} options */
@@ -1501,8 +1502,3 @@ function splitOnce(str, character) {
   const i = str.indexOf(character);
   return [ str.slice(0, i), str.slice(i+1) ];
 }
-
-module.exports = {
-  Features,
-  Client
-};

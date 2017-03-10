@@ -14,7 +14,7 @@
  * @param {number} id
  * @param {?Object} data
  */
-class IRCUser {
+export default class IRCUser {
   constructor(data) {
     this._id = null;
     if (data) {
@@ -53,5 +53,3 @@ class IRCUser {
     [ this.nick ] = value.split('!');
   }
 }
-
-module.exports = IRCUser;

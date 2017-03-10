@@ -9,8 +9,10 @@
 /** @module buffer */
 
 const logger = require('debug')('libquassel:buffer');
-const { IRCMessage } = require('./message');
 const { util } = require('qtdatastream');
+
+import { IRCMessage } from './message';
+
 
 /**
  * @alias module:buffer.Types

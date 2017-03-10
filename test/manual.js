@@ -1,4 +1,5 @@
-const { Client } = require('../src/libquassel.js');
+import { Client } from '../src/libquassel.js';
+
 const inquirer = require('inquirer');
 const net = require('net');
 const style = require('ansi-styles');
@@ -49,7 +50,7 @@ function ask_creds() {
 
 function red_if_undefined(s) {
   if (s === undefined) {
-    return `${style.red.open}${s}${style.red.close}`
+    return `${style.red.open}${s}${style.red.close}`;
   }
   return s;
 }

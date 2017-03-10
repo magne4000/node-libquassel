@@ -10,16 +10,17 @@
 
 const { EventEmitter } = require('events');
 const { types: qtypes, socket } = require('qtdatastream');
-const { Network, Server } = require('./network');
 const logger = require('debug')('libquassel:request');
 const pkg = require('../package.json');
+
+import { Network, Server } from './network';
 
 /**
  * @readonly
  * @enum {number}
  * @default
  */
-const Types = {
+export const Types = {
   INVALID: 0x00,
   SYNC: 0x01,
   RPCCALL: 0x02,
@@ -83,7 +84,7 @@ function rpc(functionName, ...datatypes) {
 /**
  * Send commands to the core
  */
-class Core extends EventEmitter {
+export class Core extends EventEmitter {
   constructor(options) {
     super();
     this.options = options;
@@ -579,8 +580,3 @@ class Core extends EventEmitter {
     this.duplex.destroy();
   }
 }
-
-module.exports = {
-  Types,
-  Core
-};

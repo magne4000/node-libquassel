@@ -6,15 +6,13 @@
  * Licensed under the MIT license.
  */
 
-/** @module alias */
-
 /**
  * Returns a {@link module:alias.AliasItem[]} for the given object received from the core.
  * @alias module:alias.toArray
  * @param {object} data
  * @returns {module:alias.AliasItem[]}
  */
-function toArray(data) {
+export function toArray(data) {
   let i = 0, ret = Array(data.Aliases.names.length);
   for (; i<data.Aliases.names.length; i++) {
     ret[i] = new AliasItem(data.Aliases.names[i], data.Aliases.expansions[i]);
@@ -28,7 +26,7 @@ function toArray(data) {
  * @param {module:alias.AliasItem[]} data
  * @returns {object}
  */
-function toCoreObject(aliasitems) {
+export function toCoreObject(aliasitems) {
   const ret = { Aliases: { names: [], expansions: [] } };
   for (let item of aliasitems) {
     ret.Aliases.names.push(item.name);
@@ -43,15 +41,9 @@ function toCoreObject(aliasitems) {
  * @param {String} name
  * @param {String} expansion
  */
-class AliasItem {
+export class AliasItem {
   constructor(name, expansion) {
     this.name = name;
     this.expansion = expansion;
   }
 }
-
-module.exports = {
-  toArray,
-  toCoreObject,
-  AliasItem
-};

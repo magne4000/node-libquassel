@@ -9,12 +9,12 @@
 /** @module network */
 
 const { EventEmitter } = require('events');
-const IRCUser = require('./user');
-const { IRCBufferCollection } = require('./buffer');
 const logger = require('debug')('libquassel:network');
 const { util, types: qtypes } = require('qtdatastream');
 const { Exportable, exportas, usertype } = qtypes;
 
+import IRCUser from './user';
+import { IRCBufferCollection } from './buffer';
 import { traits } from 'traits-decorator';
 
 /**
@@ -23,7 +23,7 @@ import { traits } from 'traits-decorator';
  * @enum {number}
  * @default
  */
-const ConnectionStates = {
+export const ConnectionStates = {
   DISCONNECTED: 0x00,
   CONNECTING: 0x01,
   INITIALIZING: 0x02,
@@ -38,7 +38,7 @@ const ConnectionStates = {
  */
 @traits(Exportable)
 @usertype('Network::Server')
-class Server {
+export class Server {
   @exportas(qtypes.QString, 'Host')
   host;
 
@@ -88,7 +88,7 @@ class Server {
  */
 @traits(Exportable)
 @usertype('NetworkInfo')
-class Network extends EventEmitter {
+export class Network extends EventEmitter {
 
   @exportas(qtypes.QUserType.get('NetworkId'), 'NetworkId')
   get networkId() {
@@ -410,7 +410,7 @@ class Network extends EventEmitter {
  * @class
  * @alias module:network.NetworkCollection
  */
-class NetworkCollection extends Map {
+export class NetworkCollection extends Map {
   /**
    * Add and empty {@link module:network.Network} identified by `networkId` to the collection
    * @param {number} networkId
@@ -476,10 +476,3 @@ class NetworkCollection extends Map {
     return false;
   }
 }
-
-module.exports = {
-  Network,
-  NetworkCollection,
-  ConnectionStates,
-  Server
-};

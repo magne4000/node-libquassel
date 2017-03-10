@@ -20,7 +20,7 @@ import { traits } from 'traits-decorator';
  * @param {Object} data
  */
 @traits(Exportable)
-class Identity {
+export default class Identity {
 
   @exportas(qtypes.QBool)
   autoAwayEnabled = false;
@@ -145,5 +145,3 @@ class Identity {
     return `<Identity ${this.identityName}>`;
   }
 }
-
-module.exports = Identity;

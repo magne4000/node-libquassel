@@ -14,7 +14,7 @@
  * @augments module:glouton.Glouton
  * @param {Object} data
  */
-class BufferView {
+export default class BufferView {
   constructor (id, data) {
     /** @member {number} id */
     this.id = id;
@@ -148,5 +148,3 @@ class BufferView {
     return `<BufferView ${this.bufferViewName}>`;
   }
 }
-
-module.exports = BufferView;
