@@ -84,6 +84,46 @@ function rpc(functionName, ...datatypes) {
   };
 }
 
+// function nodetls(duplex) {
+//   const tls = require('tls');
+//   const secureContext = tls.createSecureContext({
+//     secureProtocol: 'TLSv1_2_client_method'
+//   });
+//   return tls.connect(null, {
+//     socket: duplex,
+//     rejectUnauthorized: false,
+//     secureContext: secureContext
+//   });
+// }
+
+// function forgetls(duplex) {
+//   const { tls } = require('forge');
+//   return tls.createConnection({
+//     server: false,
+// 		tlsDataReady: function(connection) {
+// 			const data = connection.tlsData.getBytes();
+// 			duplex.write(data);
+// 		},
+// 		dataReady: function(connection) {
+// 			const data = connection.data.getBytes();
+// 			this.emit(data);
+// 		},
+// 		closed: function() {},
+// 		error: function(connection, error) {
+// 			this.emit('error', error);
+// 		}
+//   });
+// }
+
+// function gettls(duplex) {
+//   try {
+//     require("tls");
+//     return nodetls(duplex);
+//   } catch (e) {
+//     return forgetls(duplex);
+//   }
+// }
+
 /**
  * Send commands to the core
  */
@@ -192,7 +232,7 @@ export class Core extends EventEmitter {
   @sync('Network', 'requestConnect')
   connectNetwork(networkId) {
     logger('Sending connection request');
-    return [ networkId ];
+    return [ String(networkId) ];
   }
 
   /**
@@ -202,18 +242,18 @@ export class Core extends EventEmitter {
   @sync('Network', 'requestDisconnect')
   disconnectNetwork(networkId) {
     logger('Sending disconnection request');
-    return [ networkId ];
+    return [ String(networkId) ];
   }
 
   /**
    * Core Sync request - Update network information
    * @param {Number} networkId
-   * @param {object} network
+   * @param {Network} network
    */
-  @sync('Network', 'requestSetNetworkInfo', qtypes.QMap)
+  @sync('Network', 'requestSetNetworkInfo', qtypes.QClass)
   setNetworkInfo(networkId, network) {
     logger('Sending update request (Network)');
-    return [ networkId, network ];
+    return [ String(networkId), network ];
   }
 
   /**
@@ -288,7 +328,7 @@ export class Core extends EventEmitter {
   @sync('BufferViewConfig', 'requestRemoveBuffer', qtypes.QUserType.get('BufferId'))
   hideBufferTemporarily(bufferViewId, bufferId) {
     logger('Sending temp hide request');
-    return [ bufferViewId, bufferId ];
+    return [ String(bufferViewId), bufferId ];
   }
 
   /**
@@ -299,7 +339,7 @@ export class Core extends EventEmitter {
   @sync('BufferViewConfig', 'requestRemoveBufferPermanently', qtypes.QUserType.get('BufferId'))
   hideBufferPermanently(bufferViewId, bufferId) {
     logger('Sending perm hide request');
-    return [ bufferViewId, bufferId ];
+    return [ String(bufferViewId), bufferId ];
   }
 
   /**
@@ -311,7 +351,7 @@ export class Core extends EventEmitter {
   @sync('BufferViewConfig', 'requestAddBuffer', qtypes.QUserType.get('BufferId'), qtypes.QInt)
   unhideBuffer(bufferViewId, bufferId, pos) {
     logger('Sending unhide request');
-    return [ bufferViewId, bufferId, pos ];
+    return [ String(bufferViewId), bufferId, pos ];
   }
 
   /**
@@ -355,12 +395,12 @@ export class Core extends EventEmitter {
   /**
    * Core Sync request - Update identity
    * @param {Number} identityId
-   * @param {object} identity
+   * @param {Identity} identity
    */
-  @sync('IgnoreListManager', 'requestUpdate', qtypes.QMap)
+  @sync('Identity', 'requestUpdate', qtypes.QClass)
   updateIdentity(identityId, identity) {
     logger('Sending update request (Identity)');
-    return [ identityId, identity ];
+    return [ String(identityId), identity ];
   }
 
   /**
@@ -459,9 +499,10 @@ export class Core extends EventEmitter {
    * @param {number} [options.msgRateMessageDelay=2200]
    * @param {number} [options.msgRateBurstSize=5]
    */
-  @rpc('createNetwork(NetworkInfo,QStringList)', qtypes.QUserType.get('NetworkInfo'), qtypes.QStringList)
+  @rpc('createNetwork(NetworkInfo,QStringList)', qtypes.QClass, qtypes.QStringList)
   createNetwork(networkName, identityId, initialServer, options = {}) {
     const network = new Network(-1, networkName);
+    network.identityId = identityId;
     network.update(options);
     if (typeof initialServer === 'string') {
       initialServer = {
@@ -470,7 +511,7 @@ export class Core extends EventEmitter {
     }
     network.ServerList.push(new Server(initialServer));
     logger('Creating network');
-    return [ identityId, network, []];
+    return [ network, []];
   }
 
   /**

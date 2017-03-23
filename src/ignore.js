@@ -7,10 +7,9 @@
  */
 
 const logger = require('debug')('libquassel:ignore');
-const { Exportable } = require('qtdatastream').types;
+const { Serializable } = require('qtdatastream').serialization;
 
 import { Types } from './message';
-import { traits } from 'traits-decorator';
 
 /**
  * @type {Object}
@@ -142,9 +141,9 @@ function wildcardToRegex(subject) {
 
 /**
  * Handles list of {@link IgnoreItem}
- * @implements {Exportable}
+ * @implements {Serializable}
  */
-@traits(Exportable)
+@Serializable()
 export class IgnoreList {
 
   constructor() {

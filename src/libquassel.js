@@ -10,12 +10,11 @@ import './usertypes'; // register usertypes first
 const { EventEmitter } = require('events');
 const logger = require('debug')('libquassel:main');
 
-import { Types as RequestTypes } from './request';
+import { Types as RequestTypes, Core } from './request';
 import { NetworkCollection } from './network';
 import { IRCBuffer } from './buffer';
 import IRCUser from './user';
 import Identity from './identity';
-import { Core } from './request';
 import BufferView from './bufferview';
 import { Types as MessageTypes, HighlightModes } from './message';
 import * as alias from './alias';
@@ -970,17 +969,17 @@ export class Client extends EventEmitter {
    */
   handleStructSyncBacklogManager(functionName, [ bufferId, _first, _last, _maxAmount, _, data ]) {
     const messageIds = [];
-    let buffer, network, identity;
+    let buffer, network, identity, message;
     switch (functionName) {
     case 'receiveBacklog':
       buffer = this.networks.getBuffer(bufferId);
       network = this.networks.get(buffer.network);
       identity = this.identities.get(network.identityId);
       if (buffer) {
-        for (let message of data) {
-          message = buffer.addMessage(message);
+        for (let rawmessage of data) {
+          message = buffer.addMessage(rawmessage);
           if (!message) {
-            logger('Message %d already exists in buffer %d', message.id, buffer.id);
+            logger('Message %d already exists in buffer %d', rawmessage.id, buffer.id);
           } else {
             messageIds.push(message.id);
             message._updateFlags(network, identity, this.options.highlightmode);
@@ -1018,7 +1017,7 @@ export class Client extends EventEmitter {
     if (identity) {
       if (functionName.indexOf('set') === 0) {
         let key = functionName.substring(3);
-        key[0] = key[0].toLowerCase();
+        key = key.charAt(0).toLowerCase() + key.slice(1);
         identity[key] = data;
         this.emit(`identity.${key.toLowerCase()}`, id, data);
       } else {

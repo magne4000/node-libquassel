@@ -6,67 +6,64 @@
  * Licensed under the MIT license.
  */
 
-const { types: qtypes } = require('qtdatastream');
-const { Exportable, exportas } = qtypes;
-
-import { traits } from 'traits-decorator';
+const { types: qtypes, serialization: { Serializable, serialize } } = require('qtdatastream');
 
 /**
  * Quassel Identity
- * @implements {Exportable}
+ * @implements {Serializable}
  */
-@traits(Exportable)
+@Serializable()
 export default class Identity {
 
-  @exportas(qtypes.QBool)
+  @serialize(qtypes.QBool)
   autoAwayEnabled = false;
 
-  @exportas(qtypes.QString)
+  @serialize(qtypes.QString)
   autoAwayReason = 'Not here. No, really. not here!';
 
-  @exportas(qtypes.QBool)
+  @serialize(qtypes.QBool)
   autoAwayReasonEnabled = false;
 
-  @exportas(qtypes.QUInt)
+  @serialize(qtypes.QUInt)
   autoAwayTime = 10;
 
-  @exportas(qtypes.QString)
+  @serialize(qtypes.QString)
   awayNick = '';
 
-  @exportas(qtypes.QBool)
+  @serialize(qtypes.QBool)
   awayNickEnabled = false;
 
-  @exportas(qtypes.QString)
+  @serialize(qtypes.QString)
   awayReason = 'Gone fishing.';
 
-  @exportas(qtypes.QBool)
+  @serialize(qtypes.QBool)
   awayReasonEnabled = true;
 
-  @exportas(qtypes.QBool)
+  @serialize(qtypes.QBool)
   detachAwayEnabled = false;
 
-  @exportas(qtypes.QString)
+  @serialize(qtypes.QString)
   detachAwayReason = 'All Quassel clients vanished from the face of the earth...';
 
-  @exportas(qtypes.QBool)
+  @serialize(qtypes.QBool)
   detachAwayReasonEnabled = false;
 
-  @exportas(qtypes.QString)
+  @serialize(qtypes.QString)
   ident = 'quassel';
 
-  @exportas(qtypes.QUserType.get('IdentityId'))
+  @serialize(qtypes.QUserType.get('IdentityId'))
   identityId = -1;
 
   /** @type {string} */
-  @exportas(qtypes.QString)
+  @serialize(qtypes.QString)
   identityName;
 
   /** @type {string} */
-  @exportas(qtypes.QString)
+  @serialize(qtypes.QString)
   realName;
 
   /** @type {string[]} */
-  @exportas(qtypes.QList)
+  @serialize(qtypes.QList)
   get nicks() {
     return this._nicks;
   }
@@ -76,7 +73,7 @@ export default class Identity {
     this._nicks = value;
     this.nickRegexes = value.map(nick => nick.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1'));
   }
-  
+
   /** @type {number} */
   set id(value) {
     this.identityId = value;
@@ -87,13 +84,13 @@ export default class Identity {
     return this.identityId;
   }
 
-  @exportas(qtypes.QString)
+  @serialize(qtypes.QString)
   kickReason = 'Kindergarten is elsewhere!';
 
-  @exportas(qtypes.QString)
+  @serialize(qtypes.QString)
   partReason = 'http://quassel-irc.org - Chat comfortably. Anywhere.';
 
-  @exportas(qtypes.QString)
+  @serialize(qtypes.QString)
   quitReason = 'http://quassel-irc.org - Chat comfortably. Anywhere.';
 
   constructor(data) {

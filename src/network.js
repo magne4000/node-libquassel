@@ -8,12 +8,10 @@
 
 const { EventEmitter } = require('events');
 const logger = require('debug')('libquassel:network');
-const { util, types: qtypes } = require('qtdatastream');
-const { Exportable, exportas, usertype } = qtypes;
+const { util, types: qtypes, serialization: { Serializable, serialize } } = require('qtdatastream');
 
 import IRCUser from './user';
 import { IRCBufferCollection } from './buffer';
-import { traits } from 'traits-decorator';
 
 /**
  * @type {Object}
@@ -33,65 +31,90 @@ export const ConnectionStates = {
   DISCONNECTING: 0x05
 };
 
+function setter(fn) {
+  return function(aclass, key, descriptor) {
+    if (!aclass.hasOwnProperty('__values')) {
+      Object.defineProperty(aclass, '__values', {
+        enumrable: false,
+        writable: false,
+        configurable: false,
+        value: {}
+      });
+    }
+    Object.assign(descriptor, {
+      enumerable: true,
+      get: function() {
+        return this.__values[key];
+      },
+      set: function(value) {
+        this.__values[key] = fn(value);
+      }
+    });
+    return descriptor;
+  };
+}
+
 /**
  * A server as used in {@link Network}
- * @implements {Exportable}
+ * @implements {Serializable}
  */
-@traits(Exportable)
-@usertype('Network::Server')
+@Serializable('Network::Server')
 export class Server {
   /** @type {string} */
-  @exportas(qtypes.QString, 'Host')
+  @serialize(qtypes.QString, 'Host')
   host;
 
-  @exportas(qtypes.QUInt, 'Port')
+  @serialize(qtypes.QUInt, 'Port')
   port = 6667;
 
-  @exportas(qtypes.QString, 'Password')
+  @serialize(qtypes.QString, 'Password')
   password = '';
 
-  @exportas(qtypes.QBool, 'UseSSL')
+  @serialize(qtypes.QBool, 'UseSSL')
   useSSL = false;
 
-  @exportas(qtypes.QInt, 'sslVersion')
-  sslVersion = 0;
-
-  @exportas(qtypes.QBool, 'UseProxy')
+  @serialize(qtypes.QBool, 'UseProxy')
   useProxy = false;
 
-  @exportas(qtypes.QInt, 'ProxyType')
+  @serialize(qtypes.QInt, 'ProxyType')
   proxyType = 0;
 
-  @exportas(qtypes.QString, 'ProxyHost')
+  @serialize(qtypes.QString, 'ProxyHost')
   proxyHost = '';
 
-  @exportas(qtypes.QUInt, 'ProxyPort')
+  @serialize(qtypes.QUInt, 'ProxyPort')
   proxyPort = 8080;
 
-  @exportas(qtypes.QString, 'ProxyUser')
+  @serialize(qtypes.QString, 'ProxyUser')
   proxyUser = '';
 
-  @exportas(qtypes.QString, 'ProxyPass')
+  @serialize(qtypes.QString, 'ProxyPass')
   proxyPass = '';
 
-  @exportas(qtypes.QBool, 'sslVerify')
+  @serialize(qtypes.QBool)
   sslVerify = false;
 
-  constructor(...args) {
+  @serialize(qtypes.QInt)
+  sslVersion = 0;
+
+  constructor(args) {
     Object.assign(this, args);
   }
 }
 
+function toStr(s) {
+  return Buffer.isBuffer(s) ? util.str(s) : s;
+}
+
 /**
  * Quassel Network
- * @implements {Exportable}
+ * @implements {Serializable}
  */
-@traits(Exportable)
-@usertype('NetworkInfo')
+@Serializable('NetworkInfo')
 export class Network extends EventEmitter {
 
   /** @type {number} */
-  @exportas(qtypes.QUserType.get('NetworkId'), 'NetworkId')
+  @serialize(qtypes.QUserType.get('NetworkId'), 'NetworkId')
   get networkId() {
     return this.id;
   }
@@ -102,7 +125,7 @@ export class Network extends EventEmitter {
   }
 
   /** @type {string} */
-  @exportas(qtypes.QString, 'NetworkName')
+  @serialize(qtypes.QString, 'NetworkName')
   get networkName() {
     return this.name;
   }
@@ -113,94 +136,76 @@ export class Network extends EventEmitter {
   }
 
   /** @type {number} */
-  @exportas(qtypes.QUserType.get('IdentityId'), 'Identity')
+  @serialize(qtypes.QUserType.get('IdentityId'), 'Identity')
   identityId;
 
   /** @type {string} */
-  @exportas(qtypes.QByteArray, 'CodecForServer')
-  get codecForServer() {
-    return this._codecForServer;
-  }
-
-  /** @type {string|Buffer} */
-  set codecForServer(s) {
-    this._codecForServer = Buffer.isBuffer(s) ? util.str(s) : s;
-  }
+  @setter(toStr)
+  @serialize(qtypes.QByteArray, 'CodecForServer')
+  codecForServer = null;
 
   /** @type {string} */
-  @exportas(qtypes.QByteArray, 'CodecForEncoding')
-  get codecForEncoding() {
-    return this._codecForEncoding;
-  }
-
-  /** @type {string|Buffer} */
-  set codecForEncoding(s) {
-    this._codecForEncoding = Buffer.isBuffer(s) ? util.str(s) : s;
-  }
+  @setter(toStr)
+  @serialize(qtypes.QByteArray, 'CodecForEncoding')
+  codecForEncoding = null;
 
   /** @type {string} */
-  @exportas(qtypes.QByteArray, 'CodecForDecoding')
-  get codecForDecoding() {
-    return this._codecForDecoding;
-  }
+  @setter(toStr)
+  @serialize(qtypes.QByteArray, 'CodecForDecoding')
+  codecForDecoding = null;
 
-  /** @type {string|Buffer} */
-  set codecForDecoding(s) {
-    this._codecForDecoding = Buffer.isBuffer(s) ? util.str(s) : s;
-  }
-
-  @exportas(qtypes.QList, 'ServerList')
+  @serialize(qtypes.QList.of(Server), 'ServerList')
   ServerList = [];
 
-  @exportas(qtypes.QBool, 'UseRandomServer')
+  @serialize(qtypes.QBool, 'UseRandomServer')
   useRandomServer = false;
 
-  @exportas(qtypes.QStringList, 'Perform')
+  @serialize(qtypes.QStringList, 'Perform')
   perform = [];
 
-  @exportas(qtypes.QBool, 'UseAutoIdentify')
+  @serialize(qtypes.QBool, 'UseAutoIdentify')
   useAutoIdentify = false;
 
-  @exportas(qtypes.QString, 'AutoIdentifyService')
+  @serialize(qtypes.QString, 'AutoIdentifyService')
   autoIdentifyService = 'NickServ';
 
-  @exportas(qtypes.QString, 'AutoIdentifyPassword')
+  @serialize(qtypes.QString, 'AutoIdentifyPassword')
   autoIdentifyPassword = '';
 
-  @exportas(qtypes.QBool, 'UseSasl')
+  @serialize(qtypes.QBool, 'UseSasl')
   useSasl = false;
 
-  @exportas(qtypes.QString, 'SaslAccount')
+  @serialize(qtypes.QString, 'SaslAccount')
   saslAccount = '';
 
-  @exportas(qtypes.QString, 'SaslPassword')
+  @serialize(qtypes.QString, 'SaslPassword')
   saslPassword = '';
 
-  @exportas(qtypes.QBool, 'UseAutoReconnect')
+  @serialize(qtypes.QBool, 'UseAutoReconnect')
   useAutoReconnect = true;
 
-  @exportas(qtypes.QUInt, 'AutoReconnectInterval')
+  @serialize(qtypes.QUInt, 'AutoReconnectInterval')
   autoReconnectInterval = 60;
 
-  @exportas(qtypes.QUInt, 'AutoReconnectRetries')
+  @serialize(qtypes.QUInt, 'AutoReconnectRetries')
   autoReconnectRetries = 20;
 
-  @exportas(qtypes.QBool, 'UnlimitedReconnectRetries')
+  @serialize(qtypes.QBool, 'UnlimitedReconnectRetries')
   unlimitedReconnectRetries = false;
 
-  @exportas(qtypes.QBool, 'RejoinChannels')
+  @serialize(qtypes.QBool, 'RejoinChannels')
   rejoinChannels = true;
 
-  @exportas(qtypes.QBool, 'UseCustomMessageRate')
+  @serialize(qtypes.QBool, 'UseCustomMessageRate')
   useCustomMessageRate = false;
 
-  @exportas(qtypes.QBool, 'UnlimitedMessageRate')
+  @serialize(qtypes.QBool, 'UnlimitedMessageRate')
   unlimitedMessageRate = false;
 
-  @exportas(qtypes.QUInt, 'MessageRateDelay')
+  @serialize(qtypes.QUInt, 'MessageRateDelay')
   msgRateMessageDelay = 2200;
 
-  @exportas(qtypes.QUInt, 'MessageRateBurstSize')
+  @serialize(qtypes.QUInt, 'MessageRateBurstSize')
   msgRateBurstSize = 5;
 
   /** @type {string} */
@@ -242,9 +247,6 @@ export class Network extends EventEmitter {
     super();
     this._isConnected = false;
     this._nick = null;
-    this._codecForEncoding = null;
-    this._codecForDecoding = null;
-    this._codecForServer = null;
     this.id = typeof id === 'number' ? id : -1;
     /** @type {IRCBufferCollection} */
     this.buffers = new IRCBufferCollection();

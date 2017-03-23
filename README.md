@@ -69,5 +69,5 @@ quassel.connect();
 See _test/manual.js_ for details.
 
 ## License
-Copyright (c) 2014-2016 Joël Charles  
+Copyright (c) 2017 Joël Charles  
 Licensed under the MIT license.
