@@ -84,46 +84,6 @@ function rpc(functionName, ...datatypes) {
   };
 }
 
-// function nodetls(duplex) {
-//   const tls = require('tls');
-//   const secureContext = tls.createSecureContext({
-//     secureProtocol: 'TLSv1_2_client_method'
-//   });
-//   return tls.connect(null, {
-//     socket: duplex,
-//     rejectUnauthorized: false,
-//     secureContext: secureContext
-//   });
-// }
-
-// function forgetls(duplex) {
-//   const { tls } = require('forge');
-//   return tls.createConnection({
-//     server: false,
-// 		tlsDataReady: function(connection) {
-// 			const data = connection.tlsData.getBytes();
-// 			duplex.write(data);
-// 		},
-// 		dataReady: function(connection) {
-// 			const data = connection.data.getBytes();
-// 			this.emit(data);
-// 		},
-// 		closed: function() {},
-// 		error: function(connection, error) {
-// 			this.emit('error', error);
-// 		}
-//   });
-// }
-
-// function gettls(duplex) {
-//   try {
-//     require("tls");
-//     return nodetls(duplex);
-//   } catch (e) {
-//     return forgetls(duplex);
-//   }
-// }
-
 /**
  * Send commands to the core
  */
@@ -147,14 +107,13 @@ export class Core extends EventEmitter {
       const ret = data.readUInt32BE(0);
       if (((ret >> 24) & 0x01) > 0) {
         this.useSSL = true;
-        logger('Using SSL');
+        logger('Core supports SSL');
       }
 
       if (((ret >> 24) & 0x02) > 0) {
         this.useCompression = true;
-        logger('Using compression');
+        logger('Core supports compression');
       }
-
 
       // if (self.useCompression) {
       //   const zlib = require('zlib');
@@ -189,6 +148,31 @@ export class Core extends EventEmitter {
   }
 
   /**
+   * Begins SSL handshake if necessary.
+   * This method returns a Promise.
+   * @param {function} callback
+   */
+  finishClientInit(callback) {
+    if (this.useSSL) {
+      logger('SECURE');
+      const tls = require('tls');
+      const secureContext = tls.createSecureContext({
+        secureProtocol: 'TLSv1_2_client_method'
+      });
+      const secureStream = tls.connect({
+        socket: this.duplex,
+        rejectUnauthorized: false,
+        secureContext: secureContext
+      });
+      secureStream.once('secure', callback);
+      this.qtsocket.setSocket(secureStream);
+    } else {
+      logger('PLAIN');
+      callback();
+    }
+  }
+
+  /**
    * Send heartbeat response
    * @param {boolean} reply
    */
@@ -220,7 +204,7 @@ export class Core extends EventEmitter {
     qtypes.QInt
   )
   backlog(bufferId, firstMsgId = -1, lastMsgId = -1, maxAmount = undefined) {
-    maxAmount = maxAmount || this.options.backloglimit;
+    maxAmount = maxAmount === undefined ? this.options.backloglimit : maxAmount;
     logger('Sending backlog request');
     return [ '', bufferId, firstMsgId, lastMsgId, maxAmount, 0 ];
   }
@@ -457,7 +441,7 @@ export class Core extends EventEmitter {
   @rpc('createIdentity(Identity,QVariantMap)', qtypes.QUserType.get('Identity'), qtypes.QMap)
   createIdentity(identity) {
     logger('Creating identity');
-    return [ identity, {}];
+    return [ identity, {} ];
   }
 
   /**
@@ -554,10 +538,9 @@ export class Core extends EventEmitter {
    * @param {String} backend
    * @param {String} adminuser
    * @param {String} adminpassword
-   * @param {boolean} [useSSL=false]
    * @param {Object} [properties={}]
    */
-  setupCore(backend, adminuser, adminpassword, useSSL = false, properties = {}) {
+  setupCore(backend, adminuser, adminpassword, properties = {}) {
     const obj = {
       SetupData: {
         ConnectionProperties: properties,
@@ -568,18 +551,6 @@ export class Core extends EventEmitter {
       MsgType: 'CoreSetupData'
     };
 
-    if (useSSL) {
-      const tls = require('tls');
-      const secureContext = tls.createSecureContext({
-        secureProtocol: 'TLSv1_2_client_method'
-      });
-      const secureStream = tls.connect(null, {
-        socket: this.duplex,
-        rejectUnauthorized: false,
-        secureContext: secureContext
-      });
-      this.qtsocket.setSocket(secureStream);
-    }
     this.qtsocket.write(obj);
   }
 

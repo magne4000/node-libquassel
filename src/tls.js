@@ -8,6 +8,7 @@ class TLSSocket extends Duplex {
     this._tlsOptions = options;
     this._secureEstablished = false;
     this._duplex = duplex;
+    this._duplex.push = (data) => this._ssl.process(data.toString('binary'));
     this._ssl = null;
     this._init();
     this._start();
@@ -48,12 +49,12 @@ class TLSSocket extends Duplex {
       tlsDataReady: function(connection) {
         // encrypted data is ready to be sent to the server
         const data = connection.tlsData.getBytes();
-        self._duplex.write(data);
+        self._duplex.write(data, 'binary');
       },
       dataReady: function(connection) {
         // clear data from the server is ready
         const data = connection.data.getBytes();
-        self.push(data);
+        self.push(Buffer.from(data, 'binary'));
       },
       closed: function() {
         logger('disconnected');
@@ -106,7 +107,12 @@ function connect(options, callback=()=>{}) {
   return socket;
 }
 
+function createSecureContext() {
+  return {};
+}
+
 module.exports = {
   TLSSocket,
-  connect
+  connect,
+  createSecureContext
 };

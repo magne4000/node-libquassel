@@ -8,6 +8,13 @@
     "name": "Joël Charles",
     "email": "joel.charles91@gmail.com"
   },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "src",
+    "dist",
+    "index.js"
+  ],
   "repository": {
     "type": "git",
     "url": "git://github.com/magne4000/node-libquassel.git"

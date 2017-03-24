@@ -80,6 +80,7 @@ export class Client extends EventEmitter {
     this.options.backloglimit = parseInt(options.backloglimit || 100, 10);
     this.options.initialbackloglimit = parseInt(options.initialbackloglimit || this.options.backloglimit, 10);
     this.options.highlightmode = (typeof options.highlightmode === 'number') ? options.highlightmode : HighlightModes.CURRENTNICK;
+    this.options.securecore = options.securecore !== false;
     /** @type {Core} */
     this.core = new Core(this.options);
     /** @type {NetworkCollection} */
@@ -94,8 +95,6 @@ export class Client extends EventEmitter {
     this.bufferViews = new Map();
     /** @type {?number} */
     this.heartbeatInterval = null;
-    /** @type {boolean} */
-    this.useSSL = false;
     /** @type {boolean} */
     this.useCompression = false;
     /** @type {?boolean} */
@@ -164,9 +163,9 @@ export class Client extends EventEmitter {
     this.coreInfo = obj;
     this.emit('coreinfoinit', obj);
     if (!obj.Configured) {
-      this.emit('setup', obj.StorageBackends);
+      this.core.finishClientInit(() => this.emit('setup', obj.StorageBackends));
     } else if (obj.LoginEnabled) {
-      this.login();
+      this.core.finishClientInit(() => this.login());
     } else {
       this.emit('error', new Error('Your core is not supported'));
     }
@@ -1050,7 +1049,7 @@ export class Client extends EventEmitter {
    * @param {Object} [properties={}]
    */
   setupCore(backend, adminuser, adminpassword, properties = {}) {
-    this.core.setupCore(backend, adminuser, adminpassword, this.useSSL, properties);
+    this.core.setupCore(backend, adminuser, adminpassword, properties);
   }
 
   /**

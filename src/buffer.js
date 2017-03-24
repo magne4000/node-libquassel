@@ -104,6 +104,8 @@ export class IRCBuffer {
      * @type {Map<number, IRCMessage>}
      */
     this.messages = new Map();
+    this.lastMessageId = null;
+    this.firstMessageId = null;
 
     this.update(data);
     /**
@@ -187,11 +189,11 @@ export class IRCBuffer {
    */
   addMessage(message) {
     if (this.messages.has(message.id)) return undefined;
-    if (this._lastMessageId === null || this._lastMessageId < message.id) {
-      this._lastMessageId = message.id;
+    if (this.lastMessageId === null || this.lastMessageId < message.id) {
+      this.lastMessageId = message.id;
     }
-    if (this._firstMessageId === null || this._firstMessageId > message.id) {
-      this._firstMessageId = message.id;
+    if (this.firstMessageId === null || this.firstMessageId > message.id) {
+      this.firstMessageId = message.id;
     }
     const ircmsg = new IRCMessage(message);
     this.messages.set(message.id, ircmsg);
@@ -199,24 +201,24 @@ export class IRCBuffer {
   }
 
   /**
-   * Update internal _lastMessageId and _firstMessageId
+   * Update internal lastMessageId and firstMessageId
    * @protected
    */
   _updateFirstAndLast() {
-    this._lastMessageId = null;
-    this._firstMessageId = null;
-    this.messages.forEach((val, key) => {
-      if (this._lastMessageId === null || this._lastMessageId < key) this._lastMessageId = key;
-      if (this._firstMessageId === null || this._firstMessageId > key) this._firstMessageId = key;
-    });
+    this.lastMessageId = null;
+    this.firstMessageId = null;
+    for (let key of this.messages.keys()) {
+      if (this.lastMessageId === null || this.lastMessageId < key) this.lastMessageId = key;
+      if (this.firstMessageId === null || this.firstMessageId > key) this.firstMessageId = key;
+    }
   }
 
   /**
    * Clear buffer messages
    */
   clearMessages() {
-    this._lastMessageId = null;
-    this._firstMessageId = null;
+    this.lastMessageId = null;
+    this.firstMessageId = null;
     this.messages.clear();
   }
 
@@ -261,7 +263,7 @@ export class IRCBuffer {
    * @returns {boolean}
    */
   isLast(messageId) {
-    return this._lastMessageId === messageId;
+    return this.lastMessageId === messageId;
   }
 
   /**
@@ -279,11 +281,11 @@ export class IRCBuffer {
   }
 
   get firstMessage() {
-    return this.messages.get(this._firstMessageId);
+    return this.messages.get(this.firstMessageId);
   }
 
   get lastMessage() {
-    return this.messages.get(this._lastMessageId);
+    return this.messages.get(this.lastMessageId);
   }
 
   set name(value) {
