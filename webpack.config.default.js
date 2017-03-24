@@ -1,8 +1,6 @@
 const path = require('path');
-const webpack = require('webpack');
 
 module.exports = {
-  devtool: "cheap-module-source-map",
   entry: path.resolve(__dirname, 'index.js'),
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -37,12 +35,5 @@ module.exports = {
         }
       }
     ]
-  },
-  // plugins: [
-  //   new webpack.optimize.UglifyJsPlugin({
-  //     output: {
-  //       comments: false
-  //     }
-  //   })
-  // ]
+  }
 };

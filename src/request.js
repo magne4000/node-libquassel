@@ -441,7 +441,7 @@ export class Core extends EventEmitter {
   @rpc('createIdentity(Identity,QVariantMap)', qtypes.QUserType.get('Identity'), qtypes.QMap)
   createIdentity(identity) {
     logger('Creating identity');
-    return [ identity, {} ];
+    return [ identity, {}];
   }
 
   /**
