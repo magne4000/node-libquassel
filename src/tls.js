@@ -10,6 +10,7 @@ class TLSSocket extends Duplex {
     this._duplex = duplex;
     this._duplex.push = (data) => this._ssl.process(data.toString('binary'));
     this._ssl = null;
+    this._before_secure_chunks = [];
     this._init();
     this._start();
   }
@@ -77,10 +78,14 @@ class TLSSocket extends Duplex {
 
   _write(chunk, encoding, callback) {
     if (!this._secureEstablished) {
-      this.once('secure', () => {
-        this._writenow(chunk, encoding, callback);
-      });
+      this._before_secure_chunks.push([ chunk, encoding, callback ]);
     } else {
+      if (this._before_secure_chunks.length > 0) {
+        for (let [ chunk, encoding, callback ] of this._before_secure_chunks) {
+          this._writenow(chunk, encoding, callback);
+        }
+        this._before_secure_chunks = [];
+      }
       this._writenow(chunk, encoding, callback);
     }
   }

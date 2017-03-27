@@ -1521,7 +1521,7 @@ export class Client extends EventEmitter {
  * @typedef {Event} Event:aliases
  */
 /**
- * This event is fired when the core needs it's first setup
+ * This event is fired when the core needs to be setup
  * @typedef {Event} Event:setup
  * @property {Object[]} backends - List of available storage backends
  * @property {String} backends[].DisplayName - Storage backends name

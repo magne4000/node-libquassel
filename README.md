@@ -50,7 +50,7 @@ quassel.connect(socket);
 ```
 
 #### browser
-```html5
+```html
 <!-- In your HTML -->
 <script src="/path/to/libquassel.js"></script>
 ```
@@ -73,7 +73,7 @@ quassel.connect(socket);
 [3.0.0](https://magne4000.github.com/libquassel/3.0.0 "libquassel 3.0.0 documentation")
 
 ### Examples
-See _test_ folder for examples.
+See [test](test) folder for examples.
 
 ## License
 Copyright (c) 2017 Joël Charles
