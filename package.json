@@ -1,7 +1,7 @@
 {
   "name": "libquassel",
   "description": "Javascript lib to connect and interact with Quassel IRC core",
-  "version": "2.1.8",
+  "version": "2.1.9",
   "homepage": "https://github.com/magne4000/node-libquassel",
   "license": "MIT",
   "author": {
