@@ -55,6 +55,8 @@
     "blob-to-buffer": "^1.2.6",
     "clean-webpack-plugin": "^0.1.17",
     "esdoc": "^1.0.4",
+    "esdoc-ecmascript-proposal-plugin": "^1.0.0",
+    "esdoc-standard-plugin": "^1.0.0",
     "eslint": "^4.14.0",
     "inquirer": "^4.0.1",
     "tape": "^4.8.0",
