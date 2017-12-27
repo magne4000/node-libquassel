@@ -43,6 +43,20 @@ export const Types = {
  * User attached to a buffer, with its modes
  */
 export class IRCBufferUser {
+
+  /** @type {IRCUser} */
+  public user;
+  /** @type {boolean} */
+  public isOp;
+  /** @type {boolean} */
+  public isHalfOp;
+  /** @type {boolean} */
+  public isOwner;
+  /** @type {boolean} */
+  public isAdmin;
+  /** @type {boolean} */
+  public isVoiced;
+
   /**
    * @param {IRCUser} user
    * @param {string} modes
@@ -58,10 +72,12 @@ export class IRCBufferUser {
     this.modes = modes;
   }
 
+  /** @type {string} */
   get modes() {
     return this._modes;
   }
 
+  /** @type {string} */
   set modes(value) {
     this._modes = value;
     this.isOp = this.hasMode('o');
@@ -85,6 +101,37 @@ export class IRCBufferUser {
  * Quassel respresentation of a buffer
  */
 export class IRCBuffer {
+
+  /** @type {?number} */
+  public id;
+  /** @type {boolean} */
+  public isChannel;
+  /** @type {boolean} */
+  public isActive;
+  /** @type {boolean} */
+  public isStatusBuffer;
+  /** @type {?number} */
+  public lastMessageId;
+  /** @type {?number} */
+  public firstMessageId;
+  /**
+   * Map of users of this channel.
+   * @type {Map<string, IRCBufferUser>}
+   */
+  public users;
+  /**
+   * Map of messages in this buffer.
+   * @type {Map<number, IRCMessage>}
+   */
+  public messages;
+  /** @type {?Types} */
+  public type;
+  /** @type {number} */
+  public network;
+  /** @type {number} */
+  public group;
+
+
   /**
    * @param {object} data
    */
@@ -92,25 +139,13 @@ export class IRCBuffer {
     this._name = null;
     this.isChannel = false;
     this.isActive = false;
-    /** @type {number} */
     this.id = null;
-    /**
-     * Map of users of this channel.
-     * @type {Map<string, IRCBufferUser>}
-     */
     this.users = new Map();
-    /**
-     * Map of messages in this buffer.
-     * @type {Map<number, IRCMessage>}
-     */
     this.messages = new Map();
     this.lastMessageId = null;
     this.firstMessageId = null;
 
     this.update(data);
-    /**
-     * @type {boolean}
-     */
     this.isStatusBuffer = (this.type === Types.STATUS);
   }
 
@@ -352,7 +387,7 @@ export class IRCBufferCollection extends Map {
     if (typeof key === 'number') {
       return this.get(this._map_buffer_ids.get(key));
     }
-    if (key === undefined) return false;
+    if (key === undefined) return void 0;
     if (key instanceof Buffer) {
       key = util.str(key);
     }
@@ -383,7 +418,7 @@ export class IRCBufferCollection extends Map {
    * @returns {boolean}
    */
   delete(key) {
-    if (key === undefined) return undefined;
+    if (key === undefined) return false;
     if (key instanceof Buffer) {
       key = util.str(key);
     }

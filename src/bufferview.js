@@ -10,35 +10,39 @@
  * Quassel BufferView
  */
 export default class BufferView {
+
+  /** @type {number} */
+  public id;
+  /** @type {boolean} */
+  public sortAlphabetically;
+  /** @type {number} */
+  public showSearch;
+  /** @type {number} */
+  public networkId;
+  /** @type {number} */
+  public minimumActivity;
+  /** @type {boolean} */
+  public hideInactiveNetworks;
+  /** @type {boolean} */
+  public hideInactiveBuffers;
+  /** @type {boolean} */
+  public disableDecoration;
+  /** @type {String} */
+  public bufferViewName;
+  /** @type {number} */
+  public allowedBufferTypes;
+  /** @type {boolean} */
+  public addNewBuffersAutomatically;
+  /** @type {number[]} */
+  public TemporarilyRemovedBuffers;
+  /** @type {number[]} */
+  public RemovedBuffers;
+  /** @type {number[]} */
+  public BufferList;
+
   constructor (id, data) {
-    /** @type {number} */
     this.id = id;
-    /** @type {boolean} */
-    this.sortAlphabetically;
-    /** @type {number} */
-    this.showSearch;
-    /** @type {number} */
-    this.networkId;
-    /** @type {number} */
-    this.minimumActivity;
-    /** @type {boolean} */
-    this.hideInactiveNetworks;
-    /** @type {boolean} */
-    this.hideInactiveBuffers;
-    /** @type {boolean} */
-    this.disableDecoration;
-    /** @type {String} */
-    this.bufferViewName;
-    /** @type {number} */
-    this.allowedBufferTypes;
-    /** @type {boolean} */
-    this.addNewBuffersAutomatically;
-    /** @type {number[]} */
-    this.TemporarilyRemovedBuffers;
-    /** @type {number[]} */
-    this.RemovedBuffers;
-    /** @type {number[]} */
-    this.BufferList;
+
     if (data) {
       this.update(data);
     }

@@ -247,7 +247,7 @@ export class Client extends EventEmitter {
 
   /**
    * Handles most of the quasselcore messages
-   * @param {Object} obj - quasselcore message decoded by qtdatasteam
+   * @param {*} obj - quasselcore message decoded by qtdatasteam
    * @emits {Event:coreinfo}
    * @emits {Event:network.init}
    * @emits {Event:network.latency}

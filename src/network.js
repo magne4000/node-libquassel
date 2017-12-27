@@ -35,7 +35,7 @@ function setter(fn) {
   return function(aclass, key, descriptor) {
     if (!aclass.hasOwnProperty('__values')) {
       Object.defineProperty(aclass, '__values', {
-        enumrable: false,
+        enumerable: false,
         writable: false,
         configurable: false,
         value: {}
@@ -448,9 +448,8 @@ export class NetworkCollection extends Map {
    * Yields all buffers of all networks
    */
   *buffers() {
-    let buffer;
     for (let network of this.values()) {
-      for (buffer of network.buffers.values()) {
+      for (let buffer of network.buffers.values()) {
         yield buffer;
       }
     }
