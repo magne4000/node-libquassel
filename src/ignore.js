@@ -52,23 +52,23 @@ export const ScopeTypes = {
  */
 export class IgnoreItem {
   /** @type {number} */
-  public strictness;
+  strictness;
   /** @type {string} */
-  public scopeRule;
+  scopeRule;
   /** @type {number} */
-  public scope;
+  scope;
   /** @type {boolean} */
-  public isRegEx;
+  isRegEx;
   /** @type {boolean} */
-  public isActive;
+  isActive;
   /** @type {number} */
-  public ignoreType;
+  ignoreType;
   /** @type {string} */
-  public ignoreRule;
+  ignoreRule;
   /** @type {RegExp[]} */
-  public regexScope;
+  regexScope;
   /** @type {RegExp} */
-  public regexIgnore;
+  regexIgnore;
 
   /**
    * @param {number} strictness

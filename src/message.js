@@ -87,21 +87,21 @@ export const HighlightModes = {
 export class IRCMessage {
 
   /** @type {number} */
-  public id;
+  id;
   /** @type {Date} */
-  public datetime;
+  datetime;
   /** @type {number} */
-  public type;
+  type;
   /** @type {?string} */
-  public content;
+  content;
   /** @type {BufferInfo} */
-  public bufferInfo;
+  bufferInfo;
   /** @type {boolean} */
-  public isHighlighted;
+  isHighlighted;
   /** @type {?string} */
-  public nick;
+  nick;
   /** @type {?string} */
-  public hostmask;
+  hostmask;
 
   constructor(message) {
     this.nick = null;

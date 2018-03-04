@@ -12,37 +12,37 @@
 export default class IRCUser {
 
   /** @type {boolean} */
-  public away;
+  away;
   /** @type {string} */
-  public awayMessage;
+  awayMessage;
   /** @type {string[]} */
-  public channels;
+  channels;
   /** @type {boolean} */
-  public encrypted;
+  encrypted;
   /** @type {string} */
-  public host;
+  host;
   /** @type {Date} */
-  public idleTime;
+  idleTime;
   /** @type {string} */
-  public ircOperator;
+  ircOperator;
   /** @type {boolean} */
-  public lastAwayMessage;
+  lastAwayMessage;
   /** @type {Date} */
-  public loginTime;
+  loginTime;
   /** @type {string} */
-  public realName;
+  realName;
   /** @type {string} */
-  public server;
+  server;
   /** @type {string} */
-  public userHost;
+  userHost;
   /** @type {string} */
-  public user;
+  user;
   /** @type {string} */
-  public userModes;
+  userModes;
   /** @type {string} */
-  public whoisServiceReply;
+  whoisServiceReply;
   /** @type {string} */
-  public nick;
+  nick;
 
   constructor(data) {
     this._id = null;

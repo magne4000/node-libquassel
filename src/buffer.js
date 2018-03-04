@@ -45,17 +45,16 @@ export const Types = {
 export class IRCBufferUser {
 
   /** @type {IRCUser} */
-  public user;
+  user;
   /** @type {boolean} */
-  public isOp;
+  isOp;
   /** @type {boolean} */
-  public isHalfOp;
+  isHalfOp; /** @type {boolean} */
+  isOwner;
   /** @type {boolean} */
-  public isOwner;
+  isAdmin;
   /** @type {boolean} */
-  public isAdmin;
-  /** @type {boolean} */
-  public isVoiced;
+  isVoiced;
 
   /**
    * @param {IRCUser} user
@@ -103,33 +102,33 @@ export class IRCBufferUser {
 export class IRCBuffer {
 
   /** @type {?number} */
-  public id;
+  id;
   /** @type {boolean} */
-  public isChannel;
+  isChannel;
   /** @type {boolean} */
-  public isActive;
+  isActive;
   /** @type {boolean} */
-  public isStatusBuffer;
+  isStatusBuffer;
   /** @type {?number} */
-  public lastMessageId;
+  lastMessageId;
   /** @type {?number} */
-  public firstMessageId;
+  firstMessageId;
   /**
    * Map of users of this channel.
    * @type {Map<string, IRCBufferUser>}
    */
-  public users;
+  users;
   /**
    * Map of messages in this buffer.
    * @type {Map<number, IRCMessage>}
    */
-  public messages;
+  messages;
   /** @type {?Types} */
-  public type;
+  type;
   /** @type {number} */
-  public network;
+  network;
   /** @type {number} */
-  public group;
+  group;
 
 
   /**

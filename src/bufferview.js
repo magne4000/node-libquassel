@@ -12,33 +12,33 @@
 export default class BufferView {
 
   /** @type {number} */
-  public id;
+  id;
   /** @type {boolean} */
-  public sortAlphabetically;
+  sortAlphabetically;
   /** @type {number} */
-  public showSearch;
+  showSearch;
   /** @type {number} */
-  public networkId;
+  networkId;
   /** @type {number} */
-  public minimumActivity;
+  minimumActivity;
   /** @type {boolean} */
-  public hideInactiveNetworks;
+  hideInactiveNetworks;
   /** @type {boolean} */
-  public hideInactiveBuffers;
+  hideInactiveBuffers;
   /** @type {boolean} */
-  public disableDecoration;
+  disableDecoration;
   /** @type {String} */
-  public bufferViewName;
+  bufferViewName;
   /** @type {number} */
-  public allowedBufferTypes;
+  allowedBufferTypes;
   /** @type {boolean} */
-  public addNewBuffersAutomatically;
+  addNewBuffersAutomatically;
   /** @type {number[]} */
-  public TemporarilyRemovedBuffers;
+  TemporarilyRemovedBuffers;
   /** @type {number[]} */
-  public RemovedBuffers;
+  RemovedBuffers;
   /** @type {number[]} */
-  public BufferList;
+  BufferList;
 
   constructor (id, data) {
     this.id = id;
