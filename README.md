@@ -23,8 +23,20 @@ npm run build
 ```
 
 ### 3.0 breaking changes
-Version `3.0` introduces many changes:
+Version `3.0` introduces the following breaking changes:
 
+- `message.Type` as been superseded by `message.Types`, and all its constants are now UPPERCASE
+- `channel.active` as been superseded by `channel.isActive`
+- `channel.isChannel()` as been superseded by `channel.isChannel`
+- `channel.isHighlighted()` as been superseded by `channel.isHighlighted`
+- `channel.getStatusBuffer()` as been superseded by `channel.statusBuffer`
+
+#### node specific
+- `Client(...).connect` method expects a `Socket` or any other `Duplex` as parameter.
+
+#### browser specific
+- `libquassel` is available as a global object.
+- `Client(...).connect` method expects a `libquassel.WebSocketStream` or any other `Duplex` as parameter.
 
 ### Getting Started
 #### node
