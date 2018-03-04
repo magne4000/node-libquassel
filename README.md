@@ -25,11 +25,18 @@ npm run build
 ### 3.0 breaking changes
 Version `3.0` introduces the following breaking changes:
 
-- `message.Type` as been superseded by `message.Types`, and all its constants are now UPPERCASE
-- `channel.active` as been superseded by `channel.isActive`
-- `channel.isChannel()` as been superseded by `channel.isChannel`
-- `channel.isHighlighted()` as been superseded by `channel.isHighlighted`
-- `channel.getStatusBuffer()` as been superseded by `channel.statusBuffer`
+- `message.Type` has been superseded by `message.Types`, and all its constants are now UPPERCASE
+- `channel.active` has been superseded by `channel.isActive`
+- `channel.isChannel()` has been superseded by `channel.isChannel`
+- `channel.isHighlighted()` has been superseded by `channel.isHighlighted`
+- `message.isHighlighted()` has been superseded by `message.isHighlighted`
+- `message.isSelf()` has been superseded by `message.isSelf`
+- `network.getBufferCollection()` and `network.getBufferMap()` have been merged into `networks.buffers`
+- `networkCollection.findBuffer(...)` and `networkCollection.get(...)` have been merged into `network.getBuffer(...)`
+- The majority of setter methods has been replaced by direct affectation to the target property
+  - e.g. `network.setName(name)` as been superseded by `network.name = name`
+- The majority of getter methods has been replaced by direct access to the target property
+  - e.g. `network.getStatusBuffer()` as been superseded by `network.statusBuffer`
 
 #### node specific
 - `Client(...).connect` method expects a `Socket` or any other `Duplex` as parameter.
@@ -41,7 +48,7 @@ Version `3.0` introduces the following breaking changes:
 ### Getting Started
 #### node
 ```javascript
-const { Client } = require('libquassel.js');
+const { Client } = require('libquassel');
 const net = require('net');
 
 const socket = net.createConnection({
