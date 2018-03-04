@@ -51,6 +51,25 @@ export const ScopeTypes = {
  * Ignore item as represented in the configuration
  */
 export class IgnoreItem {
+  /** @type {number} */
+  public strictness;
+  /** @type {string} */
+  public scopeRule;
+  /** @type {number} */
+  public scope;
+  /** @type {boolean} */
+  public isRegEx;
+  /** @type {boolean} */
+  public isActive;
+  /** @type {number} */
+  public ignoreType;
+  /** @type {string} */
+  public ignoreRule;
+  /** @type {RegExp[]} */
+  public regexScope;
+  /** @type {RegExp} */
+  public regexIgnore;
+
   /**
    * @param {number} strictness
    * @param {string} scopeRule
@@ -61,24 +80,14 @@ export class IgnoreItem {
    * @param {string} ignoreRule
    */
   constructor(strictness, scopeRule, scope, isRegEx, isActive, ignoreType, ignoreRule){
-    /** @type {number} */
     this.strictness = strictness;
-    /** @type {string} */
     this.scopeRule = scopeRule;
-    /** @type {number} */
     this.scope = scope;
-    /** @type {boolean} */
     this.isRegEx = isRegEx;
-    /** @type {boolean} */
     this.isActive = isActive;
-    /** @type {number} */
     this.ignoreType = ignoreType;
-    /** @type {string} */
     this.ignoreRule = ignoreRule;
-    /** @type {RegExp[]} */
     this.regexScope = [];
-    /** @type {RegExp} */
-    this.regexIgnore;
     this.compile();
   }
 
@@ -112,7 +121,7 @@ export class IgnoreItem {
    */
   compile() {
     const scopeRules = this.scopeRule.split(';');
-    this.regexScope = new Array();
+    this.regexScope = [];
     for (let scopeRule of scopeRules) {
       this.regexScope.push(wildcardToRegex(scopeRule));
     }
@@ -147,7 +156,7 @@ function wildcardToRegex(subject) {
 export class IgnoreList {
 
   constructor() {
-    this.list = new Array();
+    this.list = [];
   }
 
   /**

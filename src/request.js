@@ -192,7 +192,7 @@ export class Core extends EventEmitter {
    * @param {number} bufferId
    * @param {number} [firstMsgId=-1]
    * @param {number} [lastMsgId=-1]
-   * @param {number} [maxAmount=backloglimit]
+   * @param {?number} [maxAmount=backloglimit]
    */
   @sync(
     'BacklogManager',

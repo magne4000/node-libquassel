@@ -85,29 +85,37 @@ export const HighlightModes = {
  * IRC Message
  */
 export class IRCMessage {
+
+  /** @type {number} */
+  public id;
+  /** @type {Date} */
+  public datetime;
+  /** @type {number} */
+  public type;
+  /** @type {?string} */
+  public content;
+  /** @type {BufferInfo} */
+  public bufferInfo;
+  /** @type {boolean} */
+  public isHighlighted;
+  /** @type {?string} */
+  public nick;
+  /** @type {?string} */
+  public hostmask;
+
   constructor(message) {
-    /** @type {string} */
     this.nick = null;
-    /** @type {string} */
     this.hostmask = null;
     this._flags = null;
     this.isSelf = false;
     this.isHighlighted = false;
     this._sender = null;
-
-    /** @type {number} */
     this.id = message.id;
-    /** @type {Date} */
     this.datetime = new Date(message.timestamp * 1000);
-    /** @type {number} */
     this.type = message.type;
-    /** @type {number} */
     this.flags = message.flags;
-    /** @type {string} */
     this.sender = message.sender ? util.str(message.sender) : null;
-    /** @type {string} */
     this.content = message.content ? util.str(message.content) : null;
-    /** @type {BufferInfo} */
     this.bufferInfo = message.bufferInfo;
   }
 
@@ -162,7 +170,7 @@ export class IRCMessage {
     return this._flags;
   }
 
-  /** @type {string} */
+  /** @type {?string} */
   set sender(value) {
     this._sender = value;
     if (value) {
@@ -172,7 +180,7 @@ export class IRCMessage {
     }
   }
 
-  /** @type {string} */
+  /** @type {?string} */
   get sender() {
     return this._sender;
   }
