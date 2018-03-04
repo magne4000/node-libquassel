@@ -71,6 +71,6 @@
   "dependencies": {
     "debug": "^3.1.0",
     "node-forge": "^0.7.2",
-    "qtdatastream": "^1.0.0"
+    "qtdatastream": "^1.0.1"
   }
 }
