@@ -2,3 +2,6 @@ node_modules
 .c9revisions
 .settings
 .c9
+/dist/
+/.idea/
+/doc/
