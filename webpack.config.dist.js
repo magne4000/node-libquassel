@@ -4,8 +4,10 @@ const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 const path = require('path');
 
 module.exports = Object.assign({}, config, {
+  devtool: "source-map",
   plugins: [
     new UglifyJsPlugin({
+      sourceMap: true,
       uglifyOptions: {
         output: {
           comments: false
