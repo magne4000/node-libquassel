@@ -362,20 +362,21 @@ export class Network extends EventEmitter {
    * @protected
    * @param {Object} uac
    */
+  @serialize(qtypes.QMap, 'IrcUsersAndChannels')
   set ircUsersAndChannels(uac) {
     // Create IRCUsers and attach them to network
-    for (let user of uac.users) {
+    for (let user of Object.values(uac.users)) {
       this.addUser(new IRCUser(user));
     }
     // If there is a buffer corresponding to a nick, activate the buffer
     for (let buffer of this.buffers.values()) {
-      if (!buffer.isChannel && this.hasUser(buffer.name)) {
+      if (!buffer.isChannel && !buffer.isStatusBuffer && this.hasUser(buffer.name)) {
         buffer.isActive = true;
       }
     }
     // Attach channels to network
     let channel, nick, user;
-    for (let key of uac.channels) {
+    for (let key of Object.keys(uac.channels)) {
       channel = this.getBuffer(key);
       // Then attach users to channels
       for (nick in uac.channels[key].UserModes) {

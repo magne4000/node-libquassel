@@ -422,14 +422,17 @@ export class IRCBufferCollection extends Map {
       key = util.str(key);
     }
     if (typeof key === 'number') {
-      key = this._map_buffer_ids.delete(key);
-      return super.delete(key);
+      const actualKey = this._map_buffer_ids.get(key);
+      this._map_buffer_ids.delete(key);
+      return super.delete(actualKey);
     }
-    const deleted = super.delete(key === null ? null : key.toLowerCase());
-    if (deleted.id !== -1) {
-      this._map_buffer_ids.delete(deleted.id);
+    key = key === null ? null : key.toLowerCase();
+    if (super.has(key)) {
+      const elementToDelete = super.get(key);
+      super.delete(key);
+      this._map_buffer_ids.delete(elementToDelete.id);
+      return true;
     }
-    return deleted;
   }
 
   /**

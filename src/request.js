@@ -419,7 +419,7 @@ export class Core extends EventEmitter {
    */
   @rpc('removeNetwork(NetworkId)', qtypes.QUserType.get('NetworkId'))
   removeNetwork (networkId) {
-    logger('Deleting nhetwork');
+    logger('Deleting network');
     return [ networkId ];
   }
 

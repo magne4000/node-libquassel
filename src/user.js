@@ -45,11 +45,10 @@ export default class IRCUser {
   nick;
 
   constructor(data) {
-    this._id = null;
-
     if (data) {
       this.update(data);
     }
+    this._id = this.nick;
   }
 
   update(data) {
