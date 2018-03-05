@@ -111,6 +111,7 @@ export class Client extends EventEmitter {
     }
 
     this.core.on('data', data => this.dispatch(data));
+    this.core.on('error', err => this.emit('error', err));
   }
 
   /**
