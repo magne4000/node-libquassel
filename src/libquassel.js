@@ -125,6 +125,7 @@ export class Client extends EventEmitter {
    * @emits {Event:setupok}
    * @emits {Event:setupfailed}
    * @emits {Event:identities.init}
+   * @emits {Event:unhandled}
    * @protected
    */
   handleMsgType(obj) {
@@ -153,6 +154,7 @@ export class Client extends EventEmitter {
       break;
     default:
       logger('Unhandled MsgType %s', obj.MsgType);
+      this.emit('unhandled', obj);
     }
   }
 
@@ -1537,6 +1539,11 @@ export class Client extends EventEmitter {
  * This event is fired if the setup of the core has failed
  * @typedef {Event} Event:setupfailed
  * @property {Object} error - The reason of the failure
+ */
+/**
+ * This event is fired if an unhandled message is received
+ * @typedef {Event} Event:unhandled
+ * @property {Object} obj
  */
 /**
  * An error occured
