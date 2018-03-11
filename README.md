@@ -89,10 +89,15 @@ quassel.connect(socket);
 ```
 
 ### Documentation
-[3.0.0](https://magne4000.github.com/libquassel/3.0.0 "libquassel 3.0.0 documentation")
+[3.1.0](https://magne4000.github.com/libquassel/3.1.0 "libquassel 3.1.0 documentation")
 
 ### Examples
 See [test](test) folder for examples.
+
+### Changelog
+
+#### 3.1.0
+- Add support for core highlight rules
 
 ## License
 Copyright (c) 2017 Joël Charles
