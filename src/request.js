@@ -370,7 +370,7 @@ export class Core extends EventEmitter {
    * Core Sync request - Update ignoreList
    * @param {object} ignoreList
    */
-  @sync('IgnoreListManager', 'requestUpdate', qtypes.QList)
+  @sync('IgnoreListManager', 'requestUpdate', qtypes.QMap)
   updateIgnoreListManager(ignoreList) {
     logger('Sending update request (IgnoreListManager)');
     return [ '', ignoreList ];

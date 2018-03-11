@@ -1,7 +1,7 @@
 {
   "name": "libquassel",
   "description": "Javascript lib to connect and interact with Quassel IRC core",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "homepage": "https://github.com/magne4000/node-libquassel",
   "license": "MIT",
   "author": {
@@ -71,6 +71,6 @@
   "dependencies": {
     "debug": "^3.1.0",
     "node-forge": "^0.7.2",
-    "qtdatastream": "^1.0.1"
+    "qtdatastream": "^1.0.2"
   }
 }

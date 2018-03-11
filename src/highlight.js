@@ -134,6 +134,7 @@ export class HighlightRuleManager {
       ret.HighlightRuleList.sender[i] = this.list[i].sender;
       ret.HighlightRuleList.channel[i] = this.list[i].channel;
     }
+    logger('export', ret);
     return ret;
   }
 
