@@ -526,32 +526,32 @@ export class Client extends EventEmitter {
     }
   }
 
+  handleStructInitDataBufferSyncerProperty(data, eventName) {
+    let bufferId, value, i;
+    for (i=0; i<data.length; i+=2) {
+      bufferId = data[i];
+      value = data[i+1];
+      if (this.networks.hasBuffer(bufferId)) {
+        this.emit(eventName, bufferId, value);
+      } else {
+        logger('Buffer #%d does not exists', bufferId);
+      }
+    }
+  }
+
   /**
    * @protected
    */
   handleStructInitDataBufferSyncer(data) {
-    const { MarkerLines: markerLinesData, LastSeenMsg: lastSeenData } = data;
+    const { MarkerLines: markerLinesData, LastSeenMsg: lastSeenData, Activities: activities } = data;
     if (lastSeenData) {
-      for (let i=0; i<lastSeenData.length; i+=2) {
-        let bufferId = lastSeenData[i];
-        let messageId = lastSeenData[i+1];
-        if (this.networks.hasBuffer(bufferId)) {
-          this.emit('buffer.lastseen', bufferId, messageId);
-        } else {
-          logger('Buffer #%d does not exists', bufferId);
-        }
-      }
+      this.handleStructInitDataBufferSyncerProperty(lastSeenData, 'buffer.lastseen');
     }
     if (markerLinesData) {
-      for (let i=0; i<markerLinesData.length; i+=2) {
-        let bufferId = markerLinesData[i];
-        let messageId = markerLinesData[i+1];
-        if (this.networks.hasBuffer(bufferId)) {
-          this.emit('buffer.markerline', bufferId, messageId);
-        } else {
-          logger('Buffer #%d does not exists', bufferId);
-        }
-      }
+      this.handleStructInitDataBufferSyncerProperty(markerLinesData, 'buffer.markerline');
+    }
+    if (activities) {
+      this.handleStructInitDataBufferSyncerProperty(activities, 'buffer.activity');
     }
   }
 
@@ -1295,6 +1295,12 @@ export class Client extends EventEmitter {
  * @typedef {Event} Event:buffer.markerline
  * @property {number} bufferId
  * @property {number} messageId
+ */
+/**
+ * Buffer's activity which represents all unread message types for this buffer
+ * @typedef {Event} Event:buffer.activity
+ * @property {number} bufferId
+ * @property {number} unreadTypes
  */
 /**
  * Buffer has been removed
