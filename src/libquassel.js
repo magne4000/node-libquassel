@@ -46,7 +46,7 @@ export const Features = {
   // AWAYFORMATTIMESTAMP: 0x0200, // Timestamp formatting in away (e.g. %%hh:mm%%)
   // AUTHENTICATORS: 0x0400, // Whether or not the core supports auth backends.
   BUFFERACTIVITYSYNC: 0x0800, // Sync buffer activity status
-  // CORESIDEHIGHLIGHTS: 0x1000, // Core-Side highlight configuration and matching
+  CORESIDEHIGHLIGHTS: 0x1000, // Core-Side highlight configuration and matching
   // SENDERPREFIXES: 0x2000, // Show prefixes for senders in backlog
   // REMOTEDISCONNECT: 0x4000, // Allow this peer to be remotely disconnected
   NUMFEATURES: 0x0800
@@ -216,7 +216,9 @@ export class Client extends EventEmitter {
     this.core.sendInitRequest('BufferSyncer');
     this.core.sendInitRequest('BufferViewManager');
     this.core.sendInitRequest('IgnoreListManager');
-    this.core.sendInitRequest('HighlightRuleManager');
+    if (this.supports(Features.CORESIDEHIGHLIGHTS)) {
+      this.core.sendInitRequest('HighlightRuleManager');
+    }
     this.core.sendInitRequest('AliasManager');
     this.heartbeatInterval = setInterval(() => this.core.heartBeat(), 30000);
   }

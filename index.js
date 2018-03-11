@@ -6,6 +6,7 @@ module.exports = {
   bufferview: require('./src/bufferview'),
   identity: require('./src/identity'),
   ignore: require('./src/ignore'),
+  highlight: require('./src/highlight'),
   message: require('./src/message'),
   network: require('./src/network'),
   request: require('./src/request'),

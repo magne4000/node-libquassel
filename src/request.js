@@ -377,6 +377,16 @@ export class Core extends EventEmitter {
   }
 
   /**
+   * Core Sync request - Update highlightRuleManager
+   * @param {object} highlightRuleManager
+   */
+  @sync('HighlightRuleManager', 'requestUpdate', qtypes.QMap)
+  updateHighlightRuleManager(highlightRuleManager) {
+    logger('Sending update request (HighlightRuleManager)');
+    return [ '', highlightRuleManager ];
+  }
+
+  /**
    * Core Sync request - Update identity
    * @param {Number} identityId
    * @param {Identity} identity
