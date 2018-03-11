@@ -14,7 +14,6 @@ const { types: qtypes, serialization: { Serializable, serialize } } = require('q
  */
 @Serializable()
 export default class Identity {
-
   @serialize(qtypes.QBool)
   autoAwayEnabled = false;
 

@@ -154,7 +154,6 @@ function wildcardToRegex(subject) {
  */
 @Serializable()
 export class IgnoreList {
-
   constructor() {
     this.list = [];
   }

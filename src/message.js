@@ -85,7 +85,6 @@ export const HighlightModes = {
  * IRC Message
  */
 export class IRCMessage {
-
   /** @type {number} */
   id;
   /** @type {Date} */

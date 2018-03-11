@@ -138,10 +138,10 @@ export class Core extends EventEmitter {
       // }
 
       this.qtsocket
-      .on('data', data => this.emit('data', data))
-      .on('close', () => this.emit('close'))
-      .on('end', () => this.emit('end'))
-      .on('error', e => this.emit('error', e));
+        .on('data', data => this.emit('data', data))
+        .on('close', () => this.emit('close'))
+        .on('end', () => this.emit('end'))
+        .on('error', e => this.emit('error', e));
 
       this.sendClientInfo(this.useSSL, this.useCompression);
     });
@@ -298,7 +298,7 @@ export class Core extends EventEmitter {
    * @param {number} bufferId
    * @param {string} newName
    */
-   @sync('BufferSyncer', 'requestMergeBuffersPermanently', qtypes.QUserType.get('BufferId'), qtypes.QString)
+  @sync('BufferSyncer', 'requestMergeBuffersPermanently', qtypes.QUserType.get('BufferId'), qtypes.QString)
   renameBuffer(bufferId, newName) {
     logger('Sending rename buffer request');
     return [ '', bufferId, newName ];

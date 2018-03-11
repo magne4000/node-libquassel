@@ -112,7 +112,6 @@ function toStr(s) {
  */
 @Serializable('NetworkInfo')
 export class Network extends EventEmitter {
-
   /** @type {number} */
   @serialize(qtypes.QUserType.get('NetworkId'), 'NetworkId')
   get networkId() {

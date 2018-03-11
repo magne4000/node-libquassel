@@ -10,7 +10,6 @@
  * IRC user
  */
 export default class IRCUser {
-
   /** @type {boolean} */
   away;
   /** @type {string} */

@@ -76,7 +76,6 @@ export class HighlightRule {
  */
 @Serializable()
 export class HighlightRuleManager {
-
   constructor() {
     this.list = [];
     this.highlightNick = HighlightNickType.NONICK;

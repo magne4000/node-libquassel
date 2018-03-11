@@ -10,7 +10,6 @@
  * Quassel BufferView
  */
 export default class BufferView {
-
   /** @type {number} */
   id;
   /** @type {boolean} */

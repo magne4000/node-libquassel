@@ -43,7 +43,6 @@ export const Types = {
  * User attached to a buffer, with its modes
  */
 export class IRCBufferUser {
-
   /** @type {IRCUser} */
   user;
   /** @type {boolean} */
@@ -100,7 +99,6 @@ export class IRCBufferUser {
  * Quassel respresentation of a buffer
  */
 export class IRCBuffer {
-
   /** @type {?number} */
   id;
   /** @type {boolean} */
@@ -344,7 +342,6 @@ export class IRCBuffer {
  * A collection of buffers
  */
 export class IRCBufferCollection extends Map {
-
   constructor(...args) {
     if (args.length > 0) throw new Error(`IRCBufferCollection doesn't support initializing with values.`);
     super();
