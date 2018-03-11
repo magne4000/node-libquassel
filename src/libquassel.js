@@ -195,7 +195,7 @@ export class Client extends EventEmitter {
       this.emit('network.addbuffer', ircbuffer.network, bufferInfo.id);
       // Init backlogs for this buffer
       if (this.options.initialbackloglimit > 0) {
-        this.core.backlog(bufferInfo.id);
+        this.core.backlog(bufferInfo.id, -1, -1, this.options.initialbackloglimit);
       }
     }
     // Init Identities
@@ -747,6 +747,9 @@ export class Client extends EventEmitter {
     case 'setMarkerLine':
       // data is a messageId
       this.emit('buffer.markerline', bufferId, data);
+      break;
+    case 'setBufferActivity':
+      this.emit('buffer.activity', bufferId, data);
       break;
     case 'removeBuffer':
       this.networks.deleteBuffer(bufferId);
