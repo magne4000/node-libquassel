@@ -41,7 +41,14 @@ export const Features = {
   CAPNEGOTIATION: 0x0020, // IRCv3 capability negotiation, account tracking
   VERIFYSERVERSSL: 0x0040, // IRC server SSL validation
   CUSTOMRATELIMITS: 0x0080, // IRC server custom message rate limits
-  NUMFEATURES: 0x0080
+  // DCCFILETRANSFER: 0x0100, // DCC file transfer support (forcefully disabled for now)
+  // AWAYFORMATTIMESTAMP: 0x0200, // Timestamp formatting in away (e.g. %%hh:mm%%)
+  // AUTHENTICATORS: 0x0400, // Whether or not the core supports auth backends.
+  BUFFERACTIVITYSYNC: 0x0800, // Sync buffer activity status
+  // CORESIDEHIGHLIGHTS: 0x1000, // Core-Side highlight configuration and matching
+  // SENDERPREFIXES: 0x2000, // Show prefixes for senders in backlog
+  // REMOTEDISCONNECT: 0x4000, // Allow this peer to be remotely disconnected
+  NUMFEATURES: 0x0800
 };
 
 /**
