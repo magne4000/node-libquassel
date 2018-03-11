@@ -165,7 +165,7 @@ export class IgnoreList {
    */
   import(data) {
     let item;
-    this.list = new Array(data);
+    this.list = new Array(data.IgnoreList.ignoreRule.length);
     for (let i=0; i<data.IgnoreList.ignoreRule.length; i++) {
       item = new IgnoreItem(
         data.IgnoreList.strictness[i],

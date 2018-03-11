@@ -19,6 +19,7 @@ import BufferView from './bufferview';
 import { Types as MessageTypes, HighlightModes } from './message';
 import * as alias from './alias';
 import * as ignore from './ignore';
+import * as highlight from './highlight';
 
 /**
  * @type {Object}
@@ -96,6 +97,8 @@ export class Client extends EventEmitter {
     this.identities = new Map();
     /** @type {IgnoreList} */
     this.ignoreList = new ignore.IgnoreList();
+    /** @type {HighlightRuleManager} */
+    this.highlightRuleManager = new highlight.HighlightRuleManager();
     /** @type {AliasItem[]} */
     this.aliases = [];
     /** @type {Map<number, BufferView>} */
@@ -213,6 +216,7 @@ export class Client extends EventEmitter {
     this.core.sendInitRequest('BufferSyncer');
     this.core.sendInitRequest('BufferViewManager');
     this.core.sendInitRequest('IgnoreListManager');
+    this.core.sendInitRequest('HighlightRuleManager');
     this.core.sendInitRequest('AliasManager');
     this.heartbeatInterval = setInterval(() => this.core.heartBeat(), 30000);
   }
@@ -383,6 +387,8 @@ export class Client extends EventEmitter {
       return this.handleStructSyncBacklogManager(functionName, data);
     case 'IgnoreListManager':
       return this.handleStructSyncIgnoreListManager(functionName, data);
+    case 'HighlightRuleManager':
+      return this.handleStructSyncHighlightRuleManager(functionName, data);
     case 'Identity':
       return this.handleStructSyncIdentity(parseInt(id, 10), functionName, data);
     case 'AliasManager':
@@ -519,6 +525,10 @@ export class Client extends EventEmitter {
     case 'IgnoreListManager':
       this.ignoreList.import(data);
       this.emit('ignorelist', this.ignoreList);
+      break;
+    case 'HighlightRuleManager':
+      this.highlightRuleManager.import(data);
+      this.emit('highlightrules', this.highlightRuleManager);
       break;
     case 'AliasManager':
       this.aliases = alias.toArray(data);
@@ -1024,6 +1034,20 @@ export class Client extends EventEmitter {
   /**
    * @protected
    */
+  handleStructSyncHighlightRuleManager(functionName, [ data ]) {
+    switch (functionName) {
+    case 'update':
+      this.highlightRuleManager.import(data);
+      this.emit('highlightrules', this.highlightRuleManager);
+      break;
+    default:
+      logger('Unhandled Sync.HighlightRuleManager %s', functionName);
+    }
+  }
+
+  /**
+   * @protected
+   */
   handleStructSyncIdentity(id, functionName, [ data ]) {
     const identity = this.identities.get(id);
     if (identity) {
@@ -1499,6 +1523,10 @@ export class Client extends EventEmitter {
 /**
  * {@link IgnoreList} updated
  * @typedef {Event} Event:ignorelist
+ */
+/**
+ * {@link HighLightRuleManager} updated
+ * @typedef {Event} Event:highlightrules
  */
 /**
  * {@link Identity} updated
