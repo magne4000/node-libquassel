@@ -99,6 +99,9 @@ See [test](test) folder for examples.
 #### 3.1.0
 - Add support for core highlight rules
 
+#### 3.1.1
+- Update dependencies
+
 ## License
-Copyright (c) 2017 Joël Charles
+Copyright (c) 2019 Joël Charles
 Licensed under the MIT license.
