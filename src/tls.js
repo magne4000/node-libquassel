@@ -116,7 +116,7 @@ function createSecureContext() {
   return {};
 }
 
-module.exports = {
+export default {
   TLSSocket,
   connect,
   createSecureContext
