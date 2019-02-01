@@ -2,7 +2,7 @@ const forge = require('node-forge');
 const logger = require('debug')('libquassel:tls');
 const { Duplex } = require('stream');
 
-class TLSSocket extends Duplex {
+export class TLSSocket extends Duplex {
   constructor(duplex, options) {
     super(options);
     this._tlsOptions = options;
@@ -100,7 +100,7 @@ class TLSSocket extends Duplex {
   _read(_size) {}
 }
 
-function connect(options, callback=()=>{}) {
+export function connect(options, callback=()=>{}) {
   const defaults = {
     rejectUnauthorized: '0' !== process.env.NODE_TLS_REJECT_UNAUTHORIZED
   };
@@ -112,12 +112,6 @@ function connect(options, callback=()=>{}) {
   return socket;
 }
 
-function createSecureContext() {
+export function createSecureContext() {
   return {};
 }
-
-export default {
-  TLSSocket,
-  connect,
-  createSecureContext
-};
