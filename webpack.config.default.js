@@ -17,22 +17,22 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.js$/,
+        test: /\.m?js$/,
         exclude: /(node_modules|bower_components)/,
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['env'],
+            presets: ['@babel/preset-env'],
             plugins: [
-              "babel-plugin-transform-decorators-legacy",
-              "babel-plugin-transform-class-properties",
-              "babel-plugin-transform-runtime",
               [
-                "babel-plugin-transform-builtin-extend", {
-                  globals: [ "Map" ]
+                '@babel/plugin-proposal-decorators',
+                {
+                  'legacy': true
                 }
-              ]
-            ]
+              ],
+              '@babel/plugin-proposal-class-properties',
+              '@babel/plugin-transform-runtime'
+            ],
           }
         }
       }
