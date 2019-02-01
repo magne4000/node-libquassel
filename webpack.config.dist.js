@@ -5,7 +5,6 @@ const path = require('path');
 
 module.exports = Object.assign({}, config, {
   mode: 'production',
-  devtool: "source-map",
   plugins: [
     new CleanWebpackPlugin([ 'dist' ], {
       root: path.resolve(__dirname)
