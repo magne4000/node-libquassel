@@ -32,8 +32,8 @@ export const ConnectionStates = {
 };
 
 function setter(fn) {
-  return function(aclass, key, descriptor) {
-    if (!aclass.hasOwnProperty('__values')) {
+  return function (aclass, key, descriptor) {
+    if (!Object.prototype.hasOwnProperty.call(aclass, '__values')) {
       Object.defineProperty(aclass, '__values', {
         enumerable: false,
         writable: false,
@@ -43,10 +43,10 @@ function setter(fn) {
     }
     Object.assign(descriptor, {
       enumerable: true,
-      get: function() {
+      get: function () {
         return this.__values[key];
       },
-      set: function(value) {
+      set: function (value) {
         this.__values[key] = fn(value);
       }
     });
@@ -333,7 +333,7 @@ export class Network extends EventEmitter {
    */
   updateUsers(userlist) {
     this.users.clear();
-    if (Array.isArray(userlist) && userlist.length> 0) {
+    if (Array.isArray(userlist) && userlist.length > 0) {
       for (let user of userlist) {
         this.users.set(user.nick, user);
       }
@@ -447,7 +447,7 @@ export class NetworkCollection extends Map {
   /**
    * Yields all buffers of all networks
    */
-  *buffers() {
+  * buffers() {
     for (let network of this.values()) {
       for (let buffer of network.buffers.values()) {
         yield buffer;
