@@ -157,7 +157,7 @@ export class Core extends EventEmitter {
       logger('SECURE');
       const tls = require('tls');
       const secureContext = tls.createSecureContext({
-        secureProtocol: 'TLSv1_2_client_method'
+        minVersion: 'TLSv1.2'
       });
       const secureStream = tls.connect({
         socket: this.duplex,
