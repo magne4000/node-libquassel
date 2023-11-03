@@ -1,13 +1,14 @@
 const config = require('./webpack.config.default');
-const CleanWebpackPlugin = require('clean-webpack-plugin');
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
-const path = require('path');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
 
 module.exports = Object.assign({}, config, {
   mode: 'production',
   plugins: [
-    new CleanWebpackPlugin([ 'dist' ], {
-      root: path.resolve(__dirname)
-    })
-  ]
+    new CleanWebpackPlugin()
+  ],
+  optimization: {
+    minimize: true,
+    minimizer: [ new TerserPlugin() ],
+  },
 });

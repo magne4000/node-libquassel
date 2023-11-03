@@ -1,6 +1,6 @@
 const forge = require('node-forge');
 const logger = require('debug')('libquassel:tls');
-const { Duplex } = require('stream');
+import { Duplex } from 'stream';
 
 export class TLSSocket extends Duplex {
   constructor(duplex, options) {

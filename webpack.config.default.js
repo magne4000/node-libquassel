@@ -12,7 +12,8 @@ module.exports = {
     alias: {
       tls: path.resolve(__dirname, 'src/tls'),
     },
-    symlinks: false
+    symlinks: false,
+    fallback: { 'stream': require.resolve('stream-browserify') }
   },
   module: {
     rules: [
@@ -20,15 +21,7 @@ module.exports = {
         test: /\.m?js$/,
         exclude: /(node_modules|bower_components)/,
         use: {
-          loader: 'babel-loader',
-          options: {
-            presets: ['@babel/preset-env'],
-            plugins: [
-              ['@babel/plugin-proposal-decorators', { 'legacy': true }],
-              ['@babel/plugin-proposal-class-properties', { 'loose': true }],
-              '@babel/plugin-transform-runtime'
-            ],
-          }
+          loader: 'babel-loader'
         }
       }
     ]
