@@ -1,7 +1,7 @@
 {
   "name": "@binsky/libquassel",
   "description": "Javascript lib to connect and interact with Quassel IRC core",
-  "version": "3.1.5",
+  "version": "3.1.6",
   "homepage": "https://github.com/binsky08/node-libquassel",
   "license": "MIT",
   "author": {
