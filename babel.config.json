@@ -1,8 +1,21 @@
 {
-  "presets": ["@babel/preset-env"],
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "include": [
+          "@babel/plugin-transform-class-properties"
+        ]
+      }
+    ]
+  ],
   "plugins": [
-    ["@babel/plugin-proposal-decorators", { "legacy": true }],
-    ["@babel/plugin-transform-class-properties", { "loose": false }],
+    [
+      "@babel/plugin-proposal-decorators",
+      {
+        "version": "2023-05"
+      }
+    ],
     "@babel/plugin-transform-runtime"
   ]
 }

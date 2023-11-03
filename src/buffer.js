@@ -11,7 +11,7 @@
 const logger = require('debug')('libquassel:buffer');
 const { util } = require('qtdatastream');
 
-import { IRCMessage } from './message';
+import { IRCMessage } from './message.js';
 
 /**
  * BufferInfo object representation

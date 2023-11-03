@@ -6,7 +6,8 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'libquassel.js',
     library: 'libquassel',
-    libraryTarget: 'umd'
+    libraryTarget: 'umd',
+    umdNamedDefine: true
   },
   resolve: {
     alias: {
@@ -18,10 +19,23 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.m?js$/,
+        test: /\.(m?|c?)js$/,
         exclude: /(node_modules|bower_components)/,
         use: {
-          loader: 'babel-loader'
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              [
+                '@babel/preset-env',
+                {
+                  targets: 'defaults',
+                  include: [
+                    '@babel/plugin-transform-class-properties'
+                  ]
+                }
+              ]
+            ]
+          }
         }
       }
     ]

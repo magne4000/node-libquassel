@@ -11,7 +11,7 @@ const { types: qtypes, socket } = require('qtdatastream');
 const logger = require('debug')('libquassel:request');
 const pkg = require('../package.json');
 
-import { Network, Server } from './network';
+import { Network, Server } from './network.js';
 
 /**
  * @type {Object}
@@ -41,7 +41,7 @@ function sync(className, functionName, ...datatypes) {
   const qsync = qtypes.QInt.from(Types.SYNC);
   const qclassName = qtypes.QByteArray.from(className);
   const qfunctionName = qtypes.QByteArray.from(functionName);
-  return function(target, _key, descriptor) {
+  return function decorator(target, _key, descriptor) {
     return {
       enumerable: false,
       configurable: false,

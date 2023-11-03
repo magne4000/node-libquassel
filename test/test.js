@@ -1,6 +1,6 @@
-const { Client } = require('../src/libquassel.js');
-const test = require('tape');
-const net = require('net');
+import { Client } from '../src/libquassel.js';
+import { test } from 'tape';
+import net from 'net';
 
 function loginOk(next) {
   next("unittest", "unittest");

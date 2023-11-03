@@ -9,7 +9,7 @@ module.exports = {
   'parserOptions': {
     'sourceType': 'module',
     'ecmaFeatures': {
-      'legacyDecorators': true,
+      'experimentalDecorators': true
     },
   },
   'rules': {

@@ -9,7 +9,7 @@
 const logger = require('debug')('libquassel:ignore');
 const { Serializable } = require('qtdatastream').serialization;
 
-import { Types } from './message';
+import { Types } from './message.js';
 
 /**
  * @type {Object}

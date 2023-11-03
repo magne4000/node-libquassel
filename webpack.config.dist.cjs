@@ -1,4 +1,4 @@
-const config = require('./webpack.config.default');
+const config = require('./webpack.config.default.cjs');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 

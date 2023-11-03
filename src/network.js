@@ -10,8 +10,8 @@ const { EventEmitter } = require('events');
 const logger = require('debug')('libquassel:network');
 const { util, types: qtypes, serialization: { Serializable, serialize } } = require('qtdatastream');
 
-import IRCUser from './user';
-import { IRCBufferCollection } from './buffer';
+import IRCUser from './user.js';
+import { IRCBufferCollection } from './buffer.js';
 
 /**
  * @type {Object}

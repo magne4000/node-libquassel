@@ -1,8 +1,8 @@
 import { Client } from '../src/libquassel.js';
+import inquirer from 'inquirer';
+import net from 'net';
+import ansiStyles from 'ansi-styles';
 
-const inquirer = require('inquirer');
-const net = require('net');
-const style = require('ansi-styles');
 
 const ACTIONS = [
   { name: "Disconnect Network", value: "network-disconnect" },
@@ -50,7 +50,7 @@ function ask_creds() {
 
 function red_if_undefined(s) {
   if (s === undefined) {
-    return `${style.red.open}${s}${style.red.close}`;
+    return `${ansiStyles.red.open}${s}${ansiStyles.red.close}`;
   }
   return s;
 }
@@ -58,7 +58,7 @@ function red_if_undefined(s) {
 function log(key, ...args) {
   const colors = [ 'grey', 'green', 'blue', 'magenta', 'cyan' ];
   const indice = [...key].map(x => x.charCodeAt(0)).reduce((x, y) => x + y) % 5;
-  const stylekey = style[colors[indice]];
+  const stylekey = ansiStyles[colors[indice]];
   process.stdout.write(`${stylekey.open}${key}${stylekey.close} `);
   console.log(...args.map(x => red_if_undefined(x)));
 }
