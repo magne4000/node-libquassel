@@ -1,8 +1,8 @@
 {
-  "name": "libquassel",
+  "name": "@binsky/libquassel",
   "description": "Javascript lib to connect and interact with Quassel IRC core",
   "version": "3.1.5",
-  "homepage": "https://github.com/magne4000/node-libquassel",
+  "homepage": "https://github.com/binsky08/node-libquassel",
   "license": "MIT",
   "author": {
     "name": "Joël Charles",
@@ -18,15 +18,15 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git://github.com/magne4000/node-libquassel.git"
+    "url": "git://github.com/binsky08/node-libquassel.git"
   },
   "bugs": {
-    "url": "https://github.com/magne4000/node-libquassel/issues"
+    "url": "https://github.com/binsky08/node-libquassel/issues"
   },
   "licenses": [
     {
       "type": "MIT",
-      "url": "https://github.com/magne4000/node-libquassel/blob/master/LICENSE-MIT"
+      "url": "https://github.com/binsky08/node-libquassel/blob/master/LICENSE-MIT"
     }
   ],
   "scripts": {
