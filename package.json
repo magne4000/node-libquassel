@@ -1,7 +1,7 @@
 {
   "name": "@binsky/libquassel",
   "description": "Javascript lib to connect and interact with Quassel IRC core",
-  "version": "3.1.6",
+  "version": "3.1.8",
   "homepage": "https://github.com/binsky08/node-libquassel",
   "license": "MIT",
   "author": {
@@ -36,8 +36,7 @@
     "watch": "webpack --config webpack.config.dev.cjs --watch --progress",
     "doc": "esdoc",
     "eslint": "eslint src",
-    "prepublishOnly": "npm run eslint && npm run build",
-    "publish": "npm publish --access public"
+    "prepublishOnly": "npm run eslint && npm run build"
   },
   "main": "index.js",
   "engines": {
