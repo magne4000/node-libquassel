@@ -4,7 +4,8 @@
       "@babel/preset-env",
       {
         "include": [
-          "@babel/plugin-transform-class-properties"
+          "@babel/plugin-transform-class-properties",
+          "@babel/plugin-proposal-class-properties"
         ]
       }
     ]
@@ -13,9 +14,10 @@
     [
       "@babel/plugin-proposal-decorators",
       {
-        "version": "2023-05"
+        "version": "legacy"
       }
     ],
-    "@babel/plugin-transform-runtime"
+    "@babel/plugin-transform-runtime",
+    "@babel/plugin-syntax-import-assertions"
   ]
 }

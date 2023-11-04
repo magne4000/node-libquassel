@@ -6,7 +6,7 @@
  * Licensed under the MIT license.
  */
 
-const { util } = require('qtdatastream');
+import { util } from 'qtdatastream';
 
 /**
  * @type {Object}

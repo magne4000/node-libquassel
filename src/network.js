@@ -6,9 +6,11 @@
  * Licensed under the MIT license.
  */
 
-const { EventEmitter } = require('events');
-const logger = require('debug')('libquassel:network');
-const { util, types: qtypes, serialization: { Serializable, serialize } } = require('qtdatastream');
+import EventEmitter from 'events';
+import debug from 'debug';
+const logger = debug('libquassel:network');
+import { util, types as qtypes, serialization } from 'qtdatastream';
+const { Serializable, serialize } = serialization;
 
 import IRCUser from './user.js';
 import { IRCBufferCollection } from './buffer.js';

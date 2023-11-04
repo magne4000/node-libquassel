@@ -6,15 +6,17 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'libquassel.js',
     library: 'libquassel',
-    libraryTarget: 'umd',
-    umdNamedDefine: true
+    libraryTarget: 'var'
   },
   resolve: {
-    alias: {
-      tls: path.resolve(__dirname, 'src/tls'),
-    },
+    /*alias: {
+      process: "process/browser"
+    },*/
     symlinks: false,
-    fallback: { 'stream': require.resolve('stream-browserify') }
+    /*fallback: {
+      'stream': require.resolve('stream-browserify'),
+      "buffer": require.resolve('buffer'),
+    }*/
   },
   module: {
     rules: [

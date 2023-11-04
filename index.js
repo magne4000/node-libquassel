@@ -1,17 +1,17 @@
-import { Features, Client } from './src/libquassel.js';
+const { Features, Client } = require('./src/libquassel');
 
 module.exports = {
-  alias: require('./src/alias.js'),
-  buffer: require('./src/buffer.js'),
-  bufferview: require('./src/bufferview.js'),
-  identity: require('./src/identity.js'),
-  ignore: require('./src/ignore.js'),
-  highlight: require('./src/highlight.js'),
-  message: require('./src/message.js'),
-  network: require('./src/network.js'),
-  request: require('./src/request.js'),
-  user: require('./src/user.js'),
-  WebSocketStream: require('./src/websocket.js').default,
+  alias: require('./src/alias'),
+  buffer: require('./src/buffer'),
+  bufferview: require('./src/bufferview'),
+  identity: require('./src/identity'),
+  ignore: require('./src/ignore'),
+  highlight: require('./src/highlight'),
+  message: require('./src/message'),
+  network: require('./src/network'),
+  request: require('./src/request'),
+  user: require('./src/user'),
+  WebSocketStream: require('./src/websocket').default,
   debug: require('debug'),
   Features,
   Client

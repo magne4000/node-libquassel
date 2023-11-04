@@ -59,7 +59,7 @@ function log(key, ...args) {
   const colors = [ 'grey', 'green', 'blue', 'magenta', 'cyan' ];
   const indice = [...key].map(x => x.charCodeAt(0)).reduce((x, y) => x + y) % 5;
   const stylekey = ansiStyles[colors[indice]];
-  process.stdout.write(`${stylekey.open}${key}${stylekey.close} `);
+  console.log(`${stylekey.open}${key}${stylekey.close} `);
   console.log(...args.map(x => red_if_undefined(x)));
 }
 

@@ -8,8 +8,9 @@
 
 /** @module buffer */
 
-const logger = require('debug')('libquassel:buffer');
-const { util } = require('qtdatastream');
+import debug from 'debug';
+const logger = debug('libquassel:buffer');
+import { util } from 'qtdatastream';
 
 import { IRCMessage } from './message.js';
 

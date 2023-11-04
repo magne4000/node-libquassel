@@ -7,8 +7,9 @@
  */
 
 import './usertypes.js'; // register usertypes first
-const { EventEmitter } = require('events');
-const logger = require('debug')('libquassel:main');
+import EventEmitter from 'events';
+import debug from 'debug';
+const logger = debug('libquassel:main');
 
 import { Types as RequestTypes, Core } from './request.js';
 import { NetworkCollection } from './network.js';

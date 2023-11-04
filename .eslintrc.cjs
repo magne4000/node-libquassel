@@ -9,8 +9,8 @@ module.exports = {
   'parserOptions': {
     'sourceType': 'module',
     'ecmaFeatures': {
-      'experimentalDecorators': true
-    },
+      'importAssertions': true
+    }
   },
   'rules': {
     'strict': 'off',

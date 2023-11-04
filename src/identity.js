@@ -6,7 +6,8 @@
  * Licensed under the MIT license.
  */
 
-const { types: qtypes, serialization: { Serializable, serialize } } = require('qtdatastream');
+import { types as qtypes, serialization } from 'qtdatastream';
+const { Serializable, serialize } = serialization;
 
 /**
  * Quassel Identity

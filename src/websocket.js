@@ -1,5 +1,5 @@
 import { Duplex } from 'stream';
-const toBuffer = require('blob-to-buffer');
+import toBuffer from 'blob-to-buffer';
 
 const ErrorCodes = {
   1001: 'The endpoint is going away, either because of a server failure or because the browser is navigating away from the page that opened the connection.',
@@ -28,6 +28,7 @@ export default class WebSocketStream extends Duplex {
     this.socket.onopen = () => this.emit('connected');
     this.socket.onclose = (event) => {
       if (event.code > 1000) {
+        console.error(event);
         if (event.code in ErrorCodes) {
           this.emit('error', new Error(ErrorCodes[event.code]));
         } else {
@@ -47,7 +48,7 @@ export default class WebSocketStream extends Duplex {
 
   _read(_size) {}
 
-  _write(chunk, encoding, callback) {
+  _write(chunk, encoding, callback = () => {}) {
     if (this.socket.readyState === 1) { // open
       this.socket.send(chunk);
       callback();

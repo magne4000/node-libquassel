@@ -8,7 +8,6 @@
     "name": "Joël Charles",
     "email": "joel.charles91@gmail.com"
   },
-  "type": "module",
   "files": [
     "LICENSE-MIT",
     "README.md",
@@ -33,6 +32,7 @@
     "test": "tape -r @babel/register test/test.js",
     "test-manual": "babel-node test/manual.js",
     "build": "webpack --config webpack.config.dist.cjs",
+    "build-dev": "webpack --config webpack.config.dev.cjs",
     "watch": "webpack --config webpack.config.dev.cjs --watch --progress",
     "doc": "esdoc",
     "eslint": "eslint src",
@@ -47,7 +47,10 @@
     "@babel/core": "^7.23.2",
     "@babel/eslint-parser": "^7.22.15",
     "@babel/node": "^7.22.19",
+    "@babel/plugin-proposal-class-properties": "^7.18.6",
     "@babel/plugin-proposal-decorators": "^7.23.2",
+    "@babel/plugin-proposal-import-attributes-to-assertions": "^7.22.5",
+    "@babel/plugin-syntax-import-assertions": "^7.22.5",
     "@babel/plugin-transform-runtime": "^7.23.2",
     "@babel/preset-env": "^7.23.2",
     "@babel/register": "^7.22.15",
@@ -55,12 +58,17 @@
     "babel-loader": "^9.1.3",
     "babel-preset-env": "^1.7.0",
     "blob-to-buffer": "^1.2.9",
+    "buffer": "^6.0.3",
     "clean-webpack-plugin": "^4.0.0",
     "esdoc": "^1.1.0",
     "esdoc-ecmascript-proposal-plugin": "^1.0.0",
     "esdoc-standard-plugin": "^1.0.0",
     "eslint": "^8.52.0",
+    "eslint-plugin-import": "^2.29.0",
     "inquirer": "^9.2.11",
+    "node-polyfill-webpack-plugin": "^2.0.1",
+    "node-stdlib-browser": "^1.2.0",
+    "process": "^0.11.10",
     "stream-browserify": "^3.0.0",
     "tape": "^5.7.2",
     "terser-webpack-plugin": "^5.3.9",
@@ -74,7 +82,9 @@
   ],
   "dependencies": {
     "debug": "^4.3.4",
+    "module": "^1.2.5",
     "node-forge": "^1.3.1",
-    "qtdatastream": "^1.1.0"
+    "qtdatastream": "^1.1.0",
+    "tls": "^0.0.1"
   }
 }

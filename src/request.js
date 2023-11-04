@@ -6,11 +6,13 @@
  * Licensed under the MIT license.
  */
 
-const { EventEmitter } = require('events');
-const { types: qtypes, socket } = require('qtdatastream');
-const logger = require('debug')('libquassel:request');
-const pkg = require('../package.json');
+import EventEmitter from 'events';
+import { types as qtypes, socket } from 'qtdatastream';
+import debug from 'debug';
+const logger = debug('libquassel:request');
+import pkg from '../package.json' assert { type: 'json' };
 
+import tls from 'tls';
 import { Network, Server } from './network.js';
 
 /**
@@ -155,7 +157,6 @@ export class Core extends EventEmitter {
   finishClientInit(callback) {
     if (this.useSSL) {
       logger('SECURE');
-      const tls = require('tls');
       const secureContext = tls.createSecureContext({
         minVersion: 'TLSv1.2'
       });
