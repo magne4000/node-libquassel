@@ -6,7 +6,8 @@
  * Licensed under the MIT license.
  */
 
-import { types as qtypes, serialization } from 'qtdatastream';
+import { serialization, types as qtypes } from 'qtdatastream';
+
 const { Serializable, serialize } = serialization;
 
 /**
@@ -16,51 +17,51 @@ const { Serializable, serialize } = serialization;
 @Serializable()
 export default class Identity {
   @serialize(qtypes.QBool)
-  autoAwayEnabled = false;
+    autoAwayEnabled = false;
 
   @serialize(qtypes.QString)
-  autoAwayReason = 'Not here. No, really. not here!';
+    autoAwayReason = 'Not here. No, really. not here!';
 
   @serialize(qtypes.QBool)
-  autoAwayReasonEnabled = false;
+    autoAwayReasonEnabled = false;
 
   @serialize(qtypes.QUInt)
-  autoAwayTime = 10;
+    autoAwayTime = 10;
 
   @serialize(qtypes.QString)
-  awayNick = '';
+    awayNick = '';
 
   @serialize(qtypes.QBool)
-  awayNickEnabled = false;
+    awayNickEnabled = false;
 
   @serialize(qtypes.QString)
-  awayReason = 'Gone fishing.';
+    awayReason = 'Gone fishing.';
 
   @serialize(qtypes.QBool)
-  awayReasonEnabled = true;
+    awayReasonEnabled = true;
 
   @serialize(qtypes.QBool)
-  detachAwayEnabled = false;
+    detachAwayEnabled = false;
 
   @serialize(qtypes.QString)
-  detachAwayReason = 'All Quassel clients vanished from the face of the earth...';
+    detachAwayReason = 'All Quassel clients vanished from the face of the earth...';
 
   @serialize(qtypes.QBool)
-  detachAwayReasonEnabled = false;
+    detachAwayReasonEnabled = false;
 
   @serialize(qtypes.QString)
-  ident = 'quassel';
+    ident = 'quassel';
 
   @serialize(qtypes.QUserType.get('IdentityId'))
-  identityId = -1;
+    identityId = -1;
 
   /** @type {string} */
   @serialize(qtypes.QString)
-  identityName;
+    identityName;
 
   /** @type {string} */
   @serialize(qtypes.QString)
-  realName;
+    realName;
 
   /** @type {string[]} */
   @serialize(qtypes.QList)
@@ -85,13 +86,13 @@ export default class Identity {
   }
 
   @serialize(qtypes.QString)
-  kickReason = 'Kindergarten is elsewhere!';
+    kickReason = 'Kindergarten is elsewhere!';
 
   @serialize(qtypes.QString)
-  partReason = 'http://quassel-irc.org - Chat comfortably. Anywhere.';
+    partReason = 'http://quassel-irc.org - Chat comfortably. Anywhere.';
 
   @serialize(qtypes.QString)
-  quitReason = 'http://quassel-irc.org - Chat comfortably. Anywhere.';
+    quitReason = 'http://quassel-irc.org - Chat comfortably. Anywhere.';
 
   constructor(data) {
     this._nicks = [];

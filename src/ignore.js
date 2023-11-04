@@ -8,7 +8,7 @@
 
 import debug from 'debug';
 const logger = debug('libquassel:ignore');
-import { serialization } from "qtdatastream";
+import { serialization } from 'qtdatastream';
 const { Serializable } = serialization;
 
 import { Types } from './message.js';
