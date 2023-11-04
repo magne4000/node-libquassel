@@ -36,7 +36,8 @@
     "watch": "webpack --config webpack.config.dev.cjs --watch --progress",
     "doc": "esdoc",
     "eslint": "eslint src",
-    "prepublishOnly": "npm run eslint && npm run build"
+    "prepublishOnly": "npm run eslint && npm run build",
+    "publish": "npm publish --access public"
   },
   "main": "index.js",
   "engines": {
