@@ -10,14 +10,9 @@ module.exports = {
   },
   resolve: {
     alias: {
-      //process: "process/browser",
       tls: path.resolve(__dirname, 'src/tls'),
     },
-    symlinks: false,
-    /*fallback: {
-      'stream': require.resolve('stream-browserify'),
-      "buffer": require.resolve('buffer'),
-    }*/
+    symlinks: false
   },
   module: {
     rules: [
