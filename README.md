@@ -1,8 +1,6 @@
 # libquassel
 Javascript library to connect and interact with Quassel IRC server.
 
-**Be careful: This is a forked version with updated code and dependencies - work in progress - do not use in production!**
-
 ## Install
 ```sh
 npm install --production libquassel
