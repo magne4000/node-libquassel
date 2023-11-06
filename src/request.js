@@ -12,7 +12,7 @@ import debug from 'debug';
 const logger = debug('libquassel:request');
 import pkg from '../package.json' assert { type: 'json' };
 
-import tls from 'tls';
+import * as tls from 'tls';
 import { Network, Server } from './network.js';
 
 /**

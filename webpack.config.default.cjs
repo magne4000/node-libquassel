@@ -9,9 +9,10 @@ module.exports = {
     libraryTarget: 'var'
   },
   resolve: {
-    /*alias: {
-      process: "process/browser"
-    },*/
+    alias: {
+      //process: "process/browser",
+      tls: path.resolve(__dirname, 'src/tls'),
+    },
     symlinks: false,
     /*fallback: {
       'stream': require.resolve('stream-browserify'),
