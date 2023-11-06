@@ -48,12 +48,12 @@ export default class WebSocketStream extends Duplex {
 
   _read(_size) {}
 
-  _write(chunk, encoding, callback = () => {}) {
+  _write(chunk, encoding, callback) {
     if (this.socket.readyState === 1) { // open
       this.socket.send(chunk);
       callback();
     } else if (this.socket.readyState === 0) { // connecting
-      this.once('connected', () => this.write(chunk, encoding, callback));
+      this.once('connected', () => this.write(chunk, encoding, () => {}));
       callback();
     } else { // closing or close
       callback('Attempt to write on a closed websocket');
