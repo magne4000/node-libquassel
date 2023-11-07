@@ -594,7 +594,7 @@ export class Core extends EventEmitter {
     const bufs = [
       qtypes.QUInt.from(magic).toBuffer(),
       qtypes.QUInt.from(0x01).toBuffer(),
-      qtypes.QUInt.from(0x01 << 31).toBuffer()
+      qtypes.QUInt.from(2147483648).toBuffer()
     ];
     this.duplex.write(Buffer.concat(bufs));
   }
