@@ -6,7 +6,7 @@ module.exports = {
     path: path.resolve(__dirname, 'dist'),
     filename: 'libquassel.js',
     library: 'libquassel',
-    libraryTarget: 'umd'
+    libraryTarget: 'var'
   },
   resolve: {
     alias: {
@@ -17,17 +17,22 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.m?js$/,
+        test: /\.(m?|c?)js$/,
         exclude: /(node_modules|bower_components)/,
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['@babel/preset-env'],
-            plugins: [
-              ['@babel/plugin-proposal-decorators', { 'legacy': true }],
-              ['@babel/plugin-proposal-class-properties', { 'loose': true }],
-              '@babel/plugin-transform-runtime'
-            ],
+            presets: [
+              [
+                '@babel/preset-env',
+                {
+                  targets: 'defaults',
+                  include: [
+                    '@babel/plugin-transform-class-properties'
+                  ]
+                }
+              ]
+            ]
           }
         }
       }

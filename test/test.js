@@ -1,6 +1,9 @@
-const { Client } = require('../src/libquassel.js');
-const test = require('tape');
-const net = require('net');
+// First, run a local quasselcore server with the following command:
+// quasselcore -L Debug -p 4243 -c /tmp; rm /tmp/quassel*
+
+import { Client } from '../src/libquassel.js';
+import { test } from 'tape';
+import net from 'net';
 
 function loginOk(next) {
   next("unittest", "unittest");
@@ -17,6 +20,11 @@ const quassel = new Client(loginError);
 const socket = net.createConnection({
   host: "localhost",
   port: 4243
+});
+
+socket.on('error', err => {
+  console.error(err);
+  process.exit(1);
 });
 
 test('setup', timeoutObj, (t) => {
@@ -98,7 +106,7 @@ test('network', timeoutObj, (t) => {
       Host: 'chat.freenode.net',
       Password: '',
       Port: 6665,
-      ProxyHost: '',
+      ProxyHost: 'localhost',
       ProxyPass: '',
       ProxyPort: 8080,
       ProxyType: 0,
@@ -114,7 +122,8 @@ test('network', timeoutObj, (t) => {
   quassel.core.createNetwork('UTF-8 Network ♥♦♣∞', 1, {
     Host: 'chat.freenode.net',
     Port: 6665,
-    UseSSL: true
+    UseSSL: true,
+    ProxyHost: 'localhost',
   });
 });
 

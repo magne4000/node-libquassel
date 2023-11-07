@@ -6,12 +6,14 @@
  * Licensed under the MIT license.
  */
 
-const { EventEmitter } = require('events');
-const { types: qtypes, socket } = require('qtdatastream');
-const logger = require('debug')('libquassel:request');
-const pkg = require('../package.json');
+import EventEmitter from 'events';
+import { types as qtypes, socket } from 'qtdatastream';
+import debug from 'debug';
+const logger = debug('libquassel:request');
+import pkg from '../package.json' assert { type: 'json' };
 
-import { Network, Server } from './network';
+import * as tls from 'tls';
+import { Network, Server } from './network.js';
 
 /**
  * @type {Object}
@@ -41,7 +43,7 @@ function sync(className, functionName, ...datatypes) {
   const qsync = qtypes.QInt.from(Types.SYNC);
   const qclassName = qtypes.QByteArray.from(className);
   const qfunctionName = qtypes.QByteArray.from(functionName);
-  return function(target, _key, descriptor) {
+  return function decorator(target, _key, descriptor) {
     return {
       enumerable: false,
       configurable: false,
@@ -155,9 +157,8 @@ export class Core extends EventEmitter {
   finishClientInit(callback) {
     if (this.useSSL) {
       logger('SECURE');
-      const tls = require('tls');
       const secureContext = tls.createSecureContext({
-        secureProtocol: 'TLSv1_2_client_method'
+        minVersion: 'TLSv1.2'
       });
       const secureStream = tls.connect({
         socket: this.duplex,
@@ -593,7 +594,7 @@ export class Core extends EventEmitter {
     const bufs = [
       qtypes.QUInt.from(magic).toBuffer(),
       qtypes.QUInt.from(0x01).toBuffer(),
-      qtypes.QUInt.from(0x01 << 31).toBuffer()
+      qtypes.QUInt.from(2147483648).toBuffer()
     ];
     this.duplex.write(Buffer.concat(bufs));
   }

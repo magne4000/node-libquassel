@@ -1,0 +1,23 @@
+{
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "include": [
+          "@babel/plugin-transform-class-properties",
+          "@babel/plugin-proposal-class-properties"
+        ]
+      }
+    ]
+  ],
+  "plugins": [
+    [
+      "@babel/plugin-proposal-decorators",
+      {
+        "version": "legacy"
+      }
+    ],
+    "@babel/plugin-transform-runtime",
+    "@babel/plugin-syntax-import-assertions"
+  ]
+}

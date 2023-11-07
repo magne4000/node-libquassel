@@ -6,12 +6,14 @@
  * Licensed under the MIT license.
  */
 
-const { EventEmitter } = require('events');
-const logger = require('debug')('libquassel:network');
-const { util, types: qtypes, serialization: { Serializable, serialize } } = require('qtdatastream');
+import EventEmitter from 'events';
+import debug from 'debug';
+const logger = debug('libquassel:network');
+import { util, types as qtypes, serialization } from 'qtdatastream';
+const { Serializable, serialize } = serialization;
 
-import IRCUser from './user';
-import { IRCBufferCollection } from './buffer';
+import IRCUser from './user.js';
+import { IRCBufferCollection } from './buffer.js';
 
 /**
  * @type {Object}
@@ -32,8 +34,8 @@ export const ConnectionStates = {
 };
 
 function setter(fn) {
-  return function(aclass, key, descriptor) {
-    if (!aclass.hasOwnProperty('__values')) {
+  return function (aclass, key, descriptor) {
+    if (!Object.prototype.hasOwnProperty.call(aclass, '__values')) {
       Object.defineProperty(aclass, '__values', {
         enumerable: false,
         writable: false,
@@ -43,10 +45,10 @@ function setter(fn) {
     }
     Object.assign(descriptor, {
       enumerable: true,
-      get: function() {
+      get: function () {
         return this.__values[key];
       },
-      set: function(value) {
+      set: function (value) {
         this.__values[key] = fn(value);
       }
     });
@@ -62,40 +64,40 @@ function setter(fn) {
 export class Server {
   /** @type {string} */
   @serialize(qtypes.QString, 'Host')
-  host;
+    host;
 
   @serialize(qtypes.QUInt, 'Port')
-  port = 6667;
+    port = 6667;
 
   @serialize(qtypes.QString, 'Password')
-  password = '';
+    password = '';
 
   @serialize(qtypes.QBool, 'UseSSL')
-  useSSL = false;
+    useSSL = false;
 
   @serialize(qtypes.QBool, 'UseProxy')
-  useProxy = false;
+    useProxy = false;
 
   @serialize(qtypes.QInt, 'ProxyType')
-  proxyType = 0;
+    proxyType = 0;
 
   @serialize(qtypes.QString, 'ProxyHost')
-  proxyHost = '';
+    proxyHost = '';
 
   @serialize(qtypes.QUInt, 'ProxyPort')
-  proxyPort = 8080;
+    proxyPort = 8080;
 
   @serialize(qtypes.QString, 'ProxyUser')
-  proxyUser = '';
+    proxyUser = '';
 
   @serialize(qtypes.QString, 'ProxyPass')
-  proxyPass = '';
+    proxyPass = '';
 
   @serialize(qtypes.QBool)
-  sslVerify = false;
+    sslVerify = false;
 
   @serialize(qtypes.QInt)
-  sslVersion = 0;
+    sslVersion = 0;
 
   constructor(args) {
     Object.assign(this, args);
@@ -136,76 +138,76 @@ export class Network extends EventEmitter {
 
   /** @type {number} */
   @serialize(qtypes.QUserType.get('IdentityId'), 'Identity')
-  identityId;
+    identityId;
 
   /** @type {string} */
   @setter(toStr)
   @serialize(qtypes.QByteArray, 'CodecForServer')
-  codecForServer = null;
+    codecForServer = null;
 
   /** @type {string} */
   @setter(toStr)
   @serialize(qtypes.QByteArray, 'CodecForEncoding')
-  codecForEncoding = null;
+    codecForEncoding = null;
 
   /** @type {string} */
   @setter(toStr)
   @serialize(qtypes.QByteArray, 'CodecForDecoding')
-  codecForDecoding = null;
+    codecForDecoding = null;
 
   @serialize(qtypes.QList.of(Server), 'ServerList')
-  ServerList = [];
+    ServerList = [];
 
   @serialize(qtypes.QBool, 'UseRandomServer')
-  useRandomServer = false;
+    useRandomServer = false;
 
   @serialize(qtypes.QStringList, 'Perform')
-  perform = [];
+    perform = [];
 
   @serialize(qtypes.QBool, 'UseAutoIdentify')
-  useAutoIdentify = false;
+    useAutoIdentify = false;
 
   @serialize(qtypes.QString, 'AutoIdentifyService')
-  autoIdentifyService = 'NickServ';
+    autoIdentifyService = 'NickServ';
 
   @serialize(qtypes.QString, 'AutoIdentifyPassword')
-  autoIdentifyPassword = '';
+    autoIdentifyPassword = '';
 
   @serialize(qtypes.QBool, 'UseSasl')
-  useSasl = false;
+    useSasl = false;
 
   @serialize(qtypes.QString, 'SaslAccount')
-  saslAccount = '';
+    saslAccount = '';
 
   @serialize(qtypes.QString, 'SaslPassword')
-  saslPassword = '';
+    saslPassword = '';
 
   @serialize(qtypes.QBool, 'UseAutoReconnect')
-  useAutoReconnect = true;
+    useAutoReconnect = true;
 
   @serialize(qtypes.QUInt, 'AutoReconnectInterval')
-  autoReconnectInterval = 60;
+    autoReconnectInterval = 60;
 
   @serialize(qtypes.QUInt, 'AutoReconnectRetries')
-  autoReconnectRetries = 20;
+    autoReconnectRetries = 20;
 
   @serialize(qtypes.QBool, 'UnlimitedReconnectRetries')
-  unlimitedReconnectRetries = false;
+    unlimitedReconnectRetries = false;
 
   @serialize(qtypes.QBool, 'RejoinChannels')
-  rejoinChannels = true;
+    rejoinChannels = true;
 
   @serialize(qtypes.QBool, 'UseCustomMessageRate')
-  useCustomMessageRate = false;
+    useCustomMessageRate = false;
 
   @serialize(qtypes.QBool, 'UnlimitedMessageRate')
-  unlimitedMessageRate = false;
+    unlimitedMessageRate = false;
 
   @serialize(qtypes.QUInt, 'MessageRateDelay')
-  msgRateMessageDelay = 2200;
+    msgRateMessageDelay = 2200;
 
   @serialize(qtypes.QUInt, 'MessageRateBurstSize')
-  msgRateBurstSize = 5;
+    msgRateBurstSize = 5;
 
   /** @type {string} */
   set myNick(value) {
@@ -333,7 +335,7 @@ export class Network extends EventEmitter {
    */
   updateUsers(userlist) {
     this.users.clear();
-    if (Array.isArray(userlist) && userlist.length> 0) {
+    if (Array.isArray(userlist) && userlist.length > 0) {
       for (let user of userlist) {
         this.users.set(user.nick, user);
       }
@@ -447,7 +449,7 @@ export class NetworkCollection extends Map {
   /**
    * Yields all buffers of all networks
    */
-  *buffers() {
+  * buffers() {
     for (let network of this.values()) {
       for (let buffer of network.buffers.values()) {
         yield buffer;

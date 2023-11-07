@@ -6,8 +6,10 @@
  * Licensed under the MIT license.
  */
 
-const logger = require('debug')('libquassel:highlight');
-const { Serializable } = require('qtdatastream').serialization;
+import debug from 'debug';
+const logger = debug('libquassel:highlight');
+import { serialization } from 'qtdatastream';
+const { Serializable } = serialization;
 
 /**
  * @type {Object}

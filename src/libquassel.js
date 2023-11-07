@@ -6,20 +6,21 @@
  * Licensed under the MIT license.
  */
 
-import './usertypes'; // register usertypes first
-const { EventEmitter } = require('events');
-const logger = require('debug')('libquassel:main');
+import './usertypes.js'; // register usertypes first
+import EventEmitter from 'events';
+import debug from 'debug';
+const logger = debug('libquassel:main');
 
-import { Types as RequestTypes, Core } from './request';
-import { NetworkCollection } from './network';
-import { IRCBuffer } from './buffer';
-import IRCUser from './user';
-import Identity from './identity';
-import BufferView from './bufferview';
-import { Types as MessageTypes, HighlightModes } from './message';
-import * as alias from './alias';
-import * as ignore from './ignore';
-import * as highlight from './highlight';
+import { Types as RequestTypes, Core } from './request.js';
+import { NetworkCollection } from './network.js';
+import { IRCBuffer } from './buffer.js';
+import IRCUser from './user.js';
+import Identity from './identity.js';
+import BufferView from './bufferview.js';
+import { Types as MessageTypes, HighlightModes } from './message.js';
+import * as alias from './alias.js';
+import * as ignore from './ignore.js';
+import * as highlight from './highlight.js';
 
 /**
  * @type {Object}

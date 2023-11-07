@@ -1,4 +1,4 @@
-const { types: qtypes } = require('qtdatastream');
+import { types as qtypes } from 'qtdatastream';
 
 /**
  * @typedef {QUserType} UserType<NetworkId>
